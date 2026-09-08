@@ -74,6 +74,30 @@ Al enfocarse exclusivamente en mantener y optimizar **una única instancia de se
 
 ---
 
+### ⚡ ¿Cómo entender el Rendimiento y los TPS (Ticks Per Second)?
+
+En Minecraft, el bucle principal de procesamiento del servidor se ejecuta en ciclos discretos denominados **ticks**. Cada tick actualiza la inteligencia artificial de las criaturas (mobs), el crecimiento de los cultivos, los circuitos de redstone, el tiempo del día y las interacciones de los jugadores.
+
+* **Frecuencia ideal**: **20.0 TPS** (significa que el servidor procesa exactamente 20 ciclos cada segundo, es decir, **1 tick cada 50 milisegundos**).
+* **Diferencia entre FPS y TPS**: Los **FPS** (cuadros por segundo) dependen de la tarjeta gráfica de tu computadora (lado cliente). Los **TPS**, en cambio, dependen de la capacidad del procesador de tu servidor para calcular la física del mundo en tiempo real.
+
+#### 🚦 Escala de Rendimiento en el Panel:
+
+| TPS en Dockraft | Estado | Experiencia en el Juego | Qué significa |
+| :---: | :---: | :--- | :--- |
+| **20.0 TPS** | 🟢 **Óptimo** | Fluidez absoluta. Sin retrasos ni desincronizaciones. | El servidor procesa el mundo en menos de 50 ms por ciclo. |
+| **18.0 – 19.9 TPS** | 🟡 **Carga Ligera** | Prácticamente imperceptible para los jugadores. | Carga temporal normal al guardar mundos (`save-all`) o al conectarse varios usuarios a la vez. |
+| **15.0 – 17.9 TPS** | 🟠 **Degradación Moderada** | Retardo leve al interactuar con cofres, puertas o redstone; los mobs se mueven más despacio. | El servidor tarda más de 50 ms por tick. Conviene vigilar granjas masivas y generación de chunks. |
+| **< 15.0 TPS** | 🔴 **Sobrecarga (Lag)** | *Rubberbanding* (jugadores retroceden al caminar), bloques rotos reaparecen, daño retardado al golpear. | El servidor está saturado. Se recomienda optimizar entidades, reducir la distancia de simulación o auditar plugins. |
+
+#### 🛠️ Causas frecuentes de caída de TPS y cómo prevenirlas:
+1. **Acumulación excesiva de entidades**: Granjas con cientos de aldeanos o animales apiñados en pocos bloques calculando colisiones.
+2. **Generación acelerada de terreno**: Jugadores volando con Elytras a gran velocidad obligando a generar y guardar cientos de chunks nuevos en el disco.
+3. **Relojes de Redstone infinitos**: Bucles rápidos sin tolvas reguladas o pistones automáticos continuos.
+4. **Distancia de simulación muy alta**: Ajustar `simulation-distance=6` u `8` en `server.properties` reduce notablemente el uso de CPU sin perjudicar la distancia visual (`view-distance`).
+
+---
+
 ### 🚀 Despliegue con Docker Compose (Recomendado)
 
 #### Opción 1: Copiar y Pegar (Más rápido, sin clonar repositorio)
@@ -224,6 +248,30 @@ By focusing strictly on managing and optimizing **a single server instance per c
 * 🔒 **Security & Access Control**:
   * Password authentication with tamper-proof HMAC session cookies.
   * **Brute-force protection**: Automatic 10-minute cooldown lockout after 5 consecutive failed login attempts.
+
+---
+
+### ⚡ Understanding Server Performance & TPS (Ticks Per Second)
+
+In Minecraft, the server's internal simulation loop runs in discrete cycles called **ticks**. Each tick calculates mob AI, crop growth, redstone logic, time of day, and player interactions.
+
+* **Target Rate**: **20.0 TPS** (the server processes exactly 20 ticks every second, meaning **1 tick every 50 milliseconds**).
+* **FPS vs. TPS**: **FPS** (Frames Per Second) is client-side and determined by your computer's GPU and monitor. **TPS** is strictly server-side and measures the server CPU's ability to keep the world running in real time without lag.
+
+#### 🚦 Performance Interpretation Scale:
+
+| TPS in Dockraft | Status | In-Game Player Experience | Interpretation |
+| :---: | :---: | :--- | :--- |
+| **20.0 TPS** | 🟢 **Optimal** | Perfect fluidity. No block delays or desync. | The server easily finishes every tick cycle well under 50 ms. |
+| **18.0 – 19.9 TPS** | 🟡 **Light Load** | Virtually imperceptible to players. | Normal temporary dip during world saves (`save-all`) or batch player logins. |
+| **15.0 – 17.9 TPS** | 🟠 **Moderate Lag** | Slight delay opening chests, buttons, or doors; mobs move slower. | The server takes longer than 50 ms per tick. Monitor entity counts and fast exploration. |
+| **< 15.0 TPS** | 🔴 **Heavy Overload** | Severe rubberbanding, broken blocks reappearing, delayed attack registrations. | Server CPU bottleneck. Simulation distance should be lowered or heavy plugins profiled. |
+
+#### 🛠️ Common Causes of Low TPS and Optimization Tips:
+1. **Entity Stacking**: Dense farms with hundreds of villagers, cows, or zombies crowded in small pens calculating physics collisions.
+2. **Rapid Chunk Generation**: Players flying fast with Elytras forcing synchronous chunk generation and disk writes.
+3. **Unregulated Redstone Clocks**: Fast hopper loops or piston clocks running indefinitely.
+4. **High Simulation Distance**: Setting `simulation-distance=6` or `8` in `server.properties` drastically cuts CPU usage while keeping visual `view-distance` high.
 
 ---
 

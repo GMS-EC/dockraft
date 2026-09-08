@@ -8,7 +8,7 @@ from app.config import settings
 
 class DiagnosticManager:
     def __init__(self):
-        self.mclogs_api_url = "https://api.mclogs.com/1/log"
+        self.mclogs_api_url = "https://api.mclo.gs/1/log"
 
     def _parse_crash_timestamp(self, path: Path) -> float:
         """Extracts creation timestamp from filename, file header, or mtime."""
