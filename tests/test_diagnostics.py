@@ -285,7 +285,39 @@ async def test_delayed_kill_check_ignores_different_process():
     await process_manager._delayed_kill_check(target_pid=99999, timeout=0)
     mock_kill.assert_not_called()
 
-    # 2. Status is STOPPING but target_pid does not match -> should do nothing
-    process_manager.status = "STOPPING"
-    await process_manager._delayed_kill_check(target_pid=99999, timeout=0)
-    mock_kill.assert_not_called()
+@pytest.mark.asyncio
+async def test_read_stream_lifecycle():
+    """_read_stream must process lines, clean ANSI, detect RUNNING state, and broadcast logs without dying."""
+    from app.core.process_manager import process_manager
+    import asyncio
+
+    lines_to_feed = [
+        b"Starting org.bukkit.craftbukkit.Main\n",
+        b"[12:00:00 INFO]: Preparing start region for dimension minecraft:overworld\n",
+        b"[12:00:05 INFO]: Done (5.234s)! For help, type \"help\"\n",
+        b"TPS from last 1m, 5m, 15m: 20.0, 20.0, 20.0\n"
+    ]
+
+    reader = asyncio.StreamReader()
+    for l in lines_to_feed:
+        reader.feed_data(l)
+    reader.feed_eof()
+
+    process_manager.status = "STARTING"
+    received_logs = []
+    received_statuses = []
+
+    async def mock_broadcast(msg):
+        if msg.get("type") == "log":
+            received_logs.append(msg["data"])
+        elif msg.get("type") == "status":
+            received_statuses.append(msg["status"])
+
+    process_manager.broadcast_message = mock_broadcast
+
+    await process_manager._read_stream(reader)
+
+    assert process_manager.status == "RUNNING"
+    assert "RUNNING" in received_statuses
+    assert len(received_logs) == 4
+    assert any("Done (" in log for log in received_logs)

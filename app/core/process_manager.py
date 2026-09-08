@@ -388,121 +388,128 @@ class ProcessManager:
     async def _read_stream(self, stream: asyncio.StreamReader) -> None:
         """Reads stdout/stderr from process line by line."""
         while True:
-            line_bytes = await stream.readline()
-            if not line_bytes:
-                break
-            line = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
-            self._append_log(line)
+            try:
+                line_bytes = await stream.readline()
+                if not line_bytes:
+                    break
+                line = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
+                self._append_log(line)
 
-            # Check if server is running
-            if self.status == "STARTING":
-                if "Done (" in line or "Server started." in line or "For help, type" in line:
-                    self.status = "RUNNING"
-                    await self.broadcast_message({"type": "status", "status": self.status})
+                clean_ansi = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', line)
+
+                # Check if server is running
+                if self.status == "STARTING":
+                    if ("Done (" in line or "Done (" in clean_ansi or
+                        "Server started." in clean_ansi or "For help, type" in clean_ansi or
+                        "Listening on" in clean_ansi):
+                        self.status = "RUNNING"
+                        await self.broadcast_message({"type": "status", "status": self.status})
+                        try:
+                            from app.core.webhook_manager import webhook_manager as wh
+                            wh.dispatch(
+                                "server_start",
+                                "\U0001f7e2 Servidor Iniciado",
+                                "El servidor de Minecraft ha iniciado correctamente y está en línea y accesible.",
+                                color=0x2ea043
+                            )
+                        except Exception:
+                            pass
+
+                # Check if server halted due to EULA
+                if "agree to the EULA" in line or "agree to the EULA" in clean_ansi or "Go to eula.txt" in line:
+                    await self.broadcast_message({"type": "eula_required"})
+
+                # Track player join/leave for live player count and player history
+                if "joined the game" in line or "joined the game" in clean_ansi:
+                    parts = clean_ansi.split("joined the game")[0].strip().split()
+                    if parts:
+                        player = parts[-1].lstrip(":")
+                        if player:
+                            self.online_players.add(player)
+                            try:
+                                from app.core.player_manager import player_manager
+                                player_manager.record_connection(player)
+                            except Exception:
+                                pass
+                            try:
+                                from app.core.webhook_manager import webhook_manager as wh
+                                wh.dispatch("player_join", "\U0001f464 Jugador Conectado", f"El jugador **{player}** se ha conectado al servidor.", color=0x238636)
+                            except Exception:
+                                pass
+                elif "left the game" in line or "left the game" in clean_ansi:
+                    parts = clean_ansi.split("left the game")[0].strip().split()
+                    if parts:
+                        player = parts[-1].lstrip(":")
+                        if player:
+                            self.online_players.discard(player)
+                            try:
+                                from app.core.player_manager import player_manager
+                                player_manager.record_disconnection(player)
+                            except Exception:
+                                pass
+                            try:
+                                from app.core.webhook_manager import webhook_manager as wh
+                                wh.dispatch("player_leave", "\U0001f464 Jugador Desconectado", f"El jugador **{player}** ha salido del servidor.", color=0xd29922)
+                            except Exception:
+                                pass
+                elif "Player connected:" in line or "Player connected:" in clean_ansi:
+                    parts = clean_ansi.split("Player connected:")[1].strip().split(",")
+                    if parts:
+                        player = parts[0].strip()
+                        if player:
+                            self.online_players.add(player)
+                            try:
+                                from app.core.player_manager import player_manager
+                                player_manager.record_connection(player)
+                            except Exception:
+                                pass
+                            try:
+                                from app.core.webhook_manager import webhook_manager as wh
+                                wh.dispatch("player_join", "\U0001f464 Jugador Conectado", f"El jugador **{player}** se ha conectado al servidor.", color=0x238636)
+                            except Exception:
+                                pass
+                elif "Player disconnected:" in line or "Player disconnected:" in clean_ansi:
+                    parts = clean_ansi.split("Player disconnected:")[1].strip().split(",")
+                    if parts:
+                        player = parts[0].strip()
+                        if player:
+                            self.online_players.discard(player)
+                            try:
+                                from app.core.player_manager import player_manager
+                                player_manager.record_disconnection(player)
+                            except Exception:
+                                pass
+                            try:
+                                from app.core.webhook_manager import webhook_manager as wh
+                                wh.dispatch("player_leave", "\U0001f464 Jugador Desconectado", f"El jugador **{player}** ha salido del servidor.", color=0xd29922)
+                            except Exception:
+                                pass
+
+                # Intercept TPS line (Paper / Purpur / Spigot / Fabric Carpet)
+                tps_m = re.search(r'TPS from last 1m, 5m, 15m:\s*([0-9\.\*]+)[,\s]+([0-9\.\*]+)[,\s]+([0-9\.\*]+)', clean_ansi)
+                if tps_m:
                     try:
-                        from app.core.webhook_manager import webhook_manager as wh
-                        wh.dispatch(
-                            "server_start",
-                            "\U0001f7e2 Servidor Iniciado",
-                            "El servidor de Minecraft ha iniciado correctamente y está en línea y accesible.",
-                            color=0x2ea043
-                        )
+                        t1 = float(tps_m.group(1).replace('*', ''))
+                        t5 = float(tps_m.group(2).replace('*', ''))
+                        t15 = float(tps_m.group(3).replace('*', ''))
+                        t1 = min(20.0, max(0.0, t1))
+                        t5 = min(20.0, max(0.0, t5))
+                        t15 = min(20.0, max(0.0, t15))
+                        st = "optimal" if t1 >= 19.5 else ("moderate" if t1 >= 16.0 else "lag")
+                        self.current_tps = {
+                            "1m": round(t1, 2),
+                            "5m": round(t5, 2),
+                            "15m": round(t15, 2),
+                            "status": st
+                        }
+                        await self.broadcast_message({"type": "tps", "data": self.current_tps})
                     except Exception:
                         pass
 
-            # Check if server halted due to EULA
-            if "agree to the EULA" in line or "Go to eula.txt" in line:
-                await self.broadcast_message({"type": "eula_required"})
-
-            # Track player join/leave for live player count and player history
-            if "joined the game" in line:
-                parts = line.split("joined the game")[0].strip().split()
-                if parts:
-                    player = parts[-1].lstrip(":")
-                    if player:
-                        self.online_players.add(player)
-                        try:
-                            from app.core.player_manager import player_manager
-                            player_manager.record_connection(player)
-                        except Exception:
-                            pass
-                        try:
-                            from app.core.webhook_manager import webhook_manager as wh
-                            wh.dispatch("player_join", "\U0001f464 Jugador Conectado", f"El jugador **{player}** se ha conectado al servidor.", color=0x238636)
-                        except Exception:
-                            pass
-            elif "left the game" in line:
-                parts = line.split("left the game")[0].strip().split()
-                if parts:
-                    player = parts[-1].lstrip(":")
-                    if player:
-                        self.online_players.discard(player)
-                        try:
-                            from app.core.player_manager import player_manager
-                            player_manager.record_disconnection(player)
-                        except Exception:
-                            pass
-                        try:
-                            from app.core.webhook_manager import webhook_manager as wh
-                            wh.dispatch("player_leave", "\U0001f464 Jugador Desconectado", f"El jugador **{player}** ha salido del servidor.", color=0xd29922)
-                        except Exception:
-                            pass
-            elif "Player connected:" in line:
-                parts = line.split("Player connected:")[1].strip().split(",")
-                if parts:
-                    player = parts[0].strip()
-                    if player:
-                        self.online_players.add(player)
-                        try:
-                            from app.core.player_manager import player_manager
-                            player_manager.record_connection(player)
-                        except Exception:
-                            pass
-                        try:
-                            from app.core.webhook_manager import webhook_manager as wh
-                            wh.dispatch("player_join", "\U0001f464 Jugador Conectado", f"El jugador **{player}** se ha conectado al servidor.", color=0x238636)
-                        except Exception:
-                            pass
-            elif "Player disconnected:" in line:
-                parts = line.split("Player disconnected:")[1].strip().split(",")
-                if parts:
-                    player = parts[0].strip()
-                    if player:
-                        self.online_players.discard(player)
-                        try:
-                            from app.core.player_manager import player_manager
-                            player_manager.record_disconnection(player)
-                        except Exception:
-                            pass
-                        try:
-                            from app.core.webhook_manager import webhook_manager as wh
-                            wh.dispatch("player_leave", "\U0001f464 Jugador Desconectado", f"El jugador **{player}** ha salido del servidor.", color=0xd29922)
-                        except Exception:
-                            pass
-
-            # Intercept TPS line (Paper / Purpur / Spigot / Fabric Carpet)
-            tps_m = re.search(r'TPS from last 1m, 5m, 15m:\s*([0-9\.\*]+)[,\s]+([0-9\.\*]+)[,\s]+([0-9\.\*]+)', clean_ansi)
-            if tps_m:
-                try:
-                    t1 = float(tps_m.group(1).replace('*', ''))
-                    t5 = float(tps_m.group(2).replace('*', ''))
-                    t15 = float(tps_m.group(3).replace('*', ''))
-                    t1 = min(20.0, max(0.0, t1))
-                    t5 = min(20.0, max(0.0, t5))
-                    t15 = min(20.0, max(0.0, t15))
-                    st = "optimal" if t1 >= 19.5 else ("moderate" if t1 >= 16.0 else "lag")
-                    self.current_tps = {
-                        "1m": round(t1, 2),
-                        "5m": round(t5, 2),
-                        "15m": round(t15, 2),
-                        "status": st
-                    }
-                    await self.broadcast_message({"type": "tps", "data": self.current_tps})
-                except Exception:
-                    pass
-
-            # Broadcast line
-            await self.broadcast_message({"type": "log", "data": line})
+                # Broadcast line to connected WebSocket clients
+                await self.broadcast_message({"type": "log", "data": line})
+            except Exception as loop_err:
+                print(f"[Dockraft] Error in _read_stream: {loop_err}")
 
     async def _process_supervisor(self) -> None:
         """Monitors the sub-process until completion."""
