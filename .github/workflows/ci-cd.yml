@@ -45,8 +45,9 @@ jobs:
           SECRET_KEY: 'test-secret-key-for-github-actions-continuous-integration'
           ADMIN_USER: 'admin'
           ADMIN_PASSWORD: 'TestPassword123!'
+          PYTHONPATH: '.'
         run: |
-          pytest tests/ -v --color=yes
+          python -m pytest tests/ -v --color=yes
 
   # -------------------------------------------------------------
   # Job 2: Construcción y Publicación de Imagen Docker (CD)
