@@ -6,6 +6,13 @@ const Console = {
   maxLogs: 1500,
 
   init() {
+    // Consume pre-hydrated state immediately to prevent any flash or delay
+    if (window.__INITIAL_STATS__) {
+      this.updateStatusUI(window.__INITIAL_STATS__.status);
+      this.updateStatsUI(window.__INITIAL_STATS__);
+      this.checkInstalled(window.__INITIAL_STATS__);
+    }
+
     this.setupWebSocket();
     this.setupEvents();
     this.pollStatus();

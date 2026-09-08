@@ -50,18 +50,18 @@
     <div class="stat-box" style="justify-content: center; gap: 8px;">
       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);" data-i18n="stat_control">Control</span>
-        <span class="badge" id="stat-pid-badge" style="background-color: var(--bg-subtle); border: 1px solid var(--border-color); font-size: 0.75rem; font-family: var(--font-mono); color: #79c0ff;">ID: --</span>
+        <span class="badge" id="stat-pid-badge" style="background-color: var(--bg-subtle); border: 1px solid var(--border-color); font-size: 0.75rem; font-family: var(--font-mono); color: #79c0ff;">ID: {{ stats.pid or '--' }}</span>
       </div>
       <div class="btn-group" style="width: 100%; display: flex; align-items: center; gap: 6px;">
-        <button class="btn btn-success" id="btn-start" title="Iniciar Servidor" data-i18n-title="btn_start_title" style="flex: 1; min-width: 0; height: 38px; padding: 0 10px; white-space: nowrap;">
+        <button class="btn btn-success" id="btn-start" title="Iniciar Servidor" data-i18n-title="btn_start_title" style="flex: 1; min-width: 0; height: 38px; padding: 0 10px; white-space: nowrap;" {{ 'disabled' if server_status in ['RUNNING', 'STARTING'] else '' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span data-i18n="btn_start">Iniciar</span>
         </button>
-        <button class="btn btn-warning" id="btn-stop" title="Detener Servidor" data-i18n-title="btn_stop_title" style="flex: 1; min-width: 0; height: 38px; padding: 0 10px; white-space: nowrap;" disabled>
+        <button class="btn btn-warning" id="btn-stop" title="Detener Servidor" data-i18n-title="btn_stop_title" style="flex: 1; min-width: 0; height: 38px; padding: 0 10px; white-space: nowrap;" {{ '' if server_status in ['RUNNING', 'STARTING'] else 'disabled' }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
           <span data-i18n="btn_stop">Detener</span>
         </button>
-        <button class="btn btn-outline" id="btn-restart" title="Reiniciar Servidor" data-i18n-title="btn_restart" style="width: 38px; min-width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" disabled>
+        <button class="btn btn-outline" id="btn-restart" title="Reiniciar Servidor" data-i18n-title="btn_restart" style="width: 38px; min-width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" {{ '' if server_status == 'RUNNING' else 'disabled' }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         </button>
         <button class="btn btn-danger" id="btn-kill" title="Forzar Apagado Inmediato (Kill)" data-i18n-title="btn_kill" style="width: 38px; min-width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">

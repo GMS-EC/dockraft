@@ -9,6 +9,13 @@ const Settings = {
 
   async loadSettings() {
     this.setupEvents();
+    if (window.__INITIAL_STATS__) {
+      this.serverStatus = window.__INITIAL_STATS__;
+    }
+    if (window.__INITIAL_CONFIG__) {
+      this.runtimeConfig = window.__INITIAL_CONFIG__;
+    }
+    this.renderViewByServerType();
     await Promise.all([
       this.fetchServerStatus(),
       this.fetchRuntimeConfig(),

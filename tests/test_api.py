@@ -196,3 +196,36 @@ def test_page_routes_and_template_rendering():
     finally:
         settings.admin_password = original_pass
         client.cookies.clear()
+
+
+def test_ssr_initial_state_and_websocket_immediate_stats():
+    from app.config import settings
+
+    # 1. Test SSR hydration when server is installed
+    fake_jar = settings.data_dir / "server.jar"
+    fake_jar.write_text("fake-jar-content", encoding="utf-8")
+    try:
+        res = client.get("/")
+        assert res.status_code == 200
+        html = res.text
+
+        # Verify bootstrap JSON is injected
+        assert "window.__INITIAL_STATS__" in html
+        assert "window.__INITIAL_CONFIG__" in html
+
+        # Verify installer main card is hidden and locked banner is displayed
+        assert 'id="installer-main-card" style="display: none;"' in html
+        assert 'id="installer-locked-banner" style="display: flex;' in html
+        assert 'id="installer-update-card" style="display: block;' in html
+
+        # 2. Test WebSocket sends immediate stats on connect
+        with client.websocket_connect("/ws/console") as websocket:
+            msg_init = websocket.receive_json()
+            assert msg_init["type"] == "init"
+            msg_stats = websocket.receive_json()
+            assert msg_stats["type"] == "stats"
+            assert msg_stats["data"]["is_installed"] is True
+    finally:
+        if fake_jar.exists():
+            fake_jar.unlink()
+

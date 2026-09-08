@@ -3,7 +3,7 @@
   <!-- Mobile Summary & Toggle Header (Only on screens <= 768px) -->
   <div class="banner-mobile-bar" id="banner-mobile-bar" role="button" tabindex="0" aria-expanded="false" aria-controls="overview-grid" onclick="if(window.App&&App.toggleBannerDetails)App.toggleBannerDetails();else if(window.toggleBannerDetails)toggleBannerDetails();">
     <div class="banner-mobile-left">
-      <span class="status-dot offline" id="banner-mob-dot" style="width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>
+      <span class="status-dot {{ 'offline' if not is_installed or server_status == 'OFFLINE' else server_status|lower }}" id="banner-mob-dot" style="width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>
       <span class="banner-mob-title" id="banner-mob-title" style="font-weight: 600; font-size: 0.82rem;" data-i18n="banner_server_details">Detalles del Servidor</span>
       <span class="banner-mob-pill" id="banner-mob-tps" style="color: #3fb950; font-size: 0.75rem; font-weight: 700; background: rgba(63, 185, 80, 0.1); border: 1px solid rgba(63, 185, 80, 0.3); border-radius: 4px; padding: 1px 6px;">-- TPS</span>
     </div>
@@ -18,19 +18,31 @@
     <div class="overview-col">
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_status_label">Estado del Servidor:</span>
-        <span class="overview-val status-text-inline offline" id="top-server-status">Sin instalar</span>
+        <span class="overview-val status-text-inline {{ 'offline' if not is_installed or server_status == 'OFFLINE' else server_status|lower }}" id="top-server-status">
+          {%- if not is_installed -%}
+            Sin instalar
+          {%- elif server_status == 'RUNNING' -%}
+            En línea
+          {%- elif server_status == 'STARTING' -%}
+            Iniciando...
+          {%- elif server_status == 'STOPPING' -%}
+            Deteniendo...
+          {%- else -%}
+            Apagado
+          {%- endif -%}
+        </span>
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_started_label">Servidor Iniciado:</span>
-        <span class="overview-val" id="top-server-started">--</span>
+        <span class="overview-val" id="top-server-started">{{ stats.started_at_str or '--' if is_installed else '--' }}</span>
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_uptime_label">Actividad del Servidor:</span>
-        <span class="overview-val uptime-live" id="top-server-uptime">--</span>
+        <span class="overview-val uptime-live" id="top-server-uptime">{{ stats.uptime_formatted or '--' if is_installed else '--' }}</span>
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_tz_label">Zona horaria del servidor:</span>
-        <span class="overview-val highlight-tz" id="top-server-timezone">America/Guayaquil</span>
+        <span class="overview-val highlight-tz" id="top-server-timezone">{{ stats.timezone or 'America/Guayaquil' }}</span>
       </div>
     </div>
 
@@ -38,15 +50,15 @@
     <div class="overview-col">
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_cpu_label">Uso de CPU:</span>
-        <span class="overview-val" id="top-server-cpu">0 %</span>
+        <span class="overview-val" id="top-server-cpu">{{ stats.cpu_percent or 0 }} %</span>
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_mem_label">Uso de memoria:</span>
-        <span class="overview-val" id="top-server-memory">0 MB / --</span>
+        <span class="overview-val" id="top-server-memory">{{ stats.memory_mb or 0 }} MB / {{ (stats.assigned_memory_mb|int ~ ' MB') if stats.assigned_memory_mb else '--' }}</span>
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_players_label">Jugadores:</span>
-        <span class="overview-val highlight-players" id="top-server-players">--</span>
+        <span class="overview-val highlight-players" id="top-server-players">{{ (stats.online_players_count ~ ' / ' ~ stats.max_players) if is_installed and stats.max_players is defined else '--' }}</span>
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_tps_label">Rendimiento (TPS):</span>
@@ -58,19 +70,19 @@
     <div class="overview-col">
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_name_label">Nombre del Servidor:</span>
-        <span class="overview-val highlight-name" id="top-server-name" style="color: #58a6ff; font-weight: 700;">{{ server_name or '--' }}</span>
+        <span class="overview-val highlight-name" id="top-server-name" style="color: #58a6ff; font-weight: 700;">{{ server_name if is_installed else '--' }}</span>
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_version_label">Versión:</span>
-        <span class="overview-val highlight-version" id="top-server-version">Sin instalar</span>
+        <span class="overview-val highlight-version" id="top-server-version">{{ server_version if is_installed else 'Sin instalar' }}</span>
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_desc_label">Descripción:</span>
-        <span class="overview-val motd-val" id="top-server-motd">Ningún servidor instalado</span>
+        <span class="overview-val motd-val" id="top-server-motd">{{ motd if is_installed else 'Ningún servidor instalado' }}</span>
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_type_label">Tipo de Servidor:</span>
-        <span class="overview-val highlight-type" id="top-server-type">--</span>
+        <span class="overview-val highlight-type" id="top-server-type">{{ server_type if is_installed else '--' }}</span>
       </div>
     </div>
   </div>

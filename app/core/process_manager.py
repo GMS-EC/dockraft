@@ -268,13 +268,7 @@ class ProcessManager:
         
         # Check if server binary/jar is present
         cfg = settings.runtime_config
-        server_file = cfg.get("server_file", "server.jar")
-        is_installed = (
-            (settings.data_dir / server_file).exists() or
-            (settings.data_dir / "server.jar").exists() or
-            (settings.data_dir / "bedrock_server").exists() or
-            (settings.data_dir / "bedrock_server.exe").exists()
-        )
+        is_installed = self.is_installed()
 
         # Assigned RAM & percent relative to allocated limit
         assigned_memory_mb = self.parse_memory_to_mb(cfg.get("max_ram", "2G"))

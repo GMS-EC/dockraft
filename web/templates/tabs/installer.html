@@ -1,14 +1,18 @@
 <!-- TAB 7: INSTALLER & VERSION SELECTOR -->
 <section class="tab-pane" id="tab-installer">
   <!-- Locked Banner if Server Already Installed -->
-  <div class="setup-alert" id="installer-locked-banner" style="display: none; border-left-color: #d29922; margin-bottom: 4px;">
+  <div class="setup-alert" id="installer-locked-banner" style="display: {{ 'flex' if is_installed else 'none' }}; border-left-color: #d29922; margin-bottom: 4px;">
     <div>
       <div class="setup-alert-title" style="color: #d29922; display: flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Servidor Actualmente Instalado
       </div>
       <div class="setup-alert-desc" id="installer-current-server-info" style="margin-top: 4px; line-height: 1.5;">
-        Ya existe un servidor en este directorio (<code>/data</code>). La instalación está bloqueada para proteger tus mundos, plugins y configuraciones de sobrescritura accidental.
+        {% if is_installed %}
+          Tienes instalado un servidor <strong>{{ (server_type or 'Minecraft')|upper }} {{ server_version }}</strong> (<code>{{ cfg.server_file or 'server.jar' }}</code>). La instalación de otro software está bloqueada para proteger tus mundos, plugins y configuraciones de sobrescritura accidental.
+        {% else %}
+          Ya existe un servidor en este directorio (<code>/data</code>). La instalación está bloqueada para proteger tus mundos, plugins y configuraciones de sobrescritura accidental.
+        {% endif %}
       </div>
     </div>
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -28,15 +32,15 @@
   </div>
 
   <!-- Dedicated Server Update Section (Active when a server is already installed) -->
-  <div class="card" id="installer-update-card" style="display: none; border: 1px solid #30363d; margin-bottom: 16px;">
+  <div class="card" id="installer-update-card" style="display: {{ 'block' if is_installed else 'none' }}; border: 1px solid #30363d; margin-bottom: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
       <div class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        Actualizar Servidor <span id="update-server-type-badge" style="text-transform: uppercase; color: #58a6ff;"></span>
+        Actualizar Servidor <span id="update-server-type-badge" style="text-transform: uppercase; color: #58a6ff;">{{ server_type if is_installed else '' }}</span>
       </div>
       <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
         <span id="update-current-version-badge" style="background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
-          Versión Actual: ...
+          Versión Actual: {{ ((server_type|upper ~ ' ' ~ server_version) if is_installed and server_version else '...') }}
         </span>
         <span id="update-status-badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
           Comprobando...
@@ -118,7 +122,7 @@
     </div>
 
     <!-- Dedicated Sub-section: Plugin Updates (Detected from Console) -->
-    <div id="update-plugins-subsection" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(48, 54, 61, 0.6);">
+    <div id="update-plugins-subsection" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(48, 54, 61, 0.6); display: {{ 'none' if (not is_installed or server_type|lower == 'bedrock') else 'block' }};">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
@@ -149,7 +153,7 @@
     </div>
   </div>
 
-  <div class="card" id="installer-main-card">
+  <div class="card" id="installer-main-card" style="display: {{ 'none' if is_installed else 'block' }};">
     <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
@@ -296,9 +300,9 @@
     </div>
 
     <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-      <button class="btn btn-primary" id="btn-install-server" style="padding: 12px 28px; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px;">
+      <button class="btn {{ 'btn-outline' if is_installed else 'btn-primary' }}" id="btn-install-server" {{ 'disabled' if is_installed else '' }} style="padding: 12px 28px; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Instalar y Configurar Servidor
+        {{ 'Servidor ya Instalado (Bloqueado)' if is_installed else 'Instalar y Configurar Servidor' }}
       </button>
     </div>
   </div>

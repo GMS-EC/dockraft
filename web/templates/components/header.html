@@ -53,9 +53,9 @@
   </nav>
 
   <div class="header-status">
-    <div class="status-pill offline" id="status-pill">
+    <div class="status-pill {{ 'offline' if not is_installed or server_status == 'OFFLINE' else server_status|lower }}" id="status-pill">
       <span class="status-dot"></span>
-      <span id="status-text">OFFLINE</span>
+      <span id="status-text">{{ 'OFFLINE' if not is_installed else server_status }}</span>
     </div>
 
     <!-- Secure Header Logout Button -->

@@ -19,7 +19,65 @@ const Installer = {
     await this.selectType(this.selectedType);
   },
 
+  applyLockState(stats, cfg) {
+    if (!stats) return;
+    const banner = document.getElementById('installer-locked-banner');
+    const info = document.getElementById('installer-current-server-info');
+    const btn = document.getElementById('btn-install-server');
+    const mainCard = document.getElementById('installer-main-card');
+    const btnDelete = document.getElementById('btn-delete-server');
+    const nameInput = document.getElementById('installer-server-name');
+    if (nameInput && cfg && cfg.server_name) {
+      nameInput.value = cfg.server_name;
+    }
+
+    if (stats.is_installed) {
+      this.isLocked = true;
+      this.allowForce = false;
+      if (banner) banner.style.display = 'flex';
+      if (mainCard) mainCard.style.display = 'none';
+      if (btnDelete) btnDelete.style.display = 'none';
+      if (info && cfg) {
+        const typeName = (cfg.server_type || 'Minecraft').toUpperCase();
+        const ver = cfg.server_version || '';
+        info.innerHTML = `Tienes instalado un servidor <strong>${typeName} ${ver}</strong> (<code>${cfg.server_file || 'server.jar'}</code>). La instalación de otro software está bloqueada para evitar sobrescribir mundos, plugins y configuraciones.`;
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Servidor ya Instalado (Bloqueado)";
+        btn.className = "btn btn-outline";
+      }
+      const updateCard = document.getElementById('installer-update-card');
+      if (updateCard) updateCard.style.display = 'block';
+      const isBedrock = (cfg && cfg.server_type || '').toLowerCase() === 'bedrock';
+      const pluginsSub = document.getElementById('update-plugins-subsection');
+      if (pluginsSub) {
+        pluginsSub.style.display = isBedrock ? 'none' : 'block';
+      }
+    } else {
+      this.isLocked = false;
+      this.allowForce = true;
+      if (banner) banner.style.display = 'none';
+      if (mainCard) mainCard.style.display = 'block';
+      if (btnDelete) btnDelete.style.display = 'none';
+      const updateCard = document.getElementById('installer-update-card');
+      if (updateCard) updateCard.style.display = 'none';
+      const sub = document.getElementById('update-plugins-subsection');
+      if (sub) sub.style.display = 'none';
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Instalar y Configurar Servidor";
+        btn.className = "btn btn-primary";
+      }
+    }
+  },
+
   async checkLockState() {
+    // Apply immediate local hydrated state if available
+    if (window.__INITIAL_STATS__ && window.__INITIAL_CONFIG__) {
+      this.applyLockState(window.__INITIAL_STATS__, window.__INITIAL_CONFIG__);
+    }
+
     try {
       const [sRes, cRes] = await Promise.all([
         fetch('/api/server/status'),
@@ -28,58 +86,14 @@ const Installer = {
       const stats = await sRes.json();
       const cfg = await cRes.json();
       
-      const banner = document.getElementById('installer-locked-banner');
-      const info = document.getElementById('installer-current-server-info');
-      const btn = document.getElementById('btn-install-server');
-      const mainCard = document.getElementById('installer-main-card');
-      const btnDelete = document.getElementById('btn-delete-server');
-      const nameInput = document.getElementById('installer-server-name');
-      if (nameInput && cfg.server_name) {
-        nameInput.value = cfg.server_name;
-      }
+      this.applyLockState(stats, cfg);
 
       if (stats.is_installed) {
-        this.isLocked = true;
-        this.allowForce = false;
-        if (banner) banner.style.display = 'flex';
-        if (mainCard) mainCard.style.display = 'none'; // Ocultar software selector si ya está instalado
-        if (btnDelete) btnDelete.style.display = 'none'; // Oculto hasta que se desbloquee
-        if (info) {
-          const typeName = (cfg.server_type || 'Minecraft').toUpperCase();
-          const ver = cfg.server_version || '';
-          info.innerHTML = `Tienes instalado un servidor <strong>${typeName} ${ver}</strong> (<code>${cfg.server_file || 'server.jar'}</code>). La instalación de otro software está bloqueada para evitar sobrescribir mundos, plugins y configuraciones.`;
-        }
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = "Servidor ya Instalado (Bloqueado)";
-          btn.className = "btn btn-outline";
-        }
-        const updateCard = document.getElementById('installer-update-card');
-        if (updateCard) updateCard.style.display = 'block';
         const isBedrock = (cfg.server_type || '').toLowerCase() === 'bedrock';
-        const pluginsSub = document.getElementById('update-plugins-subsection');
-        if (pluginsSub) {
-          pluginsSub.style.display = isBedrock ? 'none' : 'block';
-          if (!isBedrock) {
-            this.loadConsolePluginUpdates();
-          }
+        if (!isBedrock) {
+          this.loadConsolePluginUpdates();
         }
         await this.loadUpdateInfo(stats);
-      } else {
-        this.isLocked = false;
-        this.allowForce = true;
-        if (banner) banner.style.display = 'none';
-        if (mainCard) mainCard.style.display = 'block'; // Mostrar si no hay servidor
-        if (btnDelete) btnDelete.style.display = 'none';
-        const updateCard = document.getElementById('installer-update-card');
-        if (updateCard) updateCard.style.display = 'none';
-        const sub = document.getElementById('update-plugins-subsection');
-        if (sub) sub.style.display = 'none';
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = "Instalar y Configurar Servidor";
-          btn.className = "btn btn-primary";
-        }
       }
     } catch (e) {
       console.warn("Could not check server install state", e);

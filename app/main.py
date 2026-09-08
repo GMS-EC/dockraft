@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import json
 import time
 import shutil
 import zipfile
@@ -1481,10 +1482,16 @@ async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(N
 
     # Send initial backlog and status
     try:
+        initial_stats = process_manager.get_stats()
         await websocket.send_json({
             "type": "init",
             "status": process_manager.get_status(),
             "history": list(process_manager.log_buffer)  # deque is not JSON-serializable — must cast to list
+        })
+        # Send initial stats immediately so client doesn't wait 2s
+        await websocket.send_json({
+            "type": "stats",
+            "data": initial_stats
         })
         
         # Periodic stats loop
@@ -1569,11 +1576,26 @@ async def root(request: Request):
     if settings.admin_password and not is_authenticated(request):
         return RedirectResponse(url="/login", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
+    stats = process_manager.get_stats()
+    cfg = settings.runtime_config
+    is_installed = bool(stats.get("is_installed", False))
+    server_status = stats.get("status", "OFFLINE")
+
     return templates.TemplateResponse(
         request=request,
         name="index.html",
         context={
             "admin_user": getattr(settings, "admin_user", "admin"),
-            "app_name": "Dockraft"
+            "app_name": "Dockraft",
+            "stats": stats,
+            "cfg": cfg,
+            "is_installed": is_installed,
+            "server_status": server_status,
+            "server_name": stats.get("server_name") or cfg.get("server_name", "Mi Servidor Dockraft"),
+            "server_version": stats.get("server_version") or cfg.get("server_version", ""),
+            "server_type": stats.get("server_type") or cfg.get("server_type", ""),
+            "motd": stats.get("motd", ""),
+            "stats_json": json.dumps(stats),
+            "cfg_json": json.dumps(cfg)
         }
     )
