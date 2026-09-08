@@ -35,6 +35,7 @@ from app.core.webhook_manager import webhook_manager
 from app.core.metrics_manager import metrics_manager
 from app.core.player_manager import player_manager
 from app.core.fs_utils import atomic_write_text
+from app.core.diagnostic_manager import diagnostic_manager
 
 
 # --- Security Headers Middleware ---
@@ -1248,6 +1249,24 @@ async def run_task(task_id: str):
         raise HTTPException(status_code=500, detail=f"Error ejecutando tarea: {str(e)}")
 
 # --- Scheduled Background Tasks Loop (now handled by lifespan above) ---
+
+# --- Diagnostics & Log Sharing Endpoints ---
+class ShareLogRequest(BaseModel):
+    content: Optional[str] = None
+
+@app.get("/api/diagnostics/analyze", dependencies=[Depends(get_current_user)])
+async def analyze_diagnostics():
+    """Analyzes logs and crash-reports to identify issues and actionable solutions."""
+    return diagnostic_manager.analyze_diagnostics()
+
+@app.post("/api/diagnostics/share", dependencies=[Depends(get_current_user)])
+async def share_log(req: Optional[ShareLogRequest] = None):
+    """Uploads sanitized logs to mclo.gs and returns a clean shareable URL."""
+    custom_content = req.content if req else None
+    res = await diagnostic_manager.share_to_mclogs(custom_content)
+    if not res.get("success"):
+        raise HTTPException(status_code=500, detail=res.get("error", "Error al compartir log en mclo.gs"))
+    return res
 
 # --- WebSocket Console & Stats Hub ---
 @app.websocket("/ws/console")

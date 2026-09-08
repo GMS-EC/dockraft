@@ -44,6 +44,15 @@ const App = {
     if (typeof Files !== 'undefined' && Files.init) {
       Files.init();
     }
+
+    // Register Service Worker for PWA if supported
+    if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+      navigator.serviceWorker.register('/static/sw.js').then((reg) => {
+        console.log('[Dockraft PWA] Service Worker registrado con éxito:', reg.scope);
+      }).catch((err) => {
+        console.debug('[Dockraft PWA] Service Worker registration skipped:', err);
+      });
+    }
   },
 
   setupTabs() {

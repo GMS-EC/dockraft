@@ -77,8 +77,24 @@
       <div class="terminal-title">
         <span>CONSOLE</span>
       </div>
-      <div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="chip-btn" id="btn-open-diagnostics" onclick="Console.openDiagnosticsModal()" style="display: inline-flex; align-items: center; gap: 6px; border-color: #388bfd; color: #58a6ff;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Diagnóstico & Logs
+        </button>
         <button class="chip-btn" id="btn-clear-console" data-i18n="console_clear">Limpiar Consola</button>
+      </div>
+    </div>
+
+    <!-- Automatic Crash Diagnostics Banner (Displayed if server stopped unexpectedly) -->
+    <div id="console-crash-alert" style="display: none; background: rgba(248, 81, 73, 0.1); border-bottom: 1px solid #f85149; padding: 10px 16px; font-size: 0.85rem; color: #f85149; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="console-crash-text"><strong>Alerta:</strong> El servidor se detuvo inesperadamente.</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-outline" onclick="Console.openDiagnosticsModal()" style="padding: 4px 10px; font-size: 0.78rem; border-color: #f85149; color: #f85149;">Ver Causa y Solución</button>
+        <button class="chip-btn" onclick="document.getElementById('console-crash-alert').style.display='none'" style="padding: 4px 8px;">✕</button>
       </div>
     </div>
 

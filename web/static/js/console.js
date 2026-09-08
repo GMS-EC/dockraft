@@ -37,11 +37,21 @@ const Console = {
           this.appendTerminalLine(msg.data);
         } else if (msg.type === 'status') {
           this.updateStatusUI(msg.status);
+          if (msg.status === 'OFFLINE') {
+            this.updateTpsUI(null);
+          }
         } else if (msg.type === 'eula_required') {
           App.openEulaModal();
+        } else if (msg.type === 'crash_diagnostics') {
+          this.showCrashAlert(msg.data);
+        } else if (msg.type === 'tps') {
+          this.updateTpsUI(msg.data);
         } else if (msg.type === 'stats') {
           this.updateStatsUI(msg.data);
           this.checkInstalled(msg.data);
+          if (msg.data && msg.data.tps) {
+            this.updateTpsUI(msg.data.tps);
+          }
         }
       } catch (e) {
         console.error("Error parsing WS message:", e);
@@ -350,6 +360,7 @@ const Console = {
       }
       if (topMotd) topMotd.textContent = stats.motd || 'A Dockraft Minecraft Server';
       if (topType) topType.textContent = stats.server_type_display || 'minecraft-java';
+      if (stats.tps) this.updateTpsUI(stats.tps);
     }
   },
 
@@ -392,5 +403,223 @@ const Console = {
     }
 
     container.scrollTop = container.scrollHeight;
+  },
+
+  updateTpsUI(tps) {
+    const topTps = document.getElementById('top-server-tps');
+    const kpiVal = document.getElementById('metric-kpi-tps-val');
+    const kpiBadge = document.getElementById('metric-kpi-tps-badge');
+    const kpi1m = document.getElementById('metric-kpi-tps-1m');
+    const kpi5m = document.getElementById('metric-kpi-tps-5m');
+    const kpi15m = document.getElementById('metric-kpi-tps-15m');
+
+    if (!tps || tps.status === 'offline' || tps['1m'] === null || tps['1m'] === undefined) {
+      if (topTps) {
+        topTps.textContent = '--';
+        topTps.style.color = 'var(--text-dim)';
+      }
+      if (kpiVal) kpiVal.textContent = '--';
+      if (kpiBadge) {
+        kpiBadge.textContent = 'Fuera de línea';
+        kpiBadge.style.color = '#8b949e';
+        kpiBadge.style.background = 'rgba(139, 148, 158, 0.15)';
+      }
+      return;
+    }
+
+    const val1m = Number(tps['1m']);
+    const val5m = Number(tps['5m'] !== undefined ? tps['5m'] : val1m);
+    const val15m = Number(tps['15m'] !== undefined ? tps['15m'] : val1m);
+
+    let color = '#3fb950'; // green
+    let label = 'Óptimo';
+    let bg = 'rgba(46, 160, 67, 0.15)';
+
+    if (val1m < 16.0) {
+      color = '#f85149'; // red lag
+      label = 'Lag Severo';
+      bg = 'rgba(248, 81, 73, 0.15)';
+    } else if (val1m < 19.5) {
+      color = '#d29922'; // amber moderate
+      label = 'Carga Moderada';
+      bg = 'rgba(210, 153, 34, 0.15)';
+    }
+
+    if (topTps) {
+      topTps.textContent = `${val1m.toFixed(1)} TPS`;
+      topTps.style.color = color;
+    }
+
+    if (kpiVal) {
+      kpiVal.textContent = val1m.toFixed(1);
+      kpiVal.style.color = color;
+    }
+    if (kpiBadge) {
+      kpiBadge.textContent = label;
+      kpiBadge.style.color = color;
+      kpiBadge.style.background = bg;
+    }
+    if (kpi1m) {
+      kpi1m.textContent = val1m.toFixed(1);
+      kpi1m.style.color = color;
+    }
+    if (kpi5m) {
+      kpi5m.textContent = val5m.toFixed(1);
+    }
+    if (kpi15m) {
+      kpi15m.textContent = val15m.toFixed(1);
+    }
+  },
+
+  showCrashAlert(diag) {
+    const alertBox = document.getElementById('console-crash-alert');
+    const alertText = document.getElementById('console-crash-text');
+    if (alertBox && alertText) {
+      alertBox.style.display = 'flex';
+      alertText.innerHTML = `<strong>¡Alerta de Caída!</strong> ${diag.title || 'Error no controlado'}: ${diag.cause || ''}`;
+    }
+    App.showToast(`El servidor se detuvo: ${diag.title || 'Caída inesperada'}`, 'danger');
+  },
+
+  openDiagnosticsModal() {
+    const modal = document.getElementById('modal-diagnostics');
+    if (modal) {
+      modal.classList.add('open');
+      this.switchDiagTab('analysis');
+      this.loadDiagnostics();
+    }
+  },
+
+  closeDiagnosticsModal() {
+    const modal = document.getElementById('modal-diagnostics');
+    if (modal) modal.classList.remove('open');
+  },
+
+  switchDiagTab(tab) {
+    const btnAnalysis = document.getElementById('diag-tab-analysis-btn');
+    const btnShare = document.getElementById('diag-tab-share-btn');
+    const paneAnalysis = document.getElementById('diag-pane-analysis');
+    const paneShare = document.getElementById('diag-pane-share');
+
+    if (tab === 'analysis') {
+      if (btnAnalysis) btnAnalysis.classList.add('active');
+      if (btnShare) btnShare.classList.remove('active');
+      if (paneAnalysis) paneAnalysis.style.display = 'block';
+      if (paneShare) paneShare.style.display = 'none';
+    } else {
+      if (btnAnalysis) btnAnalysis.classList.remove('active');
+      if (btnShare) btnShare.classList.add('active');
+      if (paneAnalysis) paneAnalysis.style.display = 'none';
+      if (paneShare) paneShare.style.display = 'block';
+    }
+  },
+
+  async loadDiagnostics() {
+    const loading = document.getElementById('diag-loading');
+    const results = document.getElementById('diag-results');
+    const alertBox = document.getElementById('diag-alert-box');
+    const title = document.getElementById('diag-title');
+    const cause = document.getElementById('diag-cause');
+    const reco = document.getElementById('diag-recommendation');
+    const excerptContainer = document.getElementById('diag-excerpt-container');
+    const excerpt = document.getElementById('diag-excerpt');
+    const source = document.getElementById('diag-source');
+
+    if (loading) loading.style.display = 'block';
+    if (results) results.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/diagnostics/analyze');
+      const data = await res.json();
+
+      if (loading) loading.style.display = 'none';
+      if (results) results.style.display = 'block';
+
+      if (data.has_issue) {
+        if (alertBox) {
+          alertBox.style.borderLeftColor = data.severity === 'critical' ? '#f85149' : '#d29922';
+          alertBox.style.background = data.severity === 'critical' ? 'rgba(248, 81, 73, 0.1)' : 'rgba(210, 153, 34, 0.1)';
+        }
+        if (title) {
+          title.textContent = data.title;
+          title.style.color = data.severity === 'critical' ? '#f85149' : '#e3b341';
+        }
+        if (cause) cause.textContent = data.cause;
+        if (reco) reco.textContent = data.recommendation;
+
+        if (data.excerpt && data.excerpt.trim()) {
+          if (excerptContainer) excerptContainer.style.display = 'block';
+          if (excerpt) excerpt.textContent = data.excerpt;
+          if (source) source.textContent = data.source || 'latest.log';
+        } else {
+          if (excerptContainer) excerptContainer.style.display = 'none';
+        }
+      } else {
+        if (alertBox) {
+          alertBox.style.borderLeftColor = '#3fb950';
+          alertBox.style.background = 'rgba(46, 160, 67, 0.1)';
+        }
+        if (title) {
+          title.textContent = data.title || 'Sin problemas detectados';
+          title.style.color = '#3fb950';
+        }
+        if (cause) cause.textContent = data.message || 'El servidor opera con normalidad.';
+        if (reco) reco.textContent = data.recommendation || 'Todo en orden.';
+        if (excerptContainer) excerptContainer.style.display = 'none';
+      }
+    } catch (err) {
+      if (loading) loading.style.display = 'none';
+      if (results) results.style.display = 'block';
+      if (title) title.textContent = "Error al ejecutar análisis";
+      if (cause) cause.textContent = err.message || "No se pudo consultar el endpoint de diagnósticos.";
+    }
+  },
+
+  async shareLogToMclogs() {
+    const btn = document.getElementById('btn-do-share-log');
+    const resultBox = document.getElementById('diag-share-result');
+    const urlInput = document.getElementById('diag-share-url');
+    const linkBtn = document.getElementById('diag-share-link');
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin-icon" style="display:inline-block;">↻</span> Subiendo y anonimizando registro...';
+    }
+
+    try {
+      const res = await fetch('/api/diagnostics/share', { method: 'POST' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Error al subir log a mclo.gs");
+      }
+
+      if (resultBox) resultBox.style.display = 'block';
+      if (urlInput) urlInput.value = data.url;
+      if (linkBtn) linkBtn.href = data.url;
+
+      App.showToast("Log subido a mclo.gs con éxito", 'success');
+    } catch (err) {
+      App.showToast(err.message || "Error al compartir log", 'danger');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Subir y Generar Enlace Seguro (mclo.gs)';
+      }
+    }
+  },
+
+  copyShareUrl() {
+    const input = document.getElementById('diag-share-url');
+    if (input && input.value) {
+      navigator.clipboard.writeText(input.value).then(() => {
+        App.showToast("Enlace de mclo.gs copiado al portapapeles", 'success');
+      }).catch(() => {
+        input.select();
+        document.execCommand('copy');
+        App.showToast("Enlace copiado", 'success');
+      });
+    }
   }
 };
+

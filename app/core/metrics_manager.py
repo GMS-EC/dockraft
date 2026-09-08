@@ -36,7 +36,7 @@ class MetricsManager:
         ram_mb = round(stats.get("memory_mb", 0.0), 1)
         ram_percent = round(stats.get("memory_percent", 0.0), 1)
         assigned_ram_mb = round(stats.get("assigned_memory_mb", 2048.0), 1)
-        players = int(stats.get("players_online", 0))
+        players = int(stats.get("online_players", 0))
 
         # Track peaks
         if cpu > self.peak_cpu:
@@ -100,7 +100,7 @@ class MetricsManager:
         return {
             "current_status": process_manager.get_status(),
             "uptime_seconds": stats.get("uptime_seconds", 0),
-            "uptime_str": stats.get("uptime", "--"),
+            "uptime_str": stats.get("uptime_formatted", "--"),
             "current_cpu": round(stats.get("cpu_percent", 0.0), 1),
             "peak_cpu": self.peak_cpu,
             "avg_cpu": avg_cpu,
@@ -108,7 +108,7 @@ class MetricsManager:
             "assigned_ram_mb": round(stats.get("assigned_memory_mb", 2048.0), 1),
             "current_ram_percent": round(stats.get("memory_percent", 0.0), 1),
             "peak_ram_mb": self.peak_ram_mb,
-            "current_players": int(stats.get("players_online", 0)),
+            "current_players": int(stats.get("online_players", 0)),
             "peak_players": self.peak_players,
             "total_samples": len(self.history)
         }

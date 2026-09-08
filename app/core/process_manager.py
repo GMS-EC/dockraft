@@ -49,6 +49,13 @@ class ProcessManager:
         self.started_at: Optional[float] = None
         self.online_players: Set[str] = set()
         self._recent_crashes: List[float] = []
+        self.current_tps: Dict[str, Any] = {
+            "1m": 20.0,
+            "5m": 20.0,
+            "15m": 20.0,
+            "status": "optimal"
+        }
+        self._tps_poller_task: Optional[asyncio.Task] = None
 
     def format_uptime(self, seconds: int) -> str:
         """Formats seconds into human-readable e.g. '2 hours, 27 minutes and 8 seconds'."""
@@ -355,7 +362,10 @@ class ProcessManager:
             "timezone": tz_name,
             "online_players": online_players_count,
             "max_players": max_players,
-            "motd": motd
+            "motd": motd,
+            "tps": self.current_tps if status == "RUNNING" else {
+                "1m": None, "5m": None, "15m": None, "status": "offline"
+            }
         }
 
     async def broadcast_message(self, message: Dict[str, Any]) -> None:
@@ -467,6 +477,27 @@ class ProcessManager:
                         except Exception:
                             pass
 
+            # Intercept TPS line (Paper / Purpur / Spigot / Fabric Carpet)
+            tps_m = re.search(r'TPS from last 1m, 5m, 15m:\s*([0-9\.\*]+)[,\s]+([0-9\.\*]+)[,\s]+([0-9\.\*]+)', clean_ansi)
+            if tps_m:
+                try:
+                    t1 = float(tps_m.group(1).replace('*', ''))
+                    t5 = float(tps_m.group(2).replace('*', ''))
+                    t15 = float(tps_m.group(3).replace('*', ''))
+                    t1 = min(20.0, max(0.0, t1))
+                    t5 = min(20.0, max(0.0, t5))
+                    t15 = min(20.0, max(0.0, t15))
+                    st = "optimal" if t1 >= 19.5 else ("moderate" if t1 >= 16.0 else "lag")
+                    self.current_tps = {
+                        "1m": round(t1, 2),
+                        "5m": round(t5, 2),
+                        "15m": round(t15, 2),
+                        "status": st
+                    }
+                    await self.broadcast_message({"type": "tps", "data": self.current_tps})
+                except Exception:
+                    pass
+
             # Broadcast line
             await self.broadcast_message({"type": "log", "data": line})
 
@@ -476,6 +507,10 @@ class ProcessManager:
             return
         
         await self.process.wait()
+        if self._tps_poller_task and not self._tps_poller_task.done():
+            self._tps_poller_task.cancel()
+            self._tps_poller_task = None
+
         prev_status = self.status
         self.status = "OFFLINE"
         self.started_at = None
@@ -486,6 +521,16 @@ class ProcessManager:
         await self.broadcast_message({"type": "log", "data": msg})
         await self.broadcast_message({"type": "status", "status": "OFFLINE"})
         self.process = None
+
+        # Auto-diagnose crash if stopped unexpectedly
+        if prev_status != "STOPPING" and exit_code != 0:
+            try:
+                from app.core.diagnostic_manager import diagnostic_manager
+                diag = diagnostic_manager.analyze_diagnostics()
+                if diag.get("has_issue"):
+                    await self.broadcast_message({"type": "crash_diagnostics", "data": diag})
+            except Exception:
+                pass
 
         try:
             from app.core.webhook_manager import webhook_manager as wh
@@ -655,6 +700,7 @@ class ProcessManager:
             # Start background stream reading
             asyncio.create_task(self._read_stream(self.process.stdout))
             asyncio.create_task(self._process_supervisor())
+            self._tps_poller_task = asyncio.create_task(self._tps_poller_loop())
 
             return {"status": "success", "message": "Server started"}
         except Exception as e:
@@ -745,7 +791,21 @@ class ProcessManager:
 
         return {"status": "success", "message": "Server killed successfully"}
 
-    async def send_command(self, cmd_text: str) -> Dict[str, Any]:
+    async def _tps_poller_loop(self) -> None:
+        """Periodically requests 'tps' silently from Paper/Purpur/Spigot to keep TPS metric updated."""
+        await asyncio.sleep(15)
+        while self.get_status() == "RUNNING":
+            try:
+                cfg = settings.runtime_config
+                if cfg.get("server_type") != "bedrock":
+                    await self.send_command("tps", echo=False)
+                await asyncio.sleep(45)
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                await asyncio.sleep(45)
+
+    async def send_command(self, cmd_text: str, echo: bool = True) -> Dict[str, Any]:
         """Writes command to process stdin."""
         if not self.process or not self.process.stdin or self.process.returncode is not None:
             return {"status": "error", "message": "Server is not running"}
@@ -754,10 +814,11 @@ class ProcessManager:
         try:
             self.process.stdin.write(f"{clean_cmd}\n".encode("utf-8"))
             await self.process.stdin.drain()
-            # Echo command to log
-            echo = f"> {clean_cmd}"
-            self._append_log(echo)
-            await self.broadcast_message({"type": "log", "data": echo})
+            if echo:
+                # Echo command to log
+                log_echo = f"> {clean_cmd}"
+                self._append_log(log_echo)
+                await self.broadcast_message({"type": "log", "data": log_echo})
             return {"status": "success"}
         except Exception as e:
             return {"status": "error", "message": str(e)}

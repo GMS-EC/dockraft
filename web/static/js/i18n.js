@@ -674,7 +674,7 @@ const I18n = {
     if (loginSubtitle) loginSubtitle.textContent = dict.login_subtitle;
     const btnLogin = document.getElementById('btn-login-submit');
     if (btnLogin && !btnLogin.disabled) {
-      const t = btnLogin.querySelector('span');
+      const t = document.getElementById('btn-login-text') || btnLogin.querySelector('#btn-login-text');
       if (t) t.textContent = dict.login_submit_btn;
     }
   }

@@ -84,6 +84,23 @@
         <span data-i18n="metrics_status">Estado:</span> <span id="metric-kpi-status-badge" class="badge" style="background: rgba(46, 160, 67, 0.15); color: #3fb950;">OFFLINE</span>
       </div>
     </div>
+
+    <!-- TPS Performance KPI -->
+    <div class="card" style="padding: 16px; border-left: 3px solid #10b981; background: rgba(18, 22, 36, 0.7);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim);">Rendimiento TPS</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 6px;">
+        <span id="metric-kpi-tps-val" style="font-size: 1.6rem; font-weight: 700; color: #10b981; font-family: var(--font-mono);">20.0</span>
+        <span id="metric-kpi-tps-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">Óptimo</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;">
+        <span>1m: <strong id="metric-kpi-tps-1m" style="color: #10b981;">20.0</strong></span> • 
+        <span>5m: <strong id="metric-kpi-tps-5m" style="color: #10b981;">20.0</strong></span> • 
+        <span>15m: <strong id="metric-kpi-tps-15m" style="color: #10b981;">20.0</strong></span>
+      </div>
+    </div>
   </div>
 
   <!-- Main Chart Section -->

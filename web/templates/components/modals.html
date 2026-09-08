@@ -435,3 +435,82 @@
   </div>
 </div>
 
+<!-- Modal: Diagnostics and Share Logs -->
+<div class="modal-backdrop" id="modal-diagnostics">
+  <div class="modal-box" style="max-width: 680px;">
+    <div class="modal-header">
+      <h3 style="display: flex; align-items: center; gap: 8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Diagnóstico Inteligente & Logs
+      </h3>
+      <button class="action-icon-btn" onclick="Console.closeDiagnosticsModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <!-- Tabs within modal -->
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid #30363d; padding-bottom: 8px;">
+        <button class="chip-btn active" id="diag-tab-analysis-btn" onclick="Console.switchDiagTab('analysis')">Diagnóstico Automático</button>
+        <button class="chip-btn" id="diag-tab-share-btn" onclick="Console.switchDiagTab('share')">Compartir Registro Sanitizado (mclo.gs)</button>
+      </div>
+
+      <!-- Analysis Tab Pane -->
+      <div id="diag-pane-analysis">
+        <div id="diag-loading" style="text-align: center; padding: 24px; color: var(--text-dim);">
+          <span class="spin-icon" style="display: inline-block; font-size: 1.2rem; margin-bottom: 8px;">↻</span>
+          <div>Analizando registros y reportes de caídas...</div>
+        </div>
+
+        <div id="diag-results" style="display: none;">
+          <div id="diag-alert-box" style="padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #3fb950; background: rgba(46, 160, 67, 0.1);">
+            <div style="font-weight: 700; font-size: 1rem; margin-bottom: 4px;" id="diag-title">Sin problemas detectados</div>
+            <div style="font-size: 0.88rem; line-height: 1.5; color: #c9d1d9;" id="diag-cause">El servidor opera con normalidad.</div>
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <span style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-dim);">Solución Recomendada:</span>
+            <div id="diag-recommendation" style="margin-top: 6px; font-size: 0.88rem; line-height: 1.5; color: #f0f6fc; background: #161b22; padding: 12px; border-radius: 6px; border: 1px solid #30363d;">
+              --
+            </div>
+          </div>
+
+          <div id="diag-excerpt-container" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-dim);">Fragmento de Error Relevante (<span id="diag-source">--</span>):</span>
+            </div>
+            <pre id="diag-excerpt" style="background: #0d1117; border: 1px solid #30363d; padding: 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.78rem; color: #f85149; max-height: 180px; overflow: auto; white-space: pre-wrap; line-height: 1.4;"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Share Log Tab Pane -->
+      <div id="diag-pane-share" style="display: none;">
+        <p style="font-size: 0.86rem; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px;">
+          Esta función sube automáticamente los registros recientes de tu servidor al servicio oficial y seguro de <a href="https://mclo.gs" target="_blank" style="color: #58a6ff; text-decoration: underline;">mclo.gs</a>.
+          <br><strong style="color: #c9d1d9;">Las direcciones IP públicas, nombres de usuarios privados y contraseñas son anonimizadas automáticamente</strong> antes de ser publicadas.
+        </p>
+
+        <div style="text-align: center; margin: 20px 0;">
+          <button class="btn btn-primary" id="btn-do-share-log" onclick="Console.shareLogToMclogs()" style="padding: 10px 24px; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            Subir y Generar Enlace Seguro (mclo.gs)
+          </button>
+        </div>
+
+        <div id="diag-share-result" style="display: none; background: rgba(56, 139, 253, 0.1); border: 1px solid #388bfd; border-radius: 6px; padding: 14px; margin-top: 16px;">
+          <div style="font-size: 0.82rem; color: #58a6ff; font-weight: 600; margin-bottom: 6px;">¡Registro subido exitosamente!</div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="diag-share-url" class="form-input" readonly style="flex: 1; font-family: var(--font-mono); font-size: 0.85rem;">
+            <button class="btn btn-outline" onclick="Console.copyShareUrl()" style="white-space: nowrap;">Copiar Enlace</button>
+            <a id="diag-share-link" href="#" target="_blank" class="btn btn-primary" style="white-space: nowrap;">Abrir</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="Console.closeDiagnosticsModal()">Cerrar</button>
+      <button class="btn btn-primary" onclick="Console.loadDiagnostics()">Volver a Analizar</button>
+    </div>
+  </div>
+</div>
+
+
