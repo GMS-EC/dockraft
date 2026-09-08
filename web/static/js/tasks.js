@@ -239,9 +239,13 @@ const Tasks = {
     const task = this.tasksList.find(t => t.id === taskId);
     const taskName = task ? task.name : taskId;
 
-    if (!confirm(`¿Deseas ejecutar inmediatamente la tarea '${taskName}'?`)) {
-      return;
-    }
+    const ok = await App.confirm({
+      title: 'Ejecutar Tarea Inmediatamente',
+      message: `¿Deseas ejecutar inmediatamente la tarea '${taskName}'?`,
+      confirmText: 'Ejecutar Tarea',
+      type: 'info'
+    });
+    if (!ok) return;
 
     try {
       if (typeof App !== 'undefined') {
@@ -271,9 +275,13 @@ const Tasks = {
     const task = this.tasksList.find(t => t.id === taskId);
     const taskName = task ? task.name : taskId;
 
-    if (!confirm(`¿Estás seguro de que deseas eliminar la tarea programada '${taskName}'?`)) {
-      return;
-    }
+    const ok = await App.confirm({
+      title: 'Eliminar Tarea Programada',
+      message: `¿Estás seguro de que deseas eliminar la tarea programada '${taskName}'?`,
+      confirmText: 'Eliminar Tarea',
+      danger: true
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });

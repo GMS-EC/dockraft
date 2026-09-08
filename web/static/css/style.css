@@ -635,6 +635,35 @@ body {
   gap: 10px;
 }
 
+/* Custom Application Dialog Modals (App.confirm & App.prompt) */
+.modal-dialog-backdrop {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background-color: rgba(13, 17, 23, 0.78);
+}
+
+.modal-dialog-backdrop.open .modal-dialog-box {
+  animation: modalDialogPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-dialog-box {
+  background: linear-gradient(145deg, #161b22, #0d1117);
+  border: 1px solid #30363d;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+@keyframes modalDialogPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.93) translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 /* Form Controls */
 .form-group {
   display: flex;

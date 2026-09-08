@@ -74,7 +74,7 @@ const Installer = {
     }
   },
 
-  toggleUnlockReinstall() {
+  async toggleUnlockReinstall() {
     const btnUnlock = document.getElementById('btn-unlock-reinstall');
     const badge = document.getElementById('reinstall-warning-badge');
     const btnInstall = document.getElementById('btn-install-server');
@@ -82,7 +82,12 @@ const Installer = {
     const btnDelete = document.getElementById('btn-delete-server');
 
     if (this.isLocked) {
-      const ok = confirm("¿Deseas desbloquear la reinstalación y opciones avanzadas?\n\nADVERTENCIA: Se desbloqueará la selección de software y la opción de eliminar el servidor actual.");
+      const ok = await App.confirm({
+        title: 'Desbloquear Reinstalación',
+        message: '¿Deseas desbloquear la reinstalación y opciones avanzadas?\n\nADVERTENCIA: Se desbloqueará la selección de software y la opción de eliminar el servidor actual.',
+        confirmText: 'Desbloquear',
+        warning: true
+      });
       if (ok) {
         this.isLocked = false;
         this.allowForce = true;
@@ -508,7 +513,12 @@ const Installer = {
     }
 
     const targetVer = select.value;
-    const ok = confirm(`¿Deseas actualizar tu servidor a la versión "${targetVer}"?\n\nEsta operación reemplazará los binarios del servidor. Tus mundos, configuraciones y plugins se mantendrán intactos.`);
+    const ok = await App.confirm({
+      title: 'Actualizar Servidor',
+      message: `¿Deseas actualizar tu servidor a la versión "${targetVer}"?\n\nEsta operación reemplazará los binarios del servidor. Tus mundos, configuraciones y plugins se mantendrán intactos.`,
+      confirmText: 'Actualizar Versión',
+      type: 'info'
+    });
     if (!ok) return;
 
     this.isInstalling = true;
@@ -673,7 +683,12 @@ const Installer = {
         return;
       }
 
-      const ok = confirm("ATENCIÓN: ¿Estás completamente seguro de que deseas ELIMINAR el servidor actual?\n\nEsta acción borrará permanentemente los ejecutables, mundos, plugins, mods y archivos de configuración actuales.\n\n(Las copias de seguridad en la pestaña 'Copias de Seguridad' permanecerán intactas y a salvo).\n\n¿Confirmas la eliminación definitiva?");
+      const ok = await App.confirm({
+        title: 'Eliminar Servidor Definitivamente',
+        message: 'ATENCIÓN: ¿Estás completamente seguro de que deseas ELIMINAR el servidor actual?\n\nEsta acción borrará permanentemente los ejecutables, mundos, plugins, mods y archivos de configuración actuales.\n\n(Las copias de seguridad en la pestaña "Copias de Seguridad" permanecerán intactas y a salvo).\n\n¿Confirmas la eliminación definitiva?',
+        confirmText: 'Eliminar Servidor',
+        danger: true
+      });
       if (!ok) return;
 
       App.showToast("Eliminando servidor y limpiando archivos...", 'info');

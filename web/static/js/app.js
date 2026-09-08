@@ -376,6 +376,157 @@ const App = {
       toast.style.transition = 'opacity 0.25s ease';
       setTimeout(() => toast.remove(), 250);
     }, 3500);
+  },
+
+  confirm(options) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('modal-app-confirm');
+      if (!modal) {
+        resolve(window.confirm(typeof options === 'string' ? options : (options && options.message ? options.message : '¿Confirmas esta acción?')));
+        return;
+      }
+
+      const opts = typeof options === 'string' ? { message: options } : (options || {});
+      const isDanger = Boolean(opts.danger || opts.type === 'danger');
+      const isWarning = Boolean(opts.warning || opts.type === 'warning');
+
+      const titleEl = document.getElementById('modal-confirm-title-text');
+      const iconEl = document.getElementById('modal-confirm-icon');
+      const msgEl = document.getElementById('modal-confirm-message');
+      const btnOk = document.getElementById('modal-confirm-btn-ok');
+      const btnCancel = document.getElementById('modal-confirm-btn-cancel');
+      const btnClose = document.getElementById('modal-confirm-btn-close');
+
+      if (titleEl) titleEl.textContent = opts.title || (isDanger ? 'Confirmación requerida' : 'Confirmar Acción');
+      if (msgEl) msgEl.textContent = opts.message || '¿Estás seguro de continuar con esta acción?';
+
+      if (btnOk) {
+        btnOk.textContent = opts.confirmText || (isDanger ? 'Eliminar' : 'Confirmar');
+        btnOk.className = isDanger ? 'btn btn-danger' : (isWarning ? 'btn btn-warning' : 'btn btn-primary');
+      }
+      if (btnCancel) {
+        btnCancel.textContent = opts.cancelText || 'Cancelar';
+      }
+
+      if (iconEl) {
+        if (isDanger) {
+          iconEl.style.background = 'rgba(248, 81, 73, 0.15)';
+          iconEl.style.border = '1px solid rgba(248, 81, 73, 0.3)';
+          iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f85149" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        } else if (isWarning) {
+          iconEl.style.background = 'rgba(210, 153, 34, 0.15)';
+          iconEl.style.border = '1px solid rgba(210, 153, 34, 0.3)';
+          iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+        } else {
+          iconEl.style.background = 'rgba(56, 139, 253, 0.15)';
+          iconEl.style.border = '1px solid rgba(56, 139, 253, 0.3)';
+          iconEl.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+        }
+      }
+
+      let resolved = false;
+      const finish = (result) => {
+        if (resolved) return;
+        resolved = true;
+        modal.classList.remove('open');
+        window.removeEventListener('keydown', onKeyDown);
+        resolve(result);
+      };
+
+      const onKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          finish(false);
+        } else if (e.key === 'Enter') {
+          if (document.activeElement === btnCancel) {
+            e.preventDefault();
+            finish(false);
+          } else {
+            e.preventDefault();
+            finish(true);
+          }
+        }
+      };
+
+      if (btnOk) btnOk.onclick = () => finish(true);
+      if (btnCancel) btnCancel.onclick = () => finish(false);
+      if (btnClose) btnClose.onclick = () => finish(false);
+      modal.onclick = (e) => {
+        if (e.target === modal) finish(false);
+      };
+
+      window.addEventListener('keydown', onKeyDown);
+      modal.classList.add('open');
+
+      if (isDanger && btnCancel) {
+        btnCancel.focus();
+      } else if (btnOk) {
+        btnOk.focus();
+      }
+    });
+  },
+
+  prompt(options) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('modal-app-prompt');
+      if (!modal) {
+        resolve(window.prompt(typeof options === 'string' ? options : (options && options.message ? options.message : '')));
+        return;
+      }
+
+      const opts = typeof options === 'string' ? { message: options } : (options || {});
+      const titleEl = document.getElementById('modal-prompt-title-text');
+      const msgEl = document.getElementById('modal-prompt-message');
+      const inputEl = document.getElementById('modal-prompt-input');
+      const btnOk = document.getElementById('modal-prompt-btn-ok');
+      const btnCancel = document.getElementById('modal-prompt-btn-cancel');
+      const btnClose = document.getElementById('modal-prompt-btn-close');
+
+      if (titleEl) titleEl.textContent = opts.title || 'Entrada Requerida';
+      if (msgEl) msgEl.textContent = opts.message || '';
+      if (inputEl) {
+        inputEl.placeholder = opts.placeholder || '';
+        inputEl.value = opts.defaultValue || '';
+      }
+      if (btnOk) btnOk.textContent = opts.confirmText || 'Aceptar';
+      if (btnCancel) btnCancel.textContent = opts.cancelText || 'Cancelar';
+
+      let resolved = false;
+      const finish = (result) => {
+        if (resolved) return;
+        resolved = true;
+        modal.classList.remove('open');
+        window.removeEventListener('keydown', onKeyDown);
+        resolve(result);
+      };
+
+      const onKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          finish(null);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          finish(inputEl ? inputEl.value : '');
+        }
+      };
+
+      if (btnOk) btnOk.onclick = () => finish(inputEl ? inputEl.value : '');
+      if (btnCancel) btnCancel.onclick = () => finish(null);
+      if (btnClose) btnClose.onclick = () => finish(null);
+      modal.onclick = (e) => {
+        if (e.target === modal) finish(null);
+      };
+
+      window.addEventListener('keydown', onKeyDown);
+      modal.classList.add('open');
+
+      if (inputEl) {
+        setTimeout(() => {
+          inputEl.focus();
+          inputEl.select();
+        }, 50);
+      }
+    });
   }
 };
 

@@ -109,8 +109,14 @@ const Console = {
     if (btnStart) btnStart.addEventListener('click', () => this.serverAction('start'));
     if (btnStop) btnStop.addEventListener('click', () => this.serverAction('stop'));
     if (btnRestart) btnRestart.addEventListener('click', () => this.serverAction('restart'));
-    if (btnKill) btnKill.addEventListener('click', () => {
-      if (confirm("¿Confirmas forzar el apagado inmediato (Kill) del servidor? Se terminará cualquier proceso de Minecraft activo y se liberarán los bloqueos de disco.")) {
+    if (btnKill) btnKill.addEventListener('click', async () => {
+      const ok = await App.confirm({
+        title: 'Forzar Apagado Inmediato (Kill)',
+        message: '¿Confirmas forzar el apagado inmediato (Kill) del servidor?\n\nSe terminará cualquier proceso de Minecraft activo inmediatamente y se liberarán los bloqueos de disco.',
+        confirmText: 'Forzar Apagado',
+        danger: true
+      });
+      if (ok) {
         this.serverAction('kill');
       }
     });

@@ -344,7 +344,12 @@ const Backups = {
   },
 
   async restoreBackup(filename) {
-    const ok = confirm(`¿Estás seguro de que deseas restaurar la copia de seguridad '${filename}'?\n\nADVERTENCIA: Esta acción reemplazará los archivos y mundos actuales por los contenidos en la copia de seguridad. El servidor debe estar APAGADO.`);
+    const ok = await App.confirm({
+      title: 'Restaurar Copia de Seguridad',
+      message: `¿Estás seguro de que deseas restaurar la copia de seguridad '${filename}'?\n\nADVERTENCIA: Esta acción reemplazará los archivos y mundos actuales por los contenidos en la copia de seguridad. El servidor debe estar APAGADO.`,
+      confirmText: 'Restaurar Copia',
+      warning: true
+    });
     if (!ok) return;
 
     try {
@@ -364,7 +369,12 @@ const Backups = {
   },
 
   async deleteBackup(filename) {
-    const ok = confirm(`¿Deseas eliminar permanentemente la copia '${filename}'?`);
+    const ok = await App.confirm({
+      title: 'Eliminar Copia de Seguridad',
+      message: `¿Deseas eliminar permanentemente la copia de seguridad '${filename}'?`,
+      confirmText: 'Eliminar Copia',
+      danger: true
+    });
     if (!ok) return;
 
     try {

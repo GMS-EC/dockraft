@@ -531,7 +531,12 @@ const Players = {
   },
 
   async pardon(player) {
-    const ok = confirm(`¿Deseas desbanear y permitir el acceso de nuevo a ${player}?`);
+    const ok = await App.confirm({
+      title: 'Desbanear Jugador',
+      message: `¿Deseas desbanear y permitir el acceso de nuevo a ${player}?`,
+      confirmText: 'Desbanear',
+      type: 'info'
+    });
     if (!ok) return;
     try {
       const res = await fetch('/api/players/pardon', {
@@ -553,8 +558,13 @@ const Players = {
 
   async setOp(player, isOp) {
     const endpoint = isOp ? '/api/players/op' : '/api/players/deop';
-    const actionText = isOp ? 'hacer Operador' : 'quitar permisos de Operador';
-    const ok = confirm(`¿Confirmas ${actionText} a ${player}?`);
+    const actionText = isOp ? 'dar permisos de Operador (OP)' : 'quitar permisos de Operador (DEOP)';
+    const ok = await App.confirm({
+      title: isOp ? 'Dar Operador (OP)' : 'Quitar Operador (DEOP)',
+      message: `¿Confirmas ${actionText} a ${player}?`,
+      confirmText: isOp ? 'Hacer OP' : 'Quitar OP',
+      warning: !isOp
+    });
     if (!ok) return;
 
     try {

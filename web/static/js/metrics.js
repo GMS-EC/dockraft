@@ -82,7 +82,12 @@ const Metrics = {
   },
 
   async resetMetrics() {
-    const ok = confirm("¿Deseas vaciar el historial de métricas y reiniciar los contadores de picos?");
+    const ok = await App.confirm({
+      title: 'Vaciar Historial de Métricas',
+      message: '¿Deseas vaciar el historial de métricas y reiniciar los contadores de picos?',
+      confirmText: 'Vaciar Historial',
+      danger: true
+    });
     if (!ok) return;
     try {
       const res = await fetch('/api/metrics/reset', { method: 'POST' });

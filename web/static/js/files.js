@@ -356,7 +356,12 @@ const Files = {
         App.showToast(`Ruta copiada: ${fullRel}`, 'success');
       }
     } catch (e) {
-      prompt("Ruta del elemento:", fullRel);
+      await App.prompt({
+        title: 'Ruta del elemento',
+        message: 'Copia la siguiente ruta:',
+        defaultValue: fullRel,
+        confirmText: 'Aceptar'
+      });
     }
   },
 
@@ -600,7 +605,13 @@ const Files = {
 
   async deleteItem(filePath, name) {
     this.hideContextMenu();
-    if (!confirm(`¿Confirmas la eliminación permanente de "${name}"?`)) return;
+    const ok = await App.confirm({
+      title: 'Eliminar Elemento',
+      message: `¿Confirmas la eliminación permanente de "${name}"?`,
+      confirmText: 'Eliminar',
+      danger: true
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/files/delete?path=${encodeURIComponent(filePath)}`, {
@@ -639,8 +650,13 @@ const Files = {
 
   async createNewFolder() {
     this.hideContextMenu();
-    const folderName = prompt("Ingresa el nombre de la nueva carpeta:");
-    if (!folderName) return;
+    const folderName = await App.prompt({
+      title: 'Nueva Carpeta',
+      message: 'Ingresa el nombre de la nueva carpeta:',
+      placeholder: 'ej: plugins_backup, configs',
+      confirmText: 'Crear Carpeta'
+    });
+    if (!folderName || !folderName.trim()) return;
 
     const newPath = (this.currentPath ? this.currentPath + '/' : '') + folderName.trim();
     try {
