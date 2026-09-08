@@ -543,7 +543,24 @@ const Files = {
   },
 
   isEditable(ext) {
-    return ['properties', 'yml', 'yaml', 'json', 'txt', 'log', 'sh', 'bat', 'env', 'cfg', 'conf', 'mcmeta'].includes(ext);
+    // Block known binary / non-text formats. Everything else is treated as editable text.
+    const BINARY_EXTENSIONS = new Set([
+      // Archives & packages
+      'jar', 'zip', 'gz', 'tar', 'rar', '7z', 'bz2', 'xz', 'zst', 'lz4',
+      // Images
+      'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'ico', 'svg', 'tiff', 'tif',
+      // Audio / Video
+      'mp3', 'wav', 'ogg', 'flac', 'mp4', 'avi', 'mkv', 'mov', 'webm',
+      // Binaries / executables
+      'exe', 'dll', 'so', 'dylib', 'bin', 'elf', 'o', 'a', 'lib', 'class',
+      // Databases
+      'db', 'sqlite', 'sqlite3', 'mca', 'mcworld', 'ldb',
+      // Documents (binary)
+      'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+      // Fonts
+      'ttf', 'otf', 'woff', 'woff2', 'eot',
+    ]);
+    return !BINARY_EXTENSIONS.has((ext || '').toLowerCase());
   },
 
   formatBytes(bytes) {
