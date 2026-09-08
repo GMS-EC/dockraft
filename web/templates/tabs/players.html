@@ -1,14 +1,14 @@
 <!-- TAB: PLAYERS MANAGEMENT (JUGADORES) -->
 <section class="tab-pane" id="tab-players">
   <!-- Players 2-Column Responsive Layout -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 24px; align-items: start;">
+  <div class="players-layout-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 20px; align-items: start;">
     
     <!-- LEFT PANEL: JUGADORES -->
-    <div class="card" style="padding: 20px; background: rgba(18, 22, 36, 0.7); border: 1px solid #232b42;">
+    <div class="card players-card" style="padding: 20px; background: rgba(18, 22, 36, 0.7); border: 1px solid #232b42; min-width: 0;">
       <!-- Panel Header -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+      <div class="players-panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; align-items: baseline; gap: 10px;">
-          <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f0f6fc;" data-i18n="players_section_title">
+          <h2 style="margin: 0; font-size: 1.4rem; font-weight: 700; color: #f0f6fc;" data-i18n="players_section_title">
             Jugadores:
           </h2>
           <span id="players-online-badge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.76rem;">
@@ -16,7 +16,7 @@
           </span>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 8px;">
+        <div class="players-toolbar" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <input type="text" id="players-search-input" placeholder="Buscar jugador..." class="form-input" style="padding: 5px 10px; font-size: 0.82rem; width: 140px;" oninput="Players.filterPlayers()">
           
           <button id="btn-kick-all" class="btn btn-outline" onclick="Players.promptKickAll()" style="padding: 5px 10px; font-size: 0.82rem; border-color: #da3633; color: #f85149; display: inline-flex; align-items: center; gap: 5px;" title="Expulsar a todos los jugadores conectados">
@@ -35,8 +35,8 @@
       </div>
 
       <!-- Players Table -->
-      <div class="table-container" style="border: 1px solid #232b42; border-radius: 6px; overflow-x: auto;">
-        <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+      <div class="table-container table-responsive" style="border: 1px solid #232b42; border-radius: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+        <table class="data-table" style="width: 100%; min-width: 320px; border-collapse: collapse; font-size: 0.85rem;">
           <thead>
             <tr style="border-bottom: 1px solid #232b42; color: var(--text-dim); text-align: left;">
               <th style="padding: 10px 12px; font-weight: 600;" data-i18n="players_col_player">Player</th>
@@ -57,11 +57,11 @@
     </div>
 
     <!-- RIGHT PANEL: JUGADORES BANEADOS -->
-    <div class="card" style="padding: 20px; background: rgba(18, 22, 36, 0.7); border: 1px solid #232b42;">
+    <div class="card players-card" style="padding: 20px; background: rgba(18, 22, 36, 0.7); border: 1px solid #232b42; min-width: 0;">
       <!-- Panel Header -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+      <div class="players-panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; align-items: baseline; gap: 10px;">
-          <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f0f6fc;" data-i18n="players_banned_title">
+          <h2 style="margin: 0; font-size: 1.4rem; font-weight: 700; color: #f0f6fc;" data-i18n="players_banned_title">
             Jugadores Baneados:
           </h2>
           <span id="players-banned-count-badge" class="badge" style="background: rgba(218, 54, 51, 0.15); color: #f85149; font-size: 0.76rem;">
@@ -75,8 +75,8 @@
       </div>
 
       <!-- Banned Players Table -->
-      <div class="table-container" style="border: 1px solid #232b42; border-radius: 6px; overflow-x: auto;">
-        <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+      <div class="table-container table-responsive" style="border: 1px solid #232b42; border-radius: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+        <table class="data-table" style="width: 100%; min-width: 320px; border-collapse: collapse; font-size: 0.85rem;">
           <thead>
             <tr style="border-bottom: 1px solid #232b42; color: var(--text-dim); text-align: left;">
               <th style="padding: 10px 12px; font-weight: 600;" data-i18n="players_col_player">Player</th>

@@ -1410,7 +1410,11 @@ async def share_log(req: Optional[ShareLogRequest] = None):
 async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(None)):
     # Authenticate websocket connection
     if settings.admin_password:
-        cookie_token = websocket.cookies.get("dockraft_token") or websocket.cookies.get("litemc_token")
+        cookie_token = (
+            websocket.cookies.get("dockraft_token")
+            or websocket.cookies.get("dockraft_session")
+            or websocket.cookies.get("litemc_token")
+        )
         effective_token = token or cookie_token
         if not effective_token or not verify_session_token(effective_token):
             # Must accept() before being able to close() with a code in WebSocket protocol

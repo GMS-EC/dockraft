@@ -902,12 +902,32 @@ class ProcessManager:
             except Exception:
                 await asyncio.sleep(45)
 
-    async def send_command(self, cmd_text: str, echo: bool = True) -> Dict[str, Any]:
-        """Writes command to process stdin."""
-        if not self.process or not self.process.stdin or self.process.returncode is not None:
-            return {"status": "error", "message": "Server is not running"}
+    async def send_command(self, cmd_text: str, echo: bool = True, user: str = "admin") -> Dict[str, Any]:
+        """Writes command to process stdin and records the activity."""
+        clean_cmd = (cmd_text or "").strip()
+        if not clean_cmd:
+            return {"status": "error", "message": "Empty command"}
 
-        clean_cmd = cmd_text.strip()
+        # If server is not running or stdin is not available
+        if not self.process or not self.process.stdin or self.process.returncode is not None:
+            if echo:
+                log_echo = f"> {clean_cmd}"
+                fail_echo = f"[Dockraft] Servidor no disponible ({self.status}). No se pudo ejecutar el comando: {clean_cmd}"
+                self._append_log(log_echo)
+                self._append_log(fail_echo)
+                await self.broadcast_message({"type": "log", "data": f"{log_echo}\n{fail_echo}"})
+            try:
+                activity_manager.log(
+                    category="console",
+                    action="Comando no ejecutado",
+                    details=clean_cmd,
+                    user=user or "admin",
+                    status="warning"
+                )
+            except Exception:
+                pass
+            return {"status": "error", "message": f"Server is not running (status: {self.status})"}
+
         try:
             self.process.stdin.write(f"{clean_cmd}\n".encode("utf-8"))
             await self.process.stdin.drain()
@@ -919,15 +939,29 @@ class ProcessManager:
                 try:
                     activity_manager.log(
                         category="console",
-                        action="Comando enviado",
-                        details=f"> {clean_cmd}",
-                        user="admin",
+                        action="Comando ejecutado",
+                        details=clean_cmd,
+                        user=user or "admin",
                         status="success"
                     )
                 except Exception:
                     pass
             return {"status": "success"}
         except Exception as e:
+            if echo:
+                err_echo = f"[Dockraft] Error al enviar comando: {e}"
+                self._append_log(err_echo)
+                await self.broadcast_message({"type": "log", "data": err_echo})
+            try:
+                activity_manager.log(
+                    category="console",
+                    action="Fallo de comando",
+                    details=f"{clean_cmd} (Error: {e})",
+                    user=user or "admin",
+                    status="error"
+                )
+            except Exception:
+                pass
             return {"status": "error", "message": str(e)}
 
 process_manager = ProcessManager()

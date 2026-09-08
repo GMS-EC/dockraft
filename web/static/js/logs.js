@@ -70,7 +70,7 @@ const Logs = {
       if (q) {
         const strAction = (item.action || '').toLowerCase();
         const strMsg = (item.message || '').toLowerCase();
-        const strDetail = (item.detail || '').toLowerCase();
+        const strDetail = (item.details || item.detail || '').toLowerCase();
         const strUser = (item.user || '').toLowerCase();
         if (!strAction.includes(q) && !strMsg.includes(q) && !strDetail.includes(q) && !strUser.includes(q)) {
           return false;
@@ -93,7 +93,7 @@ const Logs = {
 
     tbody.innerHTML = filtered.map(item => {
       const catBadge = this.formatCategoryBadge(item.category);
-      const statusBadge = this.formatStatusBadge(item.level);
+      const statusBadge = this.formatStatusBadge(item.status || item.level);
       const timeStr = this.formatTimestamp(item.timestamp);
       const detailHtml = this.formatDetail(item);
       const userStr = escapeHtml(item.user || 'admin');
@@ -189,8 +189,10 @@ const Logs = {
   },
 
   formatDetail(item) {
+    const rawDetail = item.details || item.detail || item.message || '';
     if (item.category === 'console') {
-      const cmd = escapeHtml(item.detail || item.message || '');
+      const cleanCmd = String(rawDetail).replace(/^>\s*/, '');
+      const cmd = escapeHtml(cleanCmd);
       return `
         <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, 0.35); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(163, 113, 247, 0.25);">
           <span style="color: #d2a8ff; font-family: var(--font-mono); font-size: 0.82rem;">&gt;</span>
@@ -203,7 +205,7 @@ const Logs = {
     }
 
     const msg = escapeHtml(item.message || '');
-    const detail = item.detail ? `<div style="font-size: 0.76rem; color: var(--text-dim); margin-top: 2px;">${escapeHtml(item.detail)}</div>` : '';
+    const detail = rawDetail && rawDetail !== item.message ? `<div style="font-size: 0.76rem; color: var(--text-dim); margin-top: 2px;">${escapeHtml(rawDetail)}</div>` : (item.message ? '' : escapeHtml(rawDetail));
     return `<div>${msg}${detail}</div>`;
   },
 

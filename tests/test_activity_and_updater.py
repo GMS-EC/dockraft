@@ -191,3 +191,56 @@ async def test_update_server_workflow_with_safe_shutdown_and_backup(tmp_path, cl
 
             # Verify activity logged
             assert any(call[1].get("category") == "update" or "update" in str(call) for call in mock_act.log.call_args_list)
+
+def test_activity_manager_7_day_retention(temp_activity_mgr):
+    import time
+    mgr = temp_activity_mgr
+    now = time.time()
+
+    # Add an entry from 10 days ago (expired)
+    old_entry = mgr.log("console", "Old Command", "help", status="success")
+    old_entry["created_at"] = now - (10 * 86400)
+
+    # Add an entry from 8 days ago (expired)
+    old_entry_2 = mgr.log("server", "Old Event", "restart", status="info")
+    old_entry_2["created_at"] = now - (8 * 86400)
+
+    # Add an entry from 2 days ago (retained)
+    recent_entry = mgr.log("console", "Recent Command", "list", status="success")
+    recent_entry["created_at"] = now - (2 * 86400)
+
+    # Add an entry from today (retained)
+    mgr.log("console", "Today Command", "say hello", status="success")
+
+    # Query logs; expired entries should be pruned automatically
+    res = mgr.get_logs()
+    assert res["total"] == 2
+    actions = [e["action"] for e in res["logs"]]
+    assert "Today Command" in actions
+    assert "Recent Command" in actions
+    assert "Old Command" not in actions
+    assert "Old Event" not in actions
+
+@pytest.mark.asyncio
+async def test_send_command_offline_logging():
+    from app.core.process_manager import process_manager
+    from app.core.activity_manager import activity_manager
+
+    # Ensure process is None
+    process_manager.process = None
+    process_manager.status = "OFFLINE"
+
+    with patch.object(activity_manager, "log") as mock_log, \
+         patch.object(process_manager, "broadcast_message") as mock_broadcast:
+        res = await process_manager.send_command("list", echo=True)
+        assert res["status"] == "error"
+        assert "Server is not running" in res["message"]
+
+        # Verify it logged to activity_manager
+        mock_log.assert_called_once_with(
+            category="console",
+            action="Comando no ejecutado",
+            details="list",
+            user="admin",
+            status="warning"
+        )

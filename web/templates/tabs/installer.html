@@ -51,13 +51,51 @@
       <strong style="color: #c9d1d9;">Tus mundos, plugins, mods y configuraciones (<code>server.properties</code>) se conservan intactos.</strong>
     </p>
 
+    <!-- Channel Tabs / Pill Switcher -->
+    <div style="margin-bottom: 14px;">
+      <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; font-weight: 500;">
+        Canal de actualización:
+      </div>
+      <div class="channel-pills" style="display: inline-flex; background: #0d1117; padding: 3px; border-radius: 8px; border: 1px solid var(--border-color); gap: 4px; flex-wrap: wrap;">
+        <button type="button" class="channel-pill-btn active" id="btn-channel-stable" onclick="Installer.switchUpdateChannel('stable')" style="background: var(--accent-primary); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <span>⭐ Versiones Estables (Recomendado)</span>
+        </button>
+        <button type="button" class="channel-pill-btn" id="btn-channel-beta" onclick="Installer.switchUpdateChannel('beta')" style="background: transparent; border: none; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <span>🔥 Betas, Snapshots & Pre-releases</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Beta Instability Warning Box (Displayed when Beta channel is active) -->
+    <div id="beta-instability-alert" style="display: none; margin-bottom: 14px; padding: 12px 14px; background: rgba(210, 153, 34, 0.12); border: 1px solid #d29922; border-left: 4px solid #d29922; color: #e3b341; font-size: 0.84rem; border-radius: 6px; line-height: 1.45;">
+      <div style="display: flex; align-items: flex-start; gap: 10px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div>
+          <strong style="display: block; font-size: 0.88rem; margin-bottom: 3px; color: #f2cc60;">⚠️ Advertencia de Inestabilidad (Versiones Experimentales)</strong>
+          Las versiones Beta, Snapshots y Pre-releases son compilaciones preliminares en desarrollo. Pueden contener errores críticos, pérdida de datos, fallos de rendimiento o incompatibilidad con plugins y mods. Úsalas únicamente para pruebas y bajo tu propia responsabilidad. Dockraft creará una copia de seguridad preventiva antes de actualizar.
+        </div>
+      </div>
+    </div>
+
     <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
-      <div class="form-group" style="flex: 1; min-width: 240px; margin-bottom: 0;">
-        <label class="form-label" for="update-version-select">Versión de destino</label>
-        <select class="form-select" id="update-version-select">
-          <option value="">Cargando versiones disponibles...</option>
+      <!-- Stable List Container -->
+      <div class="form-group" id="update-group-stable" style="flex: 1; min-width: 240px; margin-bottom: 0;">
+        <label class="form-label" for="update-version-select-stable">Selecciona Versión Estable</label>
+        <select class="form-select" id="update-version-select-stable" onchange="Installer.onVersionSelectChange('stable')">
+          <option value="">Cargando versiones estables...</option>
         </select>
       </div>
+
+      <!-- Beta List Container (Hidden by default) -->
+      <div class="form-group" id="update-group-beta" style="display: none; flex: 1; min-width: 240px; margin-bottom: 0;">
+        <label class="form-label" for="update-version-select-beta" style="color: #e3b341;">Selecciona Versión Beta / Snapshot</label>
+        <select class="form-select" id="update-version-select-beta" style="border-color: rgba(210, 153, 34, 0.4);" onchange="Installer.onVersionSelectChange('beta')">
+          <option value="">Cargando versiones beta...</option>
+        </select>
+      </div>
+
+      <!-- Hidden compatibility select for any automated code expecting update-version-select -->
+      <select id="update-version-select" style="display: none;"></select>
 
       <button class="btn btn-primary" id="btn-apply-update" onclick="Installer.startUpdate()" style="white-space: nowrap; height: 42px; display: flex; align-items: center; gap: 8px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>

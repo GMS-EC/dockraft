@@ -12,13 +12,15 @@ class ActivityManager:
     """
 
     MAX_ENTRIES = 1500
+    RETENTION_DAYS = 7
 
-    def __init__(self, log_file: Optional[Any] = None, max_entries: int = 1500):
+    def __init__(self, log_file: Optional[Any] = None, max_entries: int = 1500, retention_days: int = 7):
         self._entries: List[Dict[str, Any]] = []
         self._next_id: int = 1
         self._loaded: bool = False
         self._custom_log_file = Path(log_file) if log_file else None
         self.max_entries = max_entries
+        self.retention_days = retention_days
 
     @property
     def log_file(self) -> Path:
@@ -39,12 +41,70 @@ class ActivityManager:
                         if self._entries:
                             max_id = max(e.get("id", 0) for e in self._entries)
                             self._next_id = max_id + 1
+                        # Prune expired records upon load
+                        if self.prune_expired(self.retention_days) > 0:
+                            self._save()
             except Exception as e:
                 print(f"[Dockraft] Warning loading activity_logs.json: {e}")
                 self._entries = []
 
+    def prune_expired(self, max_age_days: Optional[int] = None) -> int:
+        """Prunes log entries older than max_age_days (default: 7 days).
+        Returns the number of pruned entries.
+        """
+        days = max_age_days if max_age_days is not None else self.retention_days
+        if days is None or days <= 0:
+            return 0
+
+        now_sec = time.time()
+        cutoff_sec = now_sec - (days * 86400)
+        initial_count = len(self._entries)
+        survivors = []
+
+        for e in self._entries:
+            # Check created_at float
+            c_at = e.get("created_at")
+            if c_at is not None:
+                try:
+                    if float(c_at) >= cutoff_sec:
+                        survivors.append(e)
+                    continue
+                except (ValueError, TypeError):
+                    pass
+
+            # Fallback to iso timestamp
+            iso_val = e.get("iso")
+            if iso_val:
+                try:
+                    dt = datetime.fromisoformat(iso_val)
+                    if dt.timestamp() >= cutoff_sec:
+                        survivors.append(e)
+                    continue
+                except Exception:
+                    pass
+
+            # Fallback to timestamp string %Y-%m-%d %H:%M:%S
+            ts_val = e.get("timestamp")
+            if ts_val:
+                try:
+                    dt = datetime.strptime(ts_val, "%Y-%m-%d %H:%M:%S")
+                    if dt.timestamp() >= cutoff_sec:
+                        survivors.append(e)
+                    continue
+                except Exception:
+                    pass
+
+            # Retain if timestamp cannot be parsed
+            survivors.append(e)
+
+        pruned = initial_count - len(survivors)
+        if pruned > 0:
+            self._entries = survivors
+        return pruned
+
     def _save(self):
         try:
+            self.prune_expired(self.retention_days)
             # Keep at most max_entries
             limit = self.max_entries or self.MAX_ENTRIES
             if len(self._entries) > limit:
@@ -72,6 +132,7 @@ class ActivityManager:
             "id": self._next_id,
             "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
             "iso": now.isoformat(),
+            "created_at": time.time(),
             "category": category,
             "action": action,
             "details": details,
@@ -92,6 +153,7 @@ class ActivityManager:
     ) -> Dict[str, Any]:
         """Returns filtered and paginated activity logs along with category counts."""
         self._ensure_loaded()
+        self.prune_expired(self.retention_days)
 
         # Category counts
         counts = {

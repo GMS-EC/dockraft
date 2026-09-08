@@ -123,12 +123,16 @@ const Players = {
         let connText = p.last_connection;
         const isNever = !connText || connText === 'never' || connText === '--' || connText.toLowerCase() === 'nunca' || connText.toLowerCase() === 'never';
         if (isNever) {
-          connText = (typeof I18n !== 'undefined' && I18n.currentLang === 'es') ? 'Nunca' : 'never';
+          connText = (typeof I18n !== 'undefined' && I18n.currentLang === 'es') ? 'Nunca' : 'Never';
         }
+        const lastConnLabel = (typeof I18n !== 'undefined' && I18n.currentLang === 'es') ? 'Última vez' : 'Last seen';
         statusHtml = `
-          <div style="display: flex; align-items: center; gap: 6px; color: #d29922; font-size: 0.8rem;">
-            <span class="status-dot" style="background-color: #f59e0b; width: 7px; height: 7px;"></span>
-            <span>Offline Last connection : ${this.escapeHtml(connText)}</span>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <div style="display: flex; align-items: center; gap: 6px; color: #8b949e; font-weight: 500; font-size: 0.8rem;">
+              <span class="status-dot" style="background-color: #6e7681; width: 7px; height: 7px;"></span>
+              <span>Offline</span>
+            </div>
+            <span style="font-size: 0.72rem; color: var(--text-dim); padding-left: 13px; white-space: nowrap;">${lastConnLabel}: ${this.escapeHtml(connText)}</span>
           </div>
         `;
       }
@@ -138,8 +142,8 @@ const Players = {
       const kickAttr = !p.is_online ? 'disabled' : `onclick="Players.promptKick('${safeName}')"`;
 
       const opBtn = p.is_op 
-        ? `<button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.78rem; min-height: 28px; border-color: #eab308; color: #fbbf24;" onclick="Players.setOp('${safeName}', false)" title="Revocar permisos de operador">De-OP</button>`
-        : `<button class="btn btn-warning" style="padding: 4px 10px; font-size: 0.78rem; min-height: 28px; background-color: #eab308; border-color: #ca8a04; color: #000; font-weight: 600;" onclick="Players.setOp('${safeName}', true)" title="Hacer Operador del servidor">OP</button>`;
+        ? `<button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.74rem; min-height: 26px; border-color: #eab308; color: #fbbf24;" onclick="Players.setOp('${safeName}', false)" title="Revocar permisos de operador">De-OP</button>`
+        : `<button class="btn btn-warning" style="padding: 4px 8px; font-size: 0.74rem; min-height: 26px; background-color: #eab308; border-color: #ca8a04; color: #000; font-weight: 600;" onclick="Players.setOp('${safeName}', true)" title="Hacer Operador del servidor">OP</button>`;
 
       tr.innerHTML = `
         <td style="padding: 10px 12px;">

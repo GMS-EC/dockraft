@@ -385,6 +385,8 @@ const Installer = {
       const curBadge = document.getElementById('update-current-version-badge');
       const statusBadge = document.getElementById('update-status-badge');
       const previewBadge = document.getElementById('update-preview-badge');
+      const selectStable = document.getElementById('update-version-select-stable');
+      const selectBeta = document.getElementById('update-version-select-beta');
       const select = document.getElementById('update-version-select');
       const warningBadge = document.getElementById('update-warning-badge');
 
@@ -411,9 +413,10 @@ const Installer = {
           statusBadge.style.color = '#58a6ff';
           statusBadge.title = "Haz clic para seleccionar esta versión";
           statusBadge.onclick = () => {
-            if (select && data.latest_stable) {
-              select.value = data.latest_stable;
-              select.dispatchEvent(new Event('change'));
+            this.switchUpdateChannel('stable');
+            if (selectStable && data.latest_stable) {
+              selectStable.value = data.latest_stable;
+              this.onVersionSelectChange('stable');
               App.showToast(`Versión seleccionada: ${data.latest_stable}`, 'info');
             }
           };
@@ -424,9 +427,10 @@ const Installer = {
           statusBadge.style.color = '#58a6ff';
           statusBadge.title = `Haz clic para seleccionar ${data.latest_stable}`;
           statusBadge.onclick = () => {
-            if (select && data.latest_stable) {
-              select.value = data.latest_stable;
-              select.dispatchEvent(new Event('change'));
+            this.switchUpdateChannel('stable');
+            if (selectStable && data.latest_stable) {
+              selectStable.value = data.latest_stable;
+              this.onVersionSelectChange('stable');
               App.showToast(`Versión seleccionada: ${data.latest_stable}`, 'info');
             }
           };
@@ -448,10 +452,11 @@ const Installer = {
           previewBadge.title = `Haz clic para seleccionar la beta ${data.latest_preview}`;
           previewBadge.innerHTML = `Beta disponible: <strong>${data.latest_preview}</strong> <span style="font-size:0.75rem; margin-left:4px; opacity:0.85;">(clic para elegir)</span>`;
           previewBadge.onclick = () => {
-            if (select) {
-              select.value = data.latest_preview;
-              select.dispatchEvent(new Event('change'));
-              App.showToast(`Versión beta seleccionada: ${data.latest_preview}`, 'info');
+            this.switchUpdateChannel('beta');
+            if (selectBeta) {
+              selectBeta.value = data.latest_preview;
+              this.onVersionSelectChange('beta');
+              App.showToast(`Versión beta seleccionada: ${data.latest_preview}`, 'warning');
             }
           };
         } else {
@@ -459,73 +464,123 @@ const Installer = {
         }
       }
 
+      const items = data.versions || [];
+      const stables = items.filter(v => v.channel === 'stable');
+      const previews = items.filter(v => v.channel !== 'stable');
+
+      // Populate Stable Select
+      if (selectStable) {
+        selectStable.innerHTML = '';
+        stables.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.textContent = v.label || v.id;
+          opt.setAttribute('data-channel', 'stable');
+          selectStable.appendChild(opt);
+        });
+        if (stables.length === 0) {
+          selectStable.innerHTML = `<option value="">No hay versiones estables disponibles</option>`;
+        }
+      }
+
+      // Populate Beta Select
+      if (selectBeta) {
+        selectBeta.innerHTML = '';
+        previews.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.textContent = `🔥 ${v.label || v.id}`;
+          opt.setAttribute('data-channel', v.channel || 'pre');
+          selectBeta.appendChild(opt);
+        });
+        if (previews.length === 0) {
+          selectBeta.innerHTML = `<option value="">No hay versiones beta disponibles</option>`;
+        }
+      }
+
+      // Populate hidden compatibility select
       if (select) {
         select.innerHTML = '';
-        const items = data.versions || [];
-        const stables = items.filter(v => v.channel === 'stable');
-        const previews = items.filter(v => v.channel !== 'stable');
-
-        // Previews & Betas on top so users immediately see recent test builds/snapshots
-        if (previews.length > 0) {
-          const optgPrev = document.createElement('optgroup');
-          optgPrev.label = "🔥 Pre-releases, Snapshots y Betas";
-          previews.forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v.id;
-            opt.textContent = v.label || v.id;
-            opt.setAttribute('data-channel', v.channel);
-            optgPrev.appendChild(opt);
-          });
-          select.appendChild(optgPrev);
-        }
-
-        if (stables.length > 0) {
-          const optgStable = document.createElement('optgroup');
-          optgStable.label = "⭐ Versiones Estables (Recomendado)";
-          stables.forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v.id;
-            opt.textContent = v.label || v.id;
-            opt.setAttribute('data-channel', v.channel);
-            optgStable.appendChild(opt);
-          });
-          select.appendChild(optgStable);
-        }
-
-        if (stables.length === 0 && previews.length === 0) {
+        items.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.textContent = v.label || v.id;
+          select.appendChild(opt);
+        });
+        if (items.length === 0) {
           select.innerHTML = `<option value="${data.current_version}">${data.current_version}</option>`;
         }
-
-        // On change, check if selected option is pre/snapshot and display warning
-        const checkWarning = () => {
-          const selectedOpt = select.options[select.selectedIndex];
-          const ch = selectedOpt ? selectedOpt.getAttribute('data-channel') : 'stable';
-          const isRunning = stats && stats.status && stats.status !== 'OFFLINE';
-          if (warningBadge) {
-            if (isRunning) {
-              warningBadge.style.display = 'block';
-              warningBadge.style.background = 'rgba(56, 139, 253, 0.1)';
-              warningBadge.style.border = '1px solid #388bfd';
-              warningBadge.style.color = '#58a6ff';
-              warningBadge.innerHTML = 'ℹ️ <strong>El servidor está en ejecución.</strong> Al pulsar "Actualizar Servidor", Dockraft guardará el mundo (save-all), apagará el servidor de forma segura, generará un respaldo automático previo, verificará la integridad contra corrupciones y lo reiniciará automáticamente al terminar.';
-            } else if (ch && ch !== 'stable') {
-              warningBadge.style.display = 'block';
-              warningBadge.style.background = 'rgba(210, 153, 34, 0.1)';
-              warningBadge.style.border = '1px solid #d29922';
-              warningBadge.style.color = '#e3b341';
-              warningBadge.innerHTML = '⚠️ <strong>Versión de prueba seleccionada (Pre-Release / Snapshot / Beta):</strong> Puede contener errores experimentales. Se generará un respaldo automático antes de aplicarla.';
-            } else {
-              warningBadge.style.display = 'none';
-            }
-          }
-        };
-
-        select.onchange = checkWarning;
-        checkWarning();
       }
+
+      this.switchUpdateChannel(this.currentUpdateChannel || 'stable');
 
     } catch (err) {
       console.warn("Could not load update info:", err);
+    }
+  },
+
+  currentUpdateChannel: 'stable',
+
+  switchUpdateChannel(channel) {
+    this.currentUpdateChannel = channel;
+    const btnStable = document.getElementById('btn-channel-stable');
+    const btnBeta = document.getElementById('btn-channel-beta');
+    const groupStable = document.getElementById('update-group-stable');
+    const groupBeta = document.getElementById('update-group-beta');
+    const alertBeta = document.getElementById('beta-instability-alert');
+    const selectStable = document.getElementById('update-version-select-stable');
+    const selectBeta = document.getElementById('update-version-select-beta');
+    const selectComp = document.getElementById('update-version-select');
+
+    if (channel === 'stable') {
+      if (btnStable) {
+        btnStable.style.background = 'var(--accent-primary)';
+        btnStable.style.color = '#fff';
+        btnStable.classList.add('active');
+      }
+      if (btnBeta) {
+        btnBeta.style.background = 'transparent';
+        btnBeta.style.color = 'var(--text-muted)';
+        btnBeta.style.border = 'none';
+        btnBeta.classList.remove('active');
+      }
+      if (groupStable) groupStable.style.display = 'block';
+      if (groupBeta) groupBeta.style.display = 'none';
+      if (alertBeta) alertBeta.style.display = 'none';
+
+      if (selectComp && selectStable) {
+        selectComp.value = selectStable.value;
+      }
+    } else {
+      if (btnBeta) {
+        btnBeta.style.background = 'rgba(210, 153, 34, 0.25)';
+        btnBeta.style.color = '#f2cc60';
+        btnBeta.style.border = '1px solid #d29922';
+        btnBeta.classList.add('active');
+      }
+      if (btnStable) {
+        btnStable.style.background = 'transparent';
+        btnStable.style.color = 'var(--text-muted)';
+        btnStable.classList.remove('active');
+      }
+      if (groupStable) groupStable.style.display = 'none';
+      if (groupBeta) groupBeta.style.display = 'block';
+      if (alertBeta) alertBeta.style.display = 'block';
+
+      if (selectComp && selectBeta) {
+        selectComp.value = selectBeta.value;
+      }
+    }
+  },
+
+  onVersionSelectChange(channel) {
+    const selectStable = document.getElementById('update-version-select-stable');
+    const selectBeta = document.getElementById('update-version-select-beta');
+    const selectComp = document.getElementById('update-version-select');
+    if (channel === 'stable' && selectStable && selectComp) {
+      selectComp.value = selectStable.value;
+    } else if (channel === 'beta' && selectBeta && selectComp) {
+      selectComp.value = selectBeta.value;
     }
   },
 
@@ -539,22 +594,37 @@ const Installer = {
       isRunning = (stats.status && stats.status !== 'OFFLINE');
     } catch (e) {}
 
+    let targetVer = null;
+    const selectStable = document.getElementById('update-version-select-stable');
+    const selectBeta = document.getElementById('update-version-select-beta');
     const select = document.getElementById('update-version-select');
-    if (!select || !select.value) {
+
+    if (this.currentUpdateChannel === 'beta' && selectBeta && selectBeta.value) {
+      targetVer = selectBeta.value;
+    } else if (selectStable && selectStable.value) {
+      targetVer = selectStable.value;
+    } else if (select && select.value) {
+      targetVer = select.value;
+    }
+
+    if (!targetVer) {
       App.showToast("Por favor selecciona una versión válida para actualizar.", 'danger');
       return;
     }
 
-    const targetVer = select.value;
+    if (select) select.value = targetVer;
+
+    const isBetaTarget = (this.currentUpdateChannel === 'beta');
+    const betaNotice = isBetaTarget ? '\n\n⚠️ NOTA: Estás instalando una versión Beta/Snapshot experimental.' : '';
     const confirmMessage = isRunning
-      ? `¿Deseas actualizar tu servidor a la versión "${targetVer}"?\n\n• El servidor se detendrá de forma segura (guardando mundos con save-all).\n• Se creará un respaldo de seguridad automático (pre-update-${targetVer}).\n• Se verificará la integridad del archivo para evitar corrupciones.\n• El servidor se reiniciará automáticamente al finalizar la actualización.`
-      : `¿Deseas actualizar tu servidor a la versión "${targetVer}"?\n\n• Se creará un respaldo de seguridad automático (pre-update-${targetVer}).\n• Se verificará la integridad del paquete descargado contra corrupciones.\n• Tus mundos, plugins y configuraciones se mantendrán intactos.`;
+      ? `¿Deseas actualizar tu servidor a la versión "${targetVer}"?${betaNotice}\n\n• El servidor se detendrá de forma segura (guardando mundos con save-all).\n• Se creará un respaldo de seguridad automático (pre-update-${targetVer}).\n• Se verificará la integridad del archivo para evitar corrupciones.\n• El servidor se reiniciará automáticamente al finalizar la actualización.`
+      : `¿Deseas actualizar tu servidor a la versión "${targetVer}"?${betaNotice}\n\n• Se creará un respaldo de seguridad automático (pre-update-${targetVer}).\n• Se verificará la integridad del paquete descargado contra corrupciones.\n• Tus mundos, plugins y configuraciones se mantendrán intactos.`;
 
     const ok = await App.confirm({
       title: 'Actualizar Servidor',
       message: confirmMessage,
       confirmText: 'Actualizar Servidor',
-      type: 'info'
+      type: isBetaTarget ? 'warning' : 'info'
     });
     if (!ok) return;
 
