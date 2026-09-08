@@ -1,0 +1,349 @@
+import json
+import logging
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Set
+
+from app.config import settings
+from app.core.process_manager import process_manager
+from app.core.fs_utils import atomic_write_json
+
+logger = logging.getLogger("dockraft.players")
+
+class PlayerManager:
+    """
+    Manages Minecraft players, operators, whitelists, and bans for both Java and Bedrock.
+    Supports real-time live server execution via console commands when ONLINE,
+    as well as offline JSON file manipulation when OFFLINE.
+    """
+    def __init__(self):
+        self._history_file = settings.data_dir / "dockraft_players.json"
+        self._player_history: Dict[str, Dict[str, Any]] = {}
+        self._load_history()
+
+    def _load_history(self) -> None:
+        """Loads cached player history (last seen, notes) from disk."""
+        if self._history_file.exists():
+            try:
+                with open(self._history_file, "r", encoding="utf-8") as f:
+                    self._player_history = json.load(f)
+            except Exception as e:
+                logger.debug(f"Error loading player history: {e}")
+                self._player_history = {}
+
+    def _save_history(self) -> None:
+        """Persists player history to disk."""
+        try:
+            atomic_write_json(self._history_file, self._player_history, indent=2)
+        except Exception as e:
+            logger.debug(f"Error saving player history: {e}")
+
+    def record_connection(self, player_name: str) -> None:
+        """Records a player join event."""
+        if not player_name:
+            return
+        now_dt = datetime.now().strftime("%d/%m/%Y %H:%M")
+        if player_name not in self._player_history:
+            self._player_history[player_name] = {}
+        self._player_history[player_name]["last_connection"] = now_dt
+        self._player_history[player_name]["last_timestamp"] = time.time()
+        self._save_history()
+
+    def record_disconnection(self, player_name: str) -> None:
+        """Records a player leave event."""
+        if not player_name:
+            return
+        now_dt = datetime.now().strftime("%d/%m/%Y %H:%M")
+        if player_name not in self._player_history:
+            self._player_history[player_name] = {}
+        self._player_history[player_name]["last_connection"] = now_dt
+        self._player_history[player_name]["last_timestamp"] = time.time()
+        self._save_history()
+
+    def _read_json_file(self, filename: str) -> Any:
+        """Reads a JSON file from settings.data_dir safely."""
+        target = settings.data_dir / filename
+        if not target.exists():
+            return []
+        try:
+            with open(target, "r", encoding="utf-8", errors="replace") as f:
+                return json.load(f)
+        except Exception:
+            return []
+
+    def _write_json_file(self, filename: str, data: Any) -> bool:
+        """Writes a JSON file to settings.data_dir safely."""
+        target = settings.data_dir / filename
+        try:
+            atomic_write_json(target, data, indent=2)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to write {filename}: {e}")
+            return False
+
+    def get_ops(self) -> Set[str]:
+        """Returns set of operator player names (lowercase)."""
+        ops_set = set()
+        # Java: ops.json
+        raw = self._read_json_file("ops.json")
+        if isinstance(raw, list):
+            for entry in raw:
+                if isinstance(entry, dict) and "name" in entry:
+                    ops_set.add(entry["name"].lower())
+
+        # Bedrock: permissions.json
+        bedrock_raw = self._read_json_file("permissions.json")
+        if isinstance(bedrock_raw, list):
+            for entry in bedrock_raw:
+                if isinstance(entry, dict) and entry.get("permission") == "operator":
+                    if "name" in entry:
+                        ops_set.add(entry["name"].lower())
+                    elif "xuid" in entry:
+                        ops_set.add(entry["xuid"].lower())
+
+        return ops_set
+
+    def get_banned_players(self) -> List[Dict[str, Any]]:
+        """Returns list of banned players with reason, date, and source."""
+        banned_list = []
+        raw = self._read_json_file("banned-players.json")
+        if isinstance(raw, list):
+            for entry in raw:
+                if isinstance(entry, dict) and "name" in entry:
+                    banned_list.append({
+                        "name": entry["name"],
+                        "uuid": entry.get("uuid", ""),
+                        "created": entry.get("created", "--"),
+                        "source": entry.get("source", "Server"),
+                        "expires": entry.get("expires", "forever"),
+                        "reason": entry.get("reason", "Baneado por un operador.")
+                    })
+        return banned_list
+
+    def get_whitelist(self) -> Set[str]:
+        """Returns set of whitelisted player names (lowercase)."""
+        wl_set = set()
+        for fn in ["whitelist.json", "allowlist.json"]:
+            raw = self._read_json_file(fn)
+            if isinstance(raw, list):
+                for entry in raw:
+                    if isinstance(entry, dict) and "name" in entry:
+                        wl_set.add(entry["name"].lower())
+        return wl_set
+
+    def get_known_players(self) -> Set[str]:
+        """Collects all known players from usercache, history, ops, whitelist, and online players."""
+        known = set()
+
+        # 1. usercache.json
+        usercache = self._read_json_file("usercache.json")
+        if isinstance(usercache, list):
+            for u in usercache:
+                if isinstance(u, dict) and "name" in u:
+                    known.add(u["name"])
+
+        # 2. player_history.json
+        for name in self._player_history.keys():
+            known.add(name)
+
+        # 3. ops, whitelist, banned
+        for op_name in self.get_ops():
+            known.add(op_name)
+        for wl_name in self.get_whitelist():
+            known.add(wl_name)
+        for b in self.get_banned_players():
+            known.add(b["name"])
+
+        # 4. currently online players
+        for p in process_manager.online_players:
+            known.add(p)
+
+        return known
+
+    def get_all_data(self) -> Dict[str, Any]:
+        """Gathers unified player data for the web UI."""
+        self._load_history()
+        known = self.get_known_players()
+        ops = self.get_ops()
+        whitelist = self.get_whitelist()
+        banned = self.get_banned_players()
+        banned_names = {b["name"].lower() for b in banned}
+        online = process_manager.online_players
+
+        players_list = []
+        for name in sorted(known, key=lambda s: s.lower()):
+            if not name:
+                continue
+            name_lower = name.lower()
+            is_banned = name_lower in banned_names
+            is_online = name in online
+            is_op = name_lower in ops
+            is_whitelisted = name_lower in whitelist
+
+            hist = self._player_history.get(name, {})
+            last_conn = hist.get("last_connection", "never")
+            if is_online:
+                last_conn = "En línea ahora"
+            elif not last_conn or last_conn in ["--", "never", "Nunca", "None"]:
+                last_conn = "never"
+
+            players_list.append({
+                "name": name,
+                "is_online": is_online,
+                "is_op": is_op,
+                "is_whitelisted": is_whitelisted,
+                "is_banned": is_banned,
+                "last_connection": last_conn
+            })
+
+        # Sort: Online first, then by name
+        players_list.sort(key=lambda p: (not p["is_online"], p["name"].lower()))
+
+        return {
+            "server_online": process_manager.get_status() in ["RUNNING", "ONLINE"],
+            "online_count": len(online),
+            "players": players_list,
+            "banned": banned
+        }
+
+    async def kick_player(self, player_name: str, reason: str = "") -> Dict[str, Any]:
+        """Kicks a connected player."""
+        player_name = player_name.strip()
+        if not player_name:
+            return {"status": "error", "message": "Nombre de jugador inválido."}
+
+        cmd = f"kick {player_name}"
+        if reason.strip():
+            cmd += f" {reason.strip()}"
+
+        if process_manager.get_status() in ["RUNNING", "ONLINE"]:
+            await process_manager.send_command(cmd)
+            process_manager.online_players.discard(player_name)
+            self.record_disconnection(player_name)
+            return {"status": "success", "message": f"Jugador {player_name} expulsado."}
+        else:
+            return {"status": "warning", "message": "El servidor está fuera de línea. Solo se puede expulsar a jugadores conectados."}
+
+    async def kick_all_players(self, reason: str = "") -> Dict[str, Any]:
+        """Kicks all currently connected players."""
+        if process_manager.get_status() not in ["RUNNING", "ONLINE"]:
+            return {"status": "warning", "message": "El servidor está fuera de línea. Solo se puede expulsar a jugadores conectados."}
+
+        reason_clean = reason.strip() or "Mantenimiento del servidor"
+        
+        # 1. Native kick @a command
+        await process_manager.send_command(f"kick @a {reason_clean}")
+
+        # 2. Iterate through currently tracked online players to ensure disconnection across all server flavors
+        online_list = list(process_manager.online_players)
+        for p in online_list:
+            await process_manager.send_command(f"kick {p} {reason_clean}")
+            self.record_disconnection(p)
+
+        count = len(online_list)
+        process_manager.online_players.clear()
+
+        msg = f"Se ha expulsado a todos los jugadores ({count} conectados)." if count > 0 else "Se ha enviado la orden de expulsión a todos los jugadores (@a)."
+        return {
+            "status": "success",
+            "count": count,
+            "message": msg
+        }
+
+    async def ban_player(self, player_name: str, reason: str = "") -> Dict[str, Any]:
+        """Bans a player either via console command or JSON file."""
+        player_name = player_name.strip()
+        if not player_name:
+            return {"status": "error", "message": "Nombre de jugador inválido."}
+
+        reason_clean = reason.strip() or "Baneado por el administrador."
+        cmd = f"ban {player_name} {reason_clean}"
+
+        if process_manager.get_status() in ["RUNNING", "ONLINE"]:
+            await process_manager.send_command(cmd)
+            process_manager.online_players.discard(player_name)
+            self.record_disconnection(player_name)
+        else:
+            # Offline JSON manipulation
+            banned_list = self._read_json_file("banned-players.json")
+            if not isinstance(banned_list, list):
+                banned_list = []
+            
+            # Remove if duplicate already exists
+            banned_list = [b for b in banned_list if b.get("name", "").lower() != player_name.lower()]
+            banned_list.append({
+                "uuid": "",
+                "name": player_name,
+                "created": datetime.now().strftime("%Y-%m-%d %H:%M:%S %z"),
+                "source": "Dockraft Panel",
+                "expires": "forever",
+                "reason": reason_clean
+            })
+            self._write_json_file("banned-players.json", banned_list)
+
+        self.record_disconnection(player_name)
+        return {"status": "success", "message": f"Jugador {player_name} ha sido baneado."}
+
+    async def pardon_player(self, player_name: str) -> Dict[str, Any]:
+        """Unbans / pardons a player."""
+        player_name = player_name.strip()
+        if not player_name:
+            return {"status": "error", "message": "Nombre de jugador inválido."}
+
+        cmd = f"pardon {player_name}"
+        if process_manager.get_status() in ["RUNNING", "ONLINE"]:
+            await process_manager.send_command(cmd)
+
+        # Ensure offline file is updated as well
+        banned_list = self._read_json_file("banned-players.json")
+        if isinstance(banned_list, list):
+            new_list = [b for b in banned_list if b.get("name", "").lower() != player_name.lower()]
+            self._write_json_file("banned-players.json", new_list)
+
+        return {"status": "success", "message": f"Jugador {player_name} desbaneado con éxito."}
+
+    async def set_op(self, player_name: str, is_op: bool) -> Dict[str, Any]:
+        """Grants or revokes OP status."""
+        player_name = player_name.strip()
+        if not player_name:
+            return {"status": "error", "message": "Nombre de jugador inválido."}
+
+        cmd = f"op {player_name}" if is_op else f"deop {player_name}"
+
+        if process_manager.get_status() in ["RUNNING", "ONLINE"]:
+            await process_manager.send_command(cmd)
+        else:
+            # Offline JSON manipulation
+            ops_list = self._read_json_file("ops.json")
+            if not isinstance(ops_list, list):
+                ops_list = []
+            
+            ops_list = [o for o in ops_list if o.get("name", "").lower() != player_name.lower()]
+            if is_op:
+                ops_list.append({
+                    "uuid": "",
+                    "name": player_name,
+                    "level": 4,
+                    "bypassesPlayerLimit": False
+                })
+            self._write_json_file("ops.json", ops_list)
+
+        action_word = "promovido a Operador" if is_op else "removido de Operadores"
+        return {"status": "success", "message": f"Jugador {player_name} {action_word}."}
+
+    def add_player(self, player_name: str) -> Dict[str, Any]:
+        """Registers a player name into Dockraft's known player catalog without recording a connection."""
+        clean = player_name.strip()
+        if not clean:
+            return {"status": "error", "message": "Nombre requerido."}
+        if clean not in self._player_history:
+            self._player_history[clean] = {
+                "last_connection": "never",
+                "last_timestamp": 0.0,
+                "added_manually": True
+            }
+            self._save_history()
+        return {"status": "success", "message": f"Jugador {clean} registrado."}
+
+player_manager = PlayerManager()

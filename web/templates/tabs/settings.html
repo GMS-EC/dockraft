@@ -1,0 +1,562 @@
+<!-- TAB 6: SETTINGS & SERVER.PROPERTIES -->
+<section class="tab-pane" id="tab-settings">
+  <!-- Dynamic Server Header Profile -->
+  <div class="settings-header-banner" id="settings-header-banner">
+    <div class="settings-server-info">
+      <div class="settings-server-icon" id="settings-badge-icon" style="display: flex; align-items: center; justify-content: center;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="1"/><rect x="2" y="14" width="20" height="8" rx="1"/><line x1="6" y1="6" x2="6" y2="6"/><line x1="18" y1="18" x2="18" y2="18"/></svg>
+      </div>
+      <div>
+        <div class="settings-server-title">
+          <span id="settings-badge-title">Servidor Vanilla</span>
+          <span class="badge" id="settings-badge-version" style="background-color: var(--bg-subtle);">v26.2</span>
+          <span class="badge" id="settings-badge-edition" style="background-color: rgba(56, 139, 253, 0.15); color: #58a6ff;">Java Edition</span>
+        </div>
+        <div class="settings-server-sub" id="settings-badge-sub">Configuración de opciones de juego y rendimiento adaptadas a tu servidor.</div>
+      </div>
+    </div>
+    <div id="settings-badge-status"></div>
+  </div>
+
+  <!-- State: No Server Installed -->
+  <div class="card" id="settings-empty-state" style="display: none; text-align: center; padding: 40px 20px;">
+    <div style="margin-bottom: 12px; display: flex; justify-content: center;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <h3 style="margin-bottom: 8px;">No se ha detectado ningún servidor instalado</h3>
+    <p style="color: var(--text-muted); max-width: 540px; margin: 0 auto 20px auto; font-size: 0.9rem;">
+      Para personalizar las opciones de juego y el rendimiento, primero debes instalar un software de servidor (Paper, Purpur, Vanilla, Fabric o Bedrock) desde la pestaña "Versiones & Software".
+    </p>
+    <button class="btn btn-primary" onclick="App.switchTab('installer')" style="display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Ir a Versiones & Software
+    </button>
+  </div>
+
+  <!-- State: Bedrock Dedicated Server Settings -->
+  <div id="settings-bedrock-container" style="display: none;">
+    <div class="grid-2">
+      <!-- Bedrock Game Options -->
+      <div class="card">
+        <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1"/><circle cx="18" cy="13" r="1"/></svg>
+          Opciones de Partida Bedrock (server.properties)
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nombre del Servidor (MOTD en Bedrock)</label>
+          <input type="text" class="form-input" id="bedrock-prop-server-name" placeholder="Dedicated Server">
+          <div class="field-hint">Aparece en la lista de amigos y en el explorador LAN de Minecraft Bedrock.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nombre del Servidor (Dockraft Panel)</label>
+          <input type="text" class="form-input" id="bedrock-setting-server-name" placeholder="Mi Servidor Dockraft" value="{{ server_name or 'Mi Servidor Dockraft' }}">
+          <div class="field-hint">Identificador para la barra superior de métricas y alertas Webhooks.</div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Puerto IPv4</label>
+            <input type="number" class="form-input" id="bedrock-prop-port" value="19132">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Puerto IPv6</label>
+            <input type="number" class="form-input" id="bedrock-prop-portv6" value="19133">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Modo de Juego</label>
+            <select class="form-select" id="bedrock-prop-gamemode">
+              <option value="survival">Supervivencia (Survival)</option>
+              <option value="creative">Creativo (Creative)</option>
+              <option value="adventure">Aventura (Adventure)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Dificultad</label>
+            <select class="form-select" id="bedrock-prop-difficulty">
+              <option value="peaceful">Pacífico (Peaceful)</option>
+              <option value="easy">Fácil (Easy)</option>
+              <option value="normal">Normal</option>
+              <option value="hard">Difícil (Hard)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Permiso por Defecto</label>
+            <select class="form-select" id="bedrock-prop-permission-level">
+              <option value="visitor">Visitante (Solo mirar)</option>
+              <option value="member">Miembro (Juego normal)</option>
+              <option value="operator">Operador (Permisos de comando)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Máximo de Jugadores</label>
+            <input type="number" class="form-input" id="bedrock-prop-max-players" value="10">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Distancia de Renderizado (Chunks)</label>
+            <input type="number" class="form-input" id="bedrock-prop-view-distance" value="32">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Distancia de Ticks (4 - 12 Chunks)</label>
+            <input type="number" class="form-input" id="bedrock-prop-tick-distance" min="4" max="12" value="4">
+          </div>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Autenticación Online (Xbox Live / Microsoft)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);">Desactivar permite cuentas sin inicio de sesión Xbox.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="bedrock-prop-online-mode" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Permitir Trucos (Allow Cheats)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);">Permite comandos como /teleport, /give o cambios de modo de juego.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="bedrock-prop-allow-cheats">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Lista Blanca (Allowlist / Whitelist)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);">Solo permite ingresar a jugadores listados en allowlist.json.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="bedrock-prop-white-list">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Exigir Paquete de Recursos (Texturepack Required)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);">Obliga a los jugadores a aceptar y descargar los paquetes del servidor.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="bedrock-prop-texturepack-required">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <button class="btn btn-primary" onclick="Settings.saveBedrockProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar Opciones de Bedrock
+          </button>
+        </div>
+      </div>
+
+      <!-- Bedrock Native Performance & Network -->
+      <div class="card">
+        <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Rendimiento y Red de Bedrock (C++ Nativo)
+        </div>
+
+        <div class="info-banner info">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <div>
+            <strong>Ejecución Nativa en C++:</strong> Bedrock Dedicated Server corre directamente sobre Linux sin Máquina Virtual Java (JVM). No utiliza flags Java ni asignación de memoria heap (-Xmx).
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hilos Máximos de CPU (max-threads)</label>
+          <input type="number" class="form-input" id="bedrock-prop-max-threads" placeholder="8 (0 = Automático)">
+          <div class="field-hint">Número de hilos de procesamiento para el servidor. Establece 0 para que Bedrock aproveche todos los núcleos disponibles.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tiempo de Inactividad (player-idle-timeout)</label>
+          <input type="number" class="form-input" id="bedrock-prop-idle-timeout" value="30">
+          <div class="field-hint">Minutos de inactividad antes de desconectar automáticamente a jugadores ausentes (0 = desactivar).</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Umbral de Compresión de Red (compression-threshold)</label>
+          <input type="number" class="form-input" id="bedrock-prop-compression" value="1">
+          <div class="field-hint">Tamaño mínimo de paquete en bytes para comprimir el tráfico de red (1 = recomendado por Mojang).</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Límite de Espacio en Disco (GB)</label>
+          <input type="number" class="form-input" id="bedrock-setting-disk-limit" placeholder="10 (0 = sin límite / capacidad total)" min="0" step="0.5" value="10">
+          <div class="field-hint">Espacio máximo en GB para los datos del servidor (/server_data) antes de bloquear nuevas subidas.</div>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Registro de Contenido (content-log-file-enabled)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);">Registra advertencias y errores de scripts o packs en un archivo log separado.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="bedrock-prop-content-log">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Comportamiento del Servidor: Autostart & Crash Detection -->
+        <div style="padding: 12px; background: rgba(22, 27, 34, 0.6); border: 1px solid #30363d; border-radius: 8px; margin-top: 14px; margin-bottom: 14px;">
+          <div style="font-size: 0.84rem; font-weight: 600; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span data-i18n="settings_system_behavior_title">Comportamiento del Servidor y Sistema</span>
+          </div>
+
+          <!-- 1. Inicio automático del servidor -->
+          <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="bedrock-setting-autostart-server" data-i18n="settings_autostart_label">
+                Inicio automático del servidor
+              </label>
+              <div class="field-hint" data-i18n="settings_autostart_hint">Inicia automáticamente el servidor de Minecraft al encender el contenedor o servicio Dockraft.</div>
+            </div>
+            <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
+              <input type="checkbox" id="bedrock-setting-autostart-server">
+              <span class="slider-compact"></span>
+            </label>
+          </div>
+
+          <!-- 2. Detección de crasheos del Servidor -->
+          <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="bedrock-setting-crash-detection" data-i18n="settings_crash_label">
+                Detección de crasheos y auto-reinicio
+              </label>
+              <div class="field-hint" data-i18n="settings_crash_hint">Detecta caídas inesperadas del servidor y lo reinicia automáticamente con protección anti-bucle (máx 3 reintentos en 2 min).</div>
+            </div>
+            <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
+              <input type="checkbox" id="bedrock-setting-crash-detection" checked>
+              <span class="slider-compact"></span>
+            </label>
+          </div>
+
+          <!-- 3. Caducidad de Sesión por Inactividad -->
+          <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; padding-top: 10px; border-top: 1px solid rgba(48, 54, 61, 0.6);">
+            <div>
+              <label class="form-label" style="margin-bottom: 2px; color: #f0f6fc;" for="bedrock-setting-session-timeout" data-i18n="settings_session_timeout_label">
+                Caducidad de sesión (minutos)
+              </label>
+              <div class="field-hint" data-i18n="settings_session_timeout_hint">Tiempo de inactividad tras el cual la sesión expira automáticamente por seguridad (por defecto: 60 min).</div>
+            </div>
+            <div style="flex-shrink: 0; width: 90px; margin-left: 14px;">
+              <input type="number" class="form-input" id="bedrock-setting-session-timeout" min="5" max="10080" step="5" value="60" style="text-align: center; padding: 4px 8px;">
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <button class="btn btn-primary" onclick="Settings.saveBedrockProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar Ajustes de Rendimiento
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- State: Java Edition Settings (Paper, Purpur, Vanilla, Fabric) -->
+  <div id="settings-java-container">
+    <div class="grid-2">
+      <!-- Java Minecraft Server Properties -->
+      <div class="card">
+        <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Opciones de Juego (server.properties)
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mensaje del Servidor (MOTD)</label>
+          <input type="text" class="form-input" id="prop-motd" placeholder="A Minecraft Server">
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Modo de Juego</label>
+            <select class="form-select" id="prop-gamemode">
+              <option value="survival">Supervivencia (Survival)</option>
+              <option value="creative">Creativo (Creative)</option>
+              <option value="adventure">Aventura (Adventure)</option>
+              <option value="spectator">Espectador (Spectator)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Dificultad</label>
+            <select class="form-select" id="prop-difficulty">
+              <option value="peaceful">Pacífico (Peaceful)</option>
+              <option value="easy">Fácil (Easy)</option>
+              <option value="normal">Normal</option>
+              <option value="hard">Difícil (Hard)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Puerto del Servidor</label>
+            <input type="number" class="form-input" id="prop-server-port" value="25565">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Máximo de Jugadores</label>
+            <input type="number" class="form-input" id="prop-max-players" value="20">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Distancia de Renderizado (Chunks)</label>
+            <input type="number" class="form-input" id="prop-view-distance" value="10">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Distancia de Simulación</label>
+            <input type="number" class="form-input" id="prop-simulation-distance" value="8">
+          </div>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Modo Online (Autenticación Mojang / Microsoft)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);">Desactivar permite cuentas No-Premium / Offline.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="prop-online-mode" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">PVP (Combate entre jugadores)</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="prop-pvp" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Lista Blanca (Whitelist)</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="prop-white-list">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Permitir Volar (Allow Flight)</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="prop-allow-flight">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Spawn de Monstruos</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="prop-spawn-monsters" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Spawn de Animales</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="prop-spawn-animals" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Bloques de Comandos</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="prop-enable-command-block">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Modo Hardcore</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);">Los jugadores pasan a modo espectador al morir.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="prop-hardcore">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <button class="btn btn-primary" onclick="Settings.saveProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar server.properties
+          </button>
+        </div>
+      </div>
+
+      <!-- JVM & Runtime Options -->
+      <div class="card">
+        <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+          Opciones de Rendimiento y Memoria JVM
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nombre del Servidor (Dockraft Panel)</label>
+          <input type="text" class="form-input" id="setting-server-name" placeholder="Mi Servidor Dockraft" value="{{ server_name or 'Mi Servidor Dockraft' }}">
+          <div class="field-hint">Identificador para la barra superior de métricas y alertas Webhooks.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Entorno de Ejecución Java (Runtime)</label>
+          <select class="form-select" id="setting-java-select" onchange="Settings.onJavaSelectChange()">
+            <option value="java">Java Predeterminado del Sistema (PATH)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="setting-java-custom-group" style="display: none;">
+          <label class="form-label">Ruta personalizada al binario Java</label>
+          <input type="text" class="form-input" id="setting-java-path" value="java">
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">RAM Mínima (-Xms)</label>
+            <input type="text" class="form-input" id="setting-min-ram" value="1G">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">RAM Máxima (-Xmx)</label>
+            <input type="text" class="form-input" id="setting-max-ram" value="2G">
+          </div>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Flags de Rendimiento Aikar</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);" id="setting-aikar-desc">Optimización avanzada del recolector G1GC (Recomendado para Paper y Purpur).</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-aikar-flags" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Núcleos de CPU Asignados (-XX:ActiveProcessorCount)</label>
+            <input type="number" class="form-input" id="setting-cpu-cores" min="1" max="64" value="2">
+            <div class="field-hint">Hilos para garbage collector, compilar y runtime JVM.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Límite de Espacio en Disco (GB)</label>
+            <input type="number" class="form-input" id="setting-disk-limit" placeholder="10 (0 = sin límite / capacidad total)" min="0" step="0.5" value="10">
+            <div class="field-hint">Espacio máximo en GB para los datos del servidor.</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Flags JVM Personalizados Adicionales</label>
+          <input type="text" class="form-input" id="setting-custom-flags" placeholder="ej: -Dterminal.jline=false">
+        </div>
+
+        <!-- Comportamiento del Servidor: Autostart & Crash Detection -->
+        <div style="padding: 12px; background: rgba(22, 27, 34, 0.6); border: 1px solid #30363d; border-radius: 8px; margin-top: 14px; margin-bottom: 14px;">
+          <div style="font-size: 0.84rem; font-weight: 600; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span data-i18n="settings_system_behavior_title">Comportamiento del Servidor y Sistema</span>
+          </div>
+
+          <!-- 1. Inicio automático del servidor -->
+          <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="setting-autostart-server" data-i18n="settings_autostart_label">
+                Inicio automático del servidor
+              </label>
+              <div class="field-hint" data-i18n="settings_autostart_hint">Inicia automáticamente el servidor de Minecraft al encender el contenedor o servicio Dockraft.</div>
+            </div>
+            <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
+              <input type="checkbox" id="setting-autostart-server">
+              <span class="slider-compact"></span>
+            </label>
+          </div>
+
+          <!-- 2. Detección de crasheos del Servidor -->
+          <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="setting-crash-detection" data-i18n="settings_crash_label">
+                Detección de crasheos y auto-reinicio
+              </label>
+              <div class="field-hint" data-i18n="settings_crash_hint">Detecta caídas inesperadas del servidor y lo reinicia automáticamente con protección anti-bucle (máx 3 reintentos en 2 min).</div>
+            </div>
+            <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
+              <input type="checkbox" id="setting-crash-detection" checked>
+              <span class="slider-compact"></span>
+            </label>
+          </div>
+
+          <!-- 3. Caducidad de Sesión por Inactividad -->
+          <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; padding-top: 10px; border-top: 1px solid rgba(48, 54, 61, 0.6);">
+            <div>
+              <label class="form-label" style="margin-bottom: 2px; color: #f0f6fc;" for="setting-session-timeout" data-i18n="settings_session_timeout_label">
+                Caducidad de sesión (minutos)
+              </label>
+              <div class="field-hint" data-i18n="settings_session_timeout_hint">Tiempo de inactividad tras el cual la sesión expira automáticamente por seguridad (por defecto: 60 min).</div>
+            </div>
+            <div style="flex-shrink: 0; width: 90px; margin-left: 14px;">
+              <input type="number" class="form-input" id="setting-session-timeout" min="5" max="10080" step="5" value="60" style="text-align: center; padding: 4px 8px;">
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <button class="btn btn-primary" onclick="Settings.saveRuntimeConfig()" style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar Ajustes de Memoria JVM
+          </button>
+        </div>
+
+        <!-- Software Tips Box -->
+        <div id="settings-software-tip" class="info-banner info" style="margin-top: 18px; margin-bottom: 0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+          <div id="settings-software-tip-text">
+            Puedes editar archivos de configuración avanzados desde la pestaña <strong>Archivos</strong>.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

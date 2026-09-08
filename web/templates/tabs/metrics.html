@@ -1,0 +1,148 @@
+<!-- TAB: METRICS & TELEMETRY -->
+<section class="tab-pane" id="tab-metrics">
+  <!-- Metrics Header & Action Bar -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <h2 style="margin: 0; font-size: 1.4rem; font-weight: 700; color: #f0f6fc; display: flex; align-items: center; gap: 8px;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        <span data-i18n="metrics_title">Telemetría y Rendimiento</span>
+      </h2>
+      <p style="margin: 4px 0 0 0; color: var(--text-dim); font-size: 0.88rem;" data-i18n="metrics_subtitle">
+        Monitoreo en tiempo real de CPU, memoria y jugadores. Búfer en memoria ultra-liviano (0% disco).
+      </p>
+    </div>
+
+    <!-- Actions: Live status & Reset -->
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button class="btn btn-outline" id="btn-metrics-live-toggle" onclick="Metrics.toggleLivePolling()" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">
+        <span class="status-dot" style="background-color: #34d399; width: 8px; height: 8px; box-shadow: 0 0 6px #34d399;" id="metrics-live-dot"></span>
+        <span id="metrics-live-label" data-i18n="metrics_live_active">En Vivo (10s)</span>
+      </button>
+
+      <button class="btn btn-outline" onclick="Metrics.resetMetrics()" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;" title="Limpiar historial de métricas">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        <span data-i18n="metrics_btn_reset">Vaciar Historial</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary KPI Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px;">
+    <!-- CPU KPI -->
+    <div class="card" style="padding: 16px; border-left: 3px solid #f59e0b; background: rgba(18, 22, 36, 0.7);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim);" data-i18n="metrics_kpi_cpu">Uso de CPU</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 6px;">
+        <span id="metric-kpi-cpu-val" style="font-size: 1.6rem; font-weight: 700; color: #f0f6fc; font-family: var(--font-mono);">0.0%</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;">
+        <span data-i18n="metrics_peak">Pico:</span> <strong id="metric-kpi-cpu-peak" style="color: #f59e0b;">0.0%</strong> • <span data-i18n="metrics_avg">Media:</span> <strong id="metric-kpi-cpu-avg">0.0%</strong>
+      </div>
+    </div>
+
+    <!-- RAM KPI -->
+    <div class="card" style="padding: 16px; border-left: 3px solid #38bdf8; background: rgba(18, 22, 36, 0.7);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim);" data-i18n="metrics_kpi_ram">Memoria RAM</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 19v-3"/><path d="M10 19v-3"/><path d="M14 19v-3"/><path d="M18 19v-3"/><rect x="2" y="5" width="20" height="10" rx="2"/></svg>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 6px;">
+        <span id="metric-kpi-ram-val" style="font-size: 1.6rem; font-weight: 700; color: #f0f6fc; font-family: var(--font-mono);">0 MB</span>
+        <span id="metric-kpi-ram-pct" style="font-size: 0.88rem; color: #38bdf8; font-weight: 600;">(0%)</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;">
+        <span data-i18n="metrics_assigned">Asignada:</span> <strong id="metric-kpi-ram-assigned">2048 MB</strong> • <span data-i18n="metrics_peak">Pico:</span> <strong id="metric-kpi-ram-peak" style="color: #38bdf8;">0 MB</strong>
+      </div>
+    </div>
+
+    <!-- Players KPI -->
+    <div class="card" style="padding: 16px; border-left: 3px solid #a855f7; background: rgba(18, 22, 36, 0.7);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim);" data-i18n="metrics_kpi_players">Jugadores Online</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 6px;">
+        <span id="metric-kpi-players-val" style="font-size: 1.6rem; font-weight: 700; color: #f0f6fc; font-family: var(--font-mono);">0</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;">
+        <span data-i18n="metrics_record">Récord de sesión:</span> <strong id="metric-kpi-players-peak" style="color: #a855f7;">0 jugadores</strong>
+      </div>
+    </div>
+
+    <!-- Uptime KPI -->
+    <div class="card" style="padding: 16px; border-left: 3px solid #34d399; background: rgba(18, 22, 36, 0.7);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim);" data-i18n="metrics_kpi_uptime">Tiempo Activo</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 6px;">
+        <span id="metric-kpi-uptime-val" style="font-size: 1.25rem; font-weight: 700; color: #f0f6fc; font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">--</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;">
+        <span data-i18n="metrics_status">Estado:</span> <span id="metric-kpi-status-badge" class="badge" style="background: rgba(46, 160, 67, 0.15); color: #3fb950;">OFFLINE</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Chart Section -->
+  <div class="card" style="padding: 20px; margin-bottom: 20px;">
+    <!-- Chart Header & Interactive Series Legend -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid #232b42; padding-bottom: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span style="font-weight: 600; font-size: 0.95rem; color: #f0f6fc;" data-i18n="metrics_chart_title">Historial de Rendimiento</span>
+        <span class="badge" style="background-color: var(--bg-subtle); color: var(--text-dim); font-size: 0.72rem;" id="metrics-sample-count">0 muestras</span>
+      </div>
+
+      <!-- Series Visibility Filters -->
+      <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+        <!-- CPU Series -->
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; cursor: pointer; color: #cbd5e1;">
+          <input type="checkbox" id="metric-series-cpu" checked onchange="Metrics.redraw()">
+          <span style="display: inline-block; width: 10px; height: 10px; background-color: #f59e0b; border-radius: 2px;"></span>
+          <span data-i18n="metrics_legend_cpu">CPU %</span>
+        </label>
+
+        <!-- RAM % Series -->
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; cursor: pointer; color: #cbd5e1;">
+          <input type="checkbox" id="metric-series-ram-pct" checked onchange="Metrics.redraw()">
+          <span style="display: inline-block; width: 10px; height: 10px; background-color: #38bdf8; border-radius: 2px;"></span>
+          <span data-i18n="metrics_legend_ram_pct">RAM %</span>
+        </label>
+
+        <!-- RAM MB Series -->
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; cursor: pointer; color: #cbd5e1;">
+          <input type="checkbox" id="metric-series-ram-mb" onchange="Metrics.redraw()">
+          <span style="display: inline-block; width: 10px; height: 10px; background-color: #60a5fa; border-radius: 2px;"></span>
+          <span data-i18n="metrics_legend_ram_mb">RAM (MB)</span>
+        </label>
+
+        <!-- Players Series -->
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; cursor: pointer; color: #cbd5e1;">
+          <input type="checkbox" id="metric-series-players" checked onchange="Metrics.redraw()">
+          <span style="display: inline-block; width: 10px; height: 10px; background-color: #a855f7; border-radius: 2px;"></span>
+          <span data-i18n="metrics_legend_players">Jugadores</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Chart Canvas Container -->
+    <div style="position: relative; width: 100%; height: 340px; background: rgba(13, 17, 23, 0.95); border: 1px solid #232b42; border-radius: 8px; overflow: hidden;">
+      <canvas id="metrics-chart-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+      
+      <!-- Interactive Floating Tooltip -->
+      <div id="metrics-tooltip" style="position: absolute; display: none; pointer-events: none; background: rgba(22, 27, 34, 0.95); border: 1px solid #30363d; border-radius: 6px; padding: 8px 12px; font-size: 0.78rem; color: #c9d1d9; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10;">
+        <div id="metrics-tooltip-time" style="font-weight: 600; color: #58a6ff; margin-bottom: 4px; font-family: var(--font-mono);">--:--:--</div>
+        <div id="metrics-tooltip-body" style="display: flex; flex-direction: column; gap: 2px;"></div>
+      </div>
+
+      <!-- Empty / Gathering Data Overlay -->
+      <div id="metrics-empty-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(13, 17, 23, 0.75); color: var(--text-dim); font-size: 0.88rem;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; opacity: 0.6;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span data-i18n="metrics_gathering">Recopilando telemetría del servidor en memoria...</span>
+      </div>
+    </div>
+  </div>
+</section>

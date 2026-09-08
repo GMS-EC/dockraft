@@ -1,0 +1,70 @@
+# ==========================================
+# Dockraft - Docker Ignore Rules
+# ==========================================
+
+# Servidor, copias de seguridad y datos persistentes (se gestionan a través de volúmenes)
+data/
+backups/
+*.jar
+*.zip
+*.tar
+*.gz
+*.rar
+bedrock-server*
+bedrock_server*
+eula.txt
+server.properties
+session.lock
+*.pid
+*.tmp
+
+# Entornos virtuales de Python
+.venv/
+venv/
+env/
+ENV/
+
+# Archivos de compilación y caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Tests y cobertura
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Control de versiones y CI/CD
+.git/
+.gitignore
+.github/
+
+# Variables de entorno y credenciales
+.env
+.env.*
+!.env.example
+
+# Documentación y archivos temporales de desarrollo
+scratch/
+docs/
+*.tmp
+.*.tmp.*
+*.bak
+
+# IDEs, agentes y sistemas operativos
+.idea/
+.vscode/
+.gemini/
+.agents/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs temporales
+*.log

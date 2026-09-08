@@ -1,0 +1,187 @@
+<!-- TAB: PLAYERS MANAGEMENT (JUGADORES) -->
+<section class="tab-pane" id="tab-players">
+  <!-- Players 2-Column Responsive Layout -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 24px; align-items: start;">
+    
+    <!-- LEFT PANEL: JUGADORES -->
+    <div class="card" style="padding: 20px; background: rgba(18, 22, 36, 0.7); border: 1px solid #232b42;">
+      <!-- Panel Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f0f6fc;" data-i18n="players_section_title">
+            Jugadores:
+          </h2>
+          <span id="players-online-badge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.76rem;">
+            0 en línea
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="text" id="players-search-input" placeholder="Buscar jugador..." class="form-input" style="padding: 5px 10px; font-size: 0.82rem; width: 140px;" oninput="Players.filterPlayers()">
+          
+          <button id="btn-kick-all" class="btn btn-outline" onclick="Players.promptKickAll()" style="padding: 5px 10px; font-size: 0.82rem; border-color: #da3633; color: #f85149; display: inline-flex; align-items: center; gap: 5px;" title="Expulsar a todos los jugadores conectados">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+            <span data-i18n="players_btn_kick_all">Expulsar a todos</span>
+          </button>
+
+          <button class="btn btn-outline" onclick="Players.openAddModal()" style="padding: 5px 10px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 4px;" title="Registrar jugador manualmente">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span data-i18n="players_btn_add">Añadir</span>
+          </button>
+          <button class="action-icon-btn" onclick="Players.loadPlayers()" title="Actualizar lista" style="padding: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Players Table -->
+      <div class="table-container" style="border: 1px solid #232b42; border-radius: 6px; overflow-x: auto;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+          <thead>
+            <tr style="border-bottom: 1px solid #232b42; color: var(--text-dim); text-align: left;">
+              <th style="padding: 10px 12px; font-weight: 600;" data-i18n="players_col_player">Player</th>
+              <th style="padding: 10px 12px; font-weight: 600;" data-i18n="players_col_status">Status</th>
+              <th style="padding: 10px 12px; font-weight: 600; text-align: right;" data-i18n="players_col_actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="players-table-body">
+            <!-- Populated dynamically by Players.render() -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div id="players-empty-state" style="display: none; text-align: center; padding: 30px 10px; color: var(--text-dim); font-size: 0.85rem;">
+        No hay jugadores registrados en el servidor aún.
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: JUGADORES BANEADOS -->
+    <div class="card" style="padding: 20px; background: rgba(18, 22, 36, 0.7); border: 1px solid #232b42;">
+      <!-- Panel Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f0f6fc;" data-i18n="players_banned_title">
+            Jugadores Baneados:
+          </h2>
+          <span id="players-banned-count-badge" class="badge" style="background: rgba(218, 54, 51, 0.15); color: #f85149; font-size: 0.76rem;">
+            0
+          </span>
+        </div>
+
+        <button class="action-icon-btn" onclick="Players.loadPlayers()" title="Actualizar lista de baneados" style="padding: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
+
+      <!-- Banned Players Table -->
+      <div class="table-container" style="border: 1px solid #232b42; border-radius: 6px; overflow-x: auto;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+          <thead>
+            <tr style="border-bottom: 1px solid #232b42; color: var(--text-dim); text-align: left;">
+              <th style="padding: 10px 12px; font-weight: 600;" data-i18n="players_col_player">Player</th>
+              <th style="padding: 10px 12px; font-weight: 600;" data-i18n="players_col_status">Status</th>
+              <th style="padding: 10px 12px; font-weight: 600;" data-i18n="players_col_reason">Reason</th>
+              <th style="padding: 10px 12px; font-weight: 600; text-align: right;" data-i18n="players_col_actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="banned-table-body">
+            <!-- Populated dynamically by Players.render() -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Banned Empty State -->
+      <div id="banned-empty-state" style="display: none; text-align: center; padding: 30px 10px; color: var(--text-dim); font-size: 0.85rem;">
+        No hay jugadores baneados actualmente.
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add / Register Player Manually -->
+  <div class="modal-backdrop" id="modal-add-player">
+    <div class="modal-box" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3 style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          <span data-i18n="players_modal_add_title">Añadir Jugador al Directorio</span>
+        </h3>
+        <button class="action-icon-btn" onclick="Players.closeAddModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="add-player-name" data-i18n="players_modal_name_label">Nombre de usuario (Gamertag / Nick)</label>
+          <input type="text" class="form-input" id="add-player-name" placeholder="ej: Marcus8604" required>
+          <div class="field-hint">Registra el nombre de un jugador para gestionarlo antes de que se conecte.</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn btn-outline" onclick="Players.closeAddModal()" data-i18n="modal_btn_cancel">Cancelar</button>
+        <button class="btn btn-primary" onclick="Players.submitAddPlayer()" data-i18n="players_modal_btn_confirm">Guardar Jugador</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Enhanced Kick / Ban / Kick-All Reason Prompt -->
+  <div class="modal-backdrop" id="modal-player-action">
+    <div class="modal-box" style="max-width: 480px; border: 1px solid #232b42;">
+      <div class="modal-header">
+        <h3 id="modal-player-action-title" style="display: flex; align-items: center; gap: 8px;">
+          <!-- Title populated dynamically -->
+        </h3>
+        <button class="action-icon-btn" onclick="Players.closeActionModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Target Player / Group Card -->
+        <div id="modal-player-target-box" style="display: flex; align-items: center; gap: 12px; background: rgba(35, 43, 66, 0.4); border: 1px solid #232b42; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px;">
+          <div id="modal-player-avatar-box" style="width: 36px; height: 36px; border-radius: 6px; background: #161b22; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; border: 1px solid #30363d;">
+            <!-- Injected dynamically -->
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div id="modal-player-target-name" style="font-family: var(--font-mono); font-weight: 700; font-size: 0.95rem; color: #f0f6fc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+            <div id="modal-player-target-subtitle" style="font-size: 0.78rem; color: var(--text-dim);"></div>
+          </div>
+        </div>
+
+        <!-- Explanation Notice Callout -->
+        <div id="modal-player-action-callout" style="border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: 0.82rem; line-height: 1.45; display: flex; gap: 10px; align-items: flex-start; background: rgba(218, 54, 51, 0.1); border: 1px solid rgba(218, 54, 51, 0.25);">
+          <div id="modal-player-callout-icon" style="flex-shrink: 0; margin-top: 2px;">
+            <!-- Icon injected dynamically -->
+          </div>
+          <div id="modal-player-action-desc" style="color: #c9d1d9;"></div>
+        </div>
+
+        <!-- Reason Input Field -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="modal-player-action-reason" id="modal-player-action-reason-label" style="font-weight: 600;">
+            Motivo / Razón que verá el jugador:
+          </label>
+          <input type="text" class="form-input" id="modal-player-action-reason" placeholder="ej: Mantenimiento del servidor o infracción" style="font-size: 0.88rem;" onkeydown="if(event.key === 'Enter') Players.executePendingAction()">
+          <div class="field-hint" style="font-size: 0.76rem; margin-top: 4px; color: var(--text-dim);">
+            Este mensaje se mostrará directamente en la pantalla de desconexión del cliente Minecraft.
+          </div>
+        </div>
+
+        <!-- Quick Reason Suggestion Chips -->
+        <div style="margin-bottom: 4px;">
+          <span style="font-size: 0.76rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">
+            Motivos rápidos sugeridos:
+          </span>
+          <div id="modal-player-action-chips" style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <!-- Dynamically populated by Players.renderActionChips() -->
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn btn-outline" onclick="Players.closeActionModal()" data-i18n="modal_btn_cancel">Cancelar</button>
+        <button class="btn btn-danger" id="btn-modal-confirm-action" onclick="Players.executePendingAction()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</section>

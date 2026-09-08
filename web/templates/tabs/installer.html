@@ -1,0 +1,237 @@
+<!-- TAB 7: INSTALLER & VERSION SELECTOR -->
+<section class="tab-pane" id="tab-installer">
+  <!-- Locked Banner if Server Already Installed -->
+  <div class="setup-alert" id="installer-locked-banner" style="display: none; border-left-color: #d29922; margin-bottom: 4px;">
+    <div>
+      <div class="setup-alert-title" style="color: #d29922; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Servidor Actualmente Instalado
+      </div>
+      <div class="setup-alert-desc" id="installer-current-server-info" style="margin-top: 4px; line-height: 1.5;">
+        Ya existe un servidor en este directorio (<code>/data</code>). La instalación está bloqueada para proteger tus mundos, plugins y configuraciones de sobrescritura accidental.
+      </div>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <button class="btn btn-outline" id="btn-open-import-modal" onclick="Installer.openImportModal()" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importar Servidor (.zip)
+      </button>
+      <button class="btn btn-outline" id="btn-unlock-reinstall" onclick="Installer.toggleUnlockReinstall()" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+        Desbloquear Reinstalación
+      </button>
+      <button class="btn btn-danger" id="btn-delete-server" onclick="Installer.deleteServer()" style="display: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Eliminar Servidor
+      </button>
+    </div>
+  </div>
+
+  <!-- Dedicated Server Update Section (Active when a server is already installed) -->
+  <div class="card" id="installer-update-card" style="display: none; border: 1px solid #30363d; margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+      <div class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Actualizar Servidor <span id="update-server-type-badge" style="text-transform: uppercase; color: #58a6ff;"></span>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <span id="update-current-version-badge" style="background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
+          Versión Actual: ...
+        </span>
+        <span id="update-status-badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
+          Comprobando...
+        </span>
+        <span id="update-preview-badge" style="display: none; background: rgba(210, 153, 34, 0.15); border: 1px solid #d29922; color: #e3b341; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
+        </span>
+      </div>
+    </div>
+
+    <p style="color: #8b949e; font-size: 0.88rem; margin-bottom: 16px; line-height: 1.5;">
+      Esta función actualiza el motor y ejecutables de tu servidor a la versión seleccionada. 
+      <strong style="color: #c9d1d9;">Tus mundos, plugins, mods y configuraciones (<code>server.properties</code>) se conservan intactos.</strong>
+    </p>
+
+    <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+      <div class="form-group" style="flex: 1; min-width: 240px; margin-bottom: 0;">
+        <label class="form-label" for="update-version-select">Versión de destino</label>
+        <select class="form-select" id="update-version-select">
+          <option value="">Cargando versiones disponibles...</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" id="btn-apply-update" onclick="Installer.startUpdate()" style="white-space: nowrap; height: 42px; display: flex; align-items: center; gap: 8px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Actualizar Servidor
+      </button>
+    </div>
+
+    <div id="update-warning-badge" style="display: none; margin-top: 10px; padding: 8px 12px; background: rgba(210, 153, 34, 0.1); border-left: 3px solid #d29922; color: #e3b341; font-size: 0.82rem; border-radius: 4px;">
+    </div>
+
+    <!-- Update Progress Bar -->
+    <div id="update-progress-box" style="display: none; margin-top: 16px;">
+      <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #8b949e; margin-bottom: 6px;">
+        <span id="update-progress-text">Descargando actualización...</span>
+        <span id="update-progress-percent">0%</span>
+      </div>
+      <div style="width: 100%; height: 8px; background: #21262d; border-radius: 4px; overflow: hidden;">
+        <div id="update-progress-bar" style="width: 0%; height: 100%; background: #238636; transition: width 0.3s ease;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="installer-main-card">
+    <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        Selecciona el Tipo de Servidor
+        <span id="reinstall-warning-badge" style="display: none; font-size: 0.75rem; color: #f85149; background: rgba(248, 81, 73, 0.1); border: 1px solid #f85149; padding: 2px 8px; border-radius: 4px;">
+          REINSTALACIÓN DESBLOQUEADA
+        </span>
+      </div>
+      <button class="btn btn-outline" onclick="Installer.openImportModal()" style="padding: 6px 14px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importar Servidor (.zip)
+      </button>
+    </div>
+    
+    <div class="installer-grid">
+      <div class="type-card selected" data-type="paper">
+        <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </span>
+        <span class="type-title">PaperMC</span>
+        <span class="type-desc">Rápido y optimizado. El más recomendado para jugar con amigos y usar plugins.</span>
+      </div>
+
+      <div class="type-card" data-type="purpur">
+        <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </span>
+        <span class="type-title">Purpur</span>
+        <span class="type-desc">Variante de Paper con máxima personalización y gran rendimiento.</span>
+      </div>
+
+      <div class="type-card" data-type="vanilla">
+        <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="1"/><rect x="2" y="14" width="20" height="8" rx="1"/><line x1="6" y1="6" x2="6" y2="6"/><line x1="18" y1="18" x2="18" y2="18"/></svg>
+        </span>
+        <span class="type-title">Mojang Vanilla</span>
+        <span class="type-desc">El Minecraft clásico original, sin añadidos, plugins ni mods.</span>
+      </div>
+
+      <div class="type-card" data-type="fabric">
+        <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        </span>
+        <span class="type-title">Fabric</span>
+        <span class="type-desc">Ligero y rápido para jugar con mods modernos.</span>
+      </div>
+
+      <div class="type-card" data-type="forge">
+        <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        </span>
+        <span class="type-title">Minecraft Forge</span>
+        <span class="type-desc">El sistema tradicional y con mayor variedad de mods.</span>
+      </div>
+
+      <div class="type-card" data-type="bedrock">
+        <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1"/><circle cx="18" cy="13" r="1"/></svg>
+        </span>
+        <span class="type-title">Bedrock Dedicated</span>
+        <span class="type-desc">Para jugar desde celulares, consolas (Xbox, PlayStation, Switch) y Windows.</span>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Left Column: Version & Resource Allocation -->
+      <div class="card" style="background: rgba(17, 24, 39, 0.4);">
+        <div class="card-title">Versión y Asignación de Recursos</div>
+
+        <div class="form-group">
+          <label class="form-label" for="installer-server-name">Nombre del Servidor</label>
+          <input type="text" class="form-input" id="installer-server-name" value="{{ server_name or 'Mi Servidor Dockraft' }}" placeholder="ej: Servidor Survival de Amigos">
+          <div class="field-hint">Nombre descriptivo que se mostrará en la barra superior y notificaciones Webhooks.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="installer-version-select">Versión del Servidor de Minecraft</label>
+          <select class="form-select" id="installer-version-select">
+            <option value="">Cargando versiones disponibles...</option>
+          </select>
+          <div style="margin-top: 6px; font-size: 0.78rem; color: #79c0ff; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+            <span id="recommended-java-badge">Java automático según versión de Minecraft</span>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: 0;">
+          <div class="form-group">
+            <label class="form-label" for="install-cpu-cores">Núcleos de CPU</label>
+            <input type="number" class="form-input" id="install-cpu-cores" min="1" max="64" value="2">
+            <div class="field-hint">Hilos Java / Bedrock max-threads.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="install-disk-limit">Límite Disco (GB)</label>
+            <input type="number" class="form-input" id="install-disk-limit" min="1" step="0.5" value="10">
+            <div class="field-hint">Capacidad para datos y backups.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Memory & Optimizations -->
+      <div class="card" style="background: rgba(17, 24, 39, 0.4);">
+        <div class="card-title">Asignación de Memoria (RAM)</div>
+
+        <div class="form-group">
+          <label class="form-label">RAM Máxima (-Xmx)</label>
+          <input type="text" class="form-input" id="install-max-ram" value="2G" placeholder="ej: 2G o 2048M">
+          <div style="display: flex; gap: 8px; margin-top: 6px;">
+            <button type="button" class="chip-btn ram-chip" data-ram="1G">1 GB</button>
+            <button type="button" class="chip-btn ram-chip" data-ram="2G">2 GB</button>
+            <button type="button" class="chip-btn ram-chip" data-ram="4G">4 GB</button>
+            <button type="button" class="chip-btn ram-chip" data-ram="6G">6 GB</button>
+            <button type="button" class="chip-btn ram-chip" data-ram="8G">8 GB</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">RAM Mínima (-Xms)</label>
+          <input type="text" class="form-input" id="install-min-ram" value="1G" placeholder="ej: 1G">
+        </div>
+
+        <div class="toggle-wrapper" id="aikar-flags-group">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Flags de Optimización Aikar</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);">Optimiza el recolector de basura (G1GC) para evitar lag spikes.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="install-aikar-flags" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Download & Progress -->
+    <div id="install-progress-box" style="display: none; margin-top: 10px;">
+      <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:6px;">
+        <span id="install-progress-text">Descargando servidor...</span>
+      </div>
+      <div class="progress-bar-bg" style="height: 10px;">
+        <div class="progress-bar-fill" id="install-progress-bar" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+      <button class="btn btn-primary" id="btn-install-server" style="padding: 12px 28px; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Instalar y Configurar Servidor
+      </button>
+    </div>
+  </div>
+</section>
+

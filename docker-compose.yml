@@ -1,0 +1,30 @@
+services:
+  dockraft:
+    build: .
+    container_name: dockraft
+    restart: unless-stopped
+    ports:
+      # Panel de Control Web
+      - "${PANEL_PORT:-8000}:8000"
+      # Puerto Minecraft Java
+      - "${MC_JAVA_PORT:-25565}:25565"
+      # Puerto Minecraft Bedrock
+      - "${MC_BEDROCK_PORT:-19132}:19132/udp"
+    environment:
+      - DATA_DIR=/server_data
+      - BACKUPS_DIR=/server_backups
+      - HOST=0.0.0.0
+      - PORT=8000
+      # Zona horaria del servidor (ej. America/Guayaquil, Europe/Madrid, America/Mexico_City)
+      - TZ=${TZ:-America/Guayaquil}
+      # Usuario administrador para acceder al panel web
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      # Contraseña para acceder al panel (dejar vacío si no deseas requerir login en red local)
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Clave secreta para firmas de sesión — CAMBIA ESTO en producción (usa: openssl rand -hex 32)
+      - SECRET_KEY=${SECRET_KEY:-}
+    volumes:
+      # Persistencia de todos los mundos, plugins, mods y configuraciones del servidor
+      - ./data:/server_data
+      # Directorio independiente para almacenar copias de seguridad
+      - ./backups:/server_backups

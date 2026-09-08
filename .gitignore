@@ -1,0 +1,61 @@
+# ==========================================
+# Dockraft - Git Ignore Rules
+# ==========================================
+
+# Datos del servidor Minecraft y respaldos
+data/
+backups/
+*.jar
+*.zip
+*.tar
+*.gz
+*.rar
+bedrock-server*
+bedrock_server*
+server.properties
+eula.txt
+session.lock
+*.pid
+*.tmp
+*.log
+
+# Entornos virtuales de Python
+.venv/
+venv/
+env/
+ENV/
+
+# Caché y compilación de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Tests, temporales y cobertura
+scratch/
+.pytest_cache/
+.coverage
+htmlcov/
+*.tmp
+.*.tmp.*
+*.bak
+
+# Variables de entorno y credenciales
+.env
+.env.*
+!.env.example
+
+# IDEs, agentes y editores
+.idea/
+.vscode/
+.gemini/
+.agents/
+*.swp
+*.swo
+*~
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini

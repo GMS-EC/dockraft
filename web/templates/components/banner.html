@@ -1,0 +1,58 @@
+<!-- Top Server Overview & Metrics Banner -->
+<div class="server-overview-banner">
+  <!-- Columna 1: Estado, Inicio, Uptime y Zona Horaria -->
+  <div class="overview-col">
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_status_label">Estado del Servidor:</span>
+      <span class="overview-val status-text-inline offline" id="top-server-status">Sin instalar</span>
+    </div>
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_started_label">Servidor Iniciado:</span>
+      <span class="overview-val" id="top-server-started">--</span>
+    </div>
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_uptime_label">Actividad del Servidor:</span>
+      <span class="overview-val uptime-live" id="top-server-uptime">--</span>
+    </div>
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_tz_label">Zona horaria del servidor:</span>
+      <span class="overview-val highlight-tz" id="top-server-timezone">America/Guayaquil</span>
+    </div>
+  </div>
+
+  <!-- Columna 2: CPU, Memoria y Jugadores -->
+  <div class="overview-col">
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_cpu_label">Uso de CPU:</span>
+      <span class="overview-val" id="top-server-cpu">0 %</span>
+    </div>
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_mem_label">Uso de memoria:</span>
+      <span class="overview-val" id="top-server-memory">0 MB / --</span>
+    </div>
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_players_label">Jugadores:</span>
+      <span class="overview-val highlight-players" id="top-server-players">--</span>
+    </div>
+  </div>
+
+  <!-- Columna 3: Nombre, Versión, Descripción y Tipo -->
+  <div class="overview-col">
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_name_label">Nombre del Servidor:</span>
+      <span class="overview-val highlight-name" id="top-server-name" style="color: #58a6ff; font-weight: 700;">{{ server_name or '--' }}</span>
+    </div>
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_version_label">Versión:</span>
+      <span class="overview-val highlight-version" id="top-server-version">Sin instalar</span>
+    </div>
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_desc_label">Descripción:</span>
+      <span class="overview-val motd-val" id="top-server-motd">Ningún servidor instalado</span>
+    </div>
+    <div class="overview-item">
+      <span class="overview-label" data-i18n="banner_type_label">Tipo de Servidor:</span>
+      <span class="overview-val highlight-type" id="top-server-type">--</span>
+    </div>
+  </div>
+</div>

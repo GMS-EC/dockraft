@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Dockraft — Panel de Control para Minecraft{% endblock %}
+
+{% block content %}
+  <!-- Top Navigation Header -->
+  {% include "components/header.html" %}
+
+  <!-- Server Overview & Metrics Banner -->
+  {% include "components/banner.html" %}
+
+  <!-- Main Tabs View Container -->
+  <main class="main-container">
+    {% include "tabs/console.html" %}
+    {% include "tabs/metrics.html" %}
+    {% include "tabs/players.html" %}
+    {% include "tabs/tasks.html" %}
+    {% include "tabs/backups.html" %}
+    {% include "tabs/webhooks.html" %}
+    {% include "tabs/files.html" %}
+    {% include "tabs/settings.html" %}
+    {% include "tabs/installer.html" %}
+  </main>
+
+  <!-- Panel Footer -->
+  {% include "footer.html" %}
+
+  <!-- Operation Modals -->
+  {% include "components/modals.html" %}
+{% endblock %}
+
+{% block scripts %}
+  <!-- Modular Dockraft Scripts -->
+  <script src="/static/js/app.js"></script>
+  <script src="/static/js/console.js"></script>
+  <script src="/static/js/metrics.js"></script>
+  <script src="/static/js/players.js"></script>
+  <script src="/static/js/tasks.js"></script>
+  <script src="/static/js/webhooks.js"></script>
+  <script src="/static/js/installer.js"></script>
+  <script src="/static/js/backups.js"></script>
+  <script src="/static/js/files.js"></script>
+  <script src="/static/js/settings.js"></script>
+{% endblock %}

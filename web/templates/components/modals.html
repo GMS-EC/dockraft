@@ -1,0 +1,437 @@
+<!-- Modal: Create Selective Backup -->
+<div class="modal-backdrop" id="modal-create-backup">
+  <div class="modal-box" style="max-width: 580px;">
+    <div class="modal-header">
+      <h3 style="display: flex; align-items: center; gap: 8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Crear Copia de Seguridad
+      </h3>
+      <button class="action-icon-btn" onclick="Backups.closeCreateModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size: 0.86rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
+        Selecciona qué contenido deseas incluir en el archivo <code>.zip</code> para optimizar el almacenamiento o respaldar carpetas específicas.
+      </p>
+
+      <!-- Scope Option Cards -->
+      <div class="backup-scope-grid">
+        <div class="backup-scope-card selected" data-scope="full" onclick="Backups.selectScope('full')">
+          <div class="backup-scope-header">
+            <span class="backup-scope-icon" style="display:inline-flex; align-items:center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            </span>
+            <span class="backup-scope-title">Servidor Completo</span>
+          </div>
+          <div class="backup-scope-desc">
+            Respalda todos los archivos, mundos, plugins/mods y configuraciones.
+          </div>
+        </div>
+
+        <div class="backup-scope-card" data-scope="custom" onclick="Backups.selectScope('custom')">
+          <div class="backup-scope-header">
+            <span class="backup-scope-icon" style="display:inline-flex; align-items:center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </span>
+            <span class="backup-scope-title">Personalizado</span>
+          </div>
+          <div class="backup-scope-desc">
+            Elige exactamente qué carpetas o archivos específicos respaldar.
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Targets Checkbox Container -->
+      <div id="backup-custom-targets-box" style="display: none; margin-top: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 0.85rem; font-weight: 600; color: #c9d1d9;">Selecciona carpetas y archivos a incluir:</span>
+          <div style="display: flex; gap: 10px; font-size: 0.78rem;">
+            <a href="javascript:void(0)" onclick="Backups.toggleAllTargets(true)" style="color: #58a6ff; text-decoration: underline;">Todos</a>
+            <span style="color: var(--border-color);">|</span>
+            <a href="javascript:void(0)" onclick="Backups.toggleAllTargets(false)" style="color: var(--text-dim); text-decoration: underline;">Ninguno</a>
+          </div>
+        </div>
+        <div id="backup-targets-list" class="backup-targets-list">
+          <!-- Populated dynamically from /api/backups/targets -->
+        </div>
+      </div>
+
+      <!-- Optional Tag / Note -->
+      <div class="form-group" style="margin-top: 16px;">
+        <label class="form-label" for="backup-modal-tag">Etiqueta o Nota (Opcional)</label>
+        <input type="text" class="form-input" id="backup-modal-tag" placeholder="ej: antes-del-evento, pre-update" value="manual">
+        <div class="field-hint">Identificador descriptivo en el nombre del archivo generado.</div>
+      </div>
+
+      <!-- Execution Parameters: Compression, Stop Server, Pre-Command -->
+      <div style="padding: 12px; background: rgba(22, 27, 34, 0.6); border: 1px solid #30363d; border-radius: 8px; margin-top: 16px;">
+        <div style="font-size: 0.84rem; font-weight: 600; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Parámetros de Ejecución
+        </div>
+
+        <!-- 1. Comprimir la copia -->
+        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-modal-compression">
+              Comprimir la copia (.zip)
+            </label>
+            <div class="field-hint">Aplica compresión DEFLATED. Desactivado (STORE) es ultra-rápido sin uso de CPU.</div>
+          </div>
+          <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
+            <input type="checkbox" id="backup-modal-compression" checked>
+            <span class="slider-compact"></span>
+          </label>
+        </div>
+
+        <!-- 2. Apagar el servidor durante el backup -->
+        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-modal-stop">
+              Apagar el servidor durante el backup
+            </label>
+            <div class="field-hint">Detiene el servidor para liberar session.lock e integridad total, y lo reinicia al finalizar.</div>
+          </div>
+          <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
+            <input type="checkbox" id="backup-modal-stop">
+            <span class="slider-compact"></span>
+          </label>
+        </div>
+
+        <!-- 3. Ejecutar comando antes del respaldo -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="backup-modal-pre-cmd" style="color: #f0f6fc;">
+            Ejecutar comando antes del respaldo
+          </label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--text-dim); font-family: var(--font-mono); font-weight: bold;">></span>
+            <input type="text" class="form-input" id="backup-modal-pre-cmd" placeholder="save-all" value="save-all">
+          </div>
+          <div class="field-hint">Comando enviado a la consola del servidor antes de iniciar el respaldo (ej: <code>save-all</code>).</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+      <button class="btn btn-outline" onclick="Backups.closeCreateModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-modal-submit-backup" onclick="Backups.submitCreateBackup()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Crear Copia de Seguridad
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Webhook Channel Configuration -->
+<div class="modal-backdrop" id="webhook-config-modal">
+  <div class="modal-box" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 id="webhook-modal-title" style="display: flex; align-items: center; gap: 8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configurar Webhook
+      </h3>
+      <button class="action-icon-btn" onclick="Webhooks.closeModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      
+      <!-- Discord Configuration Section -->
+      <div id="modal-section-discord" style="display: none;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+          Pega el webhook generado en tu servidor de Discord. Dockraft enviará embeds con colores temáticos según cada tipo de suceso.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="webhook-discord-url">Webhook URL</label>
+          <input type="url" class="form-input" id="webhook-discord-url" placeholder="https://discord.com/api/webhooks/...">
+          <div class="field-hint">En Discord: Ajustes de canal > Integraciones > Webhooks > Nuevo Webhook > Copiar URL.</div>
+        </div>
+      </div>
+
+      <!-- Telegram Configuration Section -->
+      <div id="modal-section-telegram" style="display: none;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+          Ingresa el token de tu bot y el Chat ID de tu cuenta o grupo para recibir alertas oficiales en Telegram.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="webhook-telegram-token">Bot Token</label>
+          <input type="password" class="form-input" id="webhook-telegram-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+          <div class="field-hint">Genera o consulta tu bot hablando con <strong>@BotFather</strong> en Telegram.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="webhook-telegram-chatid">Chat ID</label>
+          <input type="text" class="form-input" id="webhook-telegram-chatid" placeholder="Ej: 12345678 o -100123456789">
+          <div class="field-hint">Consulta tu Chat ID personal o de tu grupo con <strong>@userinfobot</strong> en Telegram.</div>
+        </div>
+      </div>
+
+      <!-- Email Configuration Section -->
+      <div id="modal-section-email" style="display: none;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+          Configura los parámetros SMTP de tu proveedor de correo (Gmail, Outlook, servidor privado) para el envío de alertas.
+        </p>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="webhook-email-host">Servidor SMTP</label>
+            <input type="text" class="form-input" id="webhook-email-host" placeholder="smtp.gmail.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="webhook-email-port">Puerto SMTP</label>
+            <input type="number" class="form-input" id="webhook-email-port" value="587">
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="webhook-email-user">Usuario / Cuenta</label>
+            <input type="text" class="form-input" id="webhook-email-user" placeholder="tu_cuenta@gmail.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="webhook-email-pass">Contraseña / App Password</label>
+            <input type="password" class="form-input" id="webhook-email-pass" placeholder="••••••••••••••••">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="webhook-email-from">Remitente (From)</label>
+          <input type="text" class="form-input" id="webhook-email-from" placeholder="Dockraft Alerts <tu_cuenta@gmail.com>">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="webhook-email-to">Destinatarios (separados por coma)</label>
+          <input type="text" class="form-input" id="webhook-email-to" placeholder="admin@ejemplo.com, alertas@ejemplo.com">
+        </div>
+        <div class="toggle-wrapper" style="margin-top: 10px;">
+          <div>
+            <div style="font-weight: 600; font-size: 0.85rem;">Usar STARTTLS / TLS</div>
+            <div style="font-size: 0.72rem; color: var(--text-dim);">Requerido por la mayoría de proveedores de correo modernos.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="webhook-email-tls" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+      <button type="button" class="btn btn-outline" id="webhook-modal-test-btn" onclick="Webhooks.testCurrentModalChannel()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Probar Canal
+      </button>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-outline" onclick="Webhooks.closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="Webhooks.saveFromModal()" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Guardar Ajustes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: File Text Editor -->
+<div class="modal-backdrop" id="file-editor-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="editor-file-title" style="font-family: var(--font-mono); font-size: 1rem;">Editar Archivo</h3>
+      <button class="action-icon-btn" onclick="Files.closeEditor()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <textarea class="code-editor-area" id="editor-textarea" spellcheck="false"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="Files.closeEditor()">Cancelar</button>
+      <button class="btn btn-primary" onclick="Files.saveCurrentFile()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Guardar (Ctrl+S)
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Minecraft EULA Agreement -->
+<div class="modal-backdrop" id="eula-modal">
+  <div class="modal-box" style="max-width: 540px;">
+    <div class="modal-header">
+      <h3 style="display:flex; align-items:center; gap:8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Acuerdo de Licencia de Minecraft (EULA)
+      </h3>
+      <button class="action-icon-btn" onclick="App.closeEulaModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.9rem; margin-bottom:12px; line-height:1.5;">
+        Para poder iniciar un servidor de Minecraft, <strong>Mojang Studios</strong> exige que aceptes su Acuerdo de Licencia de Usuario Final (EULA).
+      </p>
+      <div style="background-color:var(--bg-main); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:14px; font-size:0.85rem; color:var(--text-muted); line-height:1.6; margin-bottom:14px;">
+        Al hacer clic en <strong>Aceptar EULA</strong>, declaras tu conformidad con las directrices de monetización, directrices de marca y términos legales oficiales de Mojang.
+        <br><br>
+        <a href="https://account.mojang.com/documents/minecraft_eula" target="_blank" style="color:#58a6ff; text-decoration:underline; font-weight:500;">
+          Leer los términos oficiales del EULA de Minecraft ↗
+        </a>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="App.rejectEula()">Rechazar</button>
+      <button class="btn btn-success" onclick="App.acceptEula()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Aceptar EULA y Continuar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Import Existing Server -->
+<div class="modal-backdrop" id="import-server-modal">
+  <div class="modal-box" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 style="display: flex; align-items: center; gap: 8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        Importar Servidor Existente (.zip)
+      </h3>
+      <button class="action-icon-btn" onclick="Installer.closeImportModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
+        Sube un archivo comprimido <code>.zip</code> con la raíz de tu servidor (Forge, Paper, Fabric, Vanilla o Bedrock).
+        Dockraft detectará automáticamente el tipo de servidor y configurará el arranque.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label" for="import-server-file">Archivo del Servidor (.zip)</label>
+        <input type="file" id="import-server-file" accept=".zip" class="form-input" style="padding: 8px;">
+      </div>
+
+      <div class="toggle-wrapper" style="margin-top: 14px;">
+        <div>
+          <div style="font-weight: 600; font-size: 0.88rem;">Aceptar EULA Automáticamente</div>
+          <div style="font-size: 0.75rem; color: var(--text-dim);">Establece eula=true para servidores Java.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="import-accept-eula" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div id="import-progress-box" style="display: none; margin-top: 14px;">
+        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;">
+          <span id="import-progress-text">Subiendo...</span>
+        </div>
+        <div class="progress-bar-bg" style="height: 8px;">
+          <div class="progress-bar-fill" id="import-progress-bar" style="width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="Installer.closeImportModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-start-import" onclick="Installer.uploadServerZip()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Subir e Importar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Crear / Editar Tarea Programada -->
+<div class="modal-backdrop" id="task-modal">
+  <div class="modal-box" style="max-width: 540px;">
+    <div class="modal-header">
+      <h3 id="task-modal-title">Crear Tarea Programada</h3>
+      <button class="action-icon-btn" onclick="Tasks.closeModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="task-edit-id">
+
+      <div class="form-group">
+        <label class="form-label" for="task-name-input">Nombre de la Tarea</label>
+        <input type="text" id="task-name-input" class="form-input" placeholder="Ej: Reinicio Diario de Madrugada">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="task-action-select">Acción a Ejecutar</label>
+        <select id="task-action-select" class="form-input" onchange="Tasks.onActionChange(this.value)">
+          <option value="restart">Reiniciar Servidor (restart)</option>
+          <option value="start">Iniciar Servidor (start)</option>
+          <option value="stop">Detener Servidor (stop)</option>
+          <option value="backup">Crear Copia de Seguridad (backup)</option>
+          <option value="check_updates">Verificar Nuevas Versiones (check_updates)</option>
+          <option value="command">Ejecutar Comando en Consola (command)</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="task-command-group" style="display: none;">
+        <label class="form-label" for="task-command-input">Comando de Minecraft a Enviar</label>
+        <input type="text" id="task-command-input" class="form-input" placeholder="Ej: say ¡El servidor se reiniciará en 5 minutos!">
+        <div class="field-hint">Comando que se enviará directamente a la consola del servidor.</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tipo de Programación Temporal</label>
+        <div style="display: flex; gap: 16px; margin-top: 6px;">
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
+            <input type="radio" name="task-schedule-type" value="interval" checked onchange="Tasks.onScheduleTypeChange(this.value)">
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Por Intervalo
+            </span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
+            <input type="radio" name="task-schedule-type" value="cron" onchange="Tasks.onScheduleTypeChange(this.value)">
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Por Expresión Cron
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Interval Inputs -->
+      <div id="task-interval-group" style="display: flex; gap: 12px; align-items: flex-end;">
+        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+          <label class="form-label" for="task-interval-val">Cada cuánto tiempo</label>
+          <input type="number" min="1" value="1" id="task-interval-val" class="form-input">
+        </div>
+        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+          <label class="form-label" for="task-interval-unit">Unidad</label>
+          <select id="task-interval-unit" class="form-input">
+            <option value="minutes">Minutos</option>
+            <option value="hours">Horas</option>
+            <option value="days" selected>Días</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Cron Input & Presets -->
+      <div id="task-cron-group" style="display: none;">
+        <div class="form-group">
+          <label class="form-label" for="task-cron-input">Expresión Cron (5 campos: min hora día-mes mes día-sem)</label>
+          <input type="text" id="task-cron-input" class="form-input" placeholder="0 4 * * *" value="0 4 * * *">
+          <div class="field-hint">Calculado en la zona horaria del servidor (<span id="task-modal-tz">America/Guayaquil</span>).</div>
+        </div>
+        <div style="margin-top: 8px;">
+          <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 6px;">Plantillas rápidas de Cron:</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('0 4 * * *')">Diario a las 04:00</button>
+            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('0 */6 * * *')">Cada 6 horas</button>
+            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('0 0 * * 0')">Cada domingo a medianoche</button>
+            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('*/30 * * * *')">Cada 30 minutos</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="toggle-wrapper" style="margin-top: 18px;">
+        <div>
+          <div style="font-weight: 600; font-size: 0.88rem;">Habilitar Tarea Inmediatamente</div>
+          <div style="font-size: 0.75rem; color: var(--text-dim);">La tarea comenzará a programarse según los parámetros configurados.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="task-enabled-input" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="Tasks.closeModal()">Cancelar</button>
+      <button class="btn btn-purple" id="btn-save-task" onclick="Tasks.saveTask()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Guardar Tarea
+      </button>
+    </div>
+  </div>
+</div>
+
