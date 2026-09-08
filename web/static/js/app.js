@@ -74,6 +74,12 @@ const App = {
       pane.classList.toggle('active', pane.id === `tab-${tabId}`);
     });
 
+    // Auto-scroll active tab into view in mobile nav rail
+    const activeBtn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+    if (activeBtn && activeBtn.scrollIntoView) {
+      activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+
     // Refresh content for selected tab
     if (tabId === 'metrics') {
       if (typeof Metrics !== 'undefined') Metrics.loadMetrics();
