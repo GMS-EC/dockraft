@@ -321,3 +321,22 @@ async def test_read_stream_lifecycle():
     assert "RUNNING" in received_statuses
     assert len(received_logs) == 4
     assert any("Done (" in log for log in received_logs)
+
+
+def test_uptime_clock_formatting():
+    """format_uptime_clock must format into HH:MM:SS (or Xd HH:MM:SS)."""
+    from app.core.process_manager import process_manager
+    assert process_manager.format_uptime_clock(0) == "00:00:00"
+    assert process_manager.format_uptime_clock(-5) == "00:00:00"
+    assert process_manager.format_uptime_clock(65) == "00:01:05"
+    assert process_manager.format_uptime_clock(3665) == "01:01:05"
+    assert process_manager.format_uptime_clock(90065) == "1d 01:01:05"
+
+
+def test_metrics_summary_has_uptime_clock():
+    """metrics_manager.get_summary() must include uptime_clock."""
+    from app.core.metrics_manager import metrics_manager
+    summary = metrics_manager.get_summary()
+    assert "uptime_clock" in summary
+    assert "uptime_str" in summary
+    assert "uptime_seconds" in summary

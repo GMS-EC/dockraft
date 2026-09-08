@@ -97,10 +97,16 @@ class MetricsManager:
             if online_samples:
                 avg_cpu = round(sum(online_samples) / len(online_samples), 1)
 
+        is_active = stats.get("status") in ["RUNNING", "ONLINE", "STARTING"]
+        uptime_clock = stats.get("uptime_clock", "00:00:00") if is_active else "--"
+        uptime_formatted = stats.get("uptime_formatted", "Fuera de línea") if is_active else "Fuera de línea"
+
         return {
             "current_status": process_manager.get_status(),
             "uptime_seconds": stats.get("uptime_seconds", 0),
-            "uptime_str": stats.get("uptime_formatted", "--"),
+            "uptime_str": uptime_clock,
+            "uptime_clock": uptime_clock,
+            "uptime_formatted": uptime_formatted,
             "current_cpu": round(stats.get("cpu_percent", 0.0), 1),
             "peak_cpu": self.peak_cpu,
             "avg_cpu": avg_cpu,

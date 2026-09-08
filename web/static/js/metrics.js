@@ -125,9 +125,28 @@ const Metrics = {
 
     const upVal = document.getElementById('metric-kpi-uptime-val');
     const stBadge = document.getElementById('metric-kpi-status-badge');
-    if (upVal) upVal.textContent = s.uptime_str || '--';
+    const isOnline = s.current_status === 'RUNNING' || s.current_status === 'ONLINE' || s.current_status === 'STARTING';
+    if (upVal) {
+      if (!isOnline) {
+        upVal.textContent = '--';
+        upVal.removeAttribute('title');
+      } else if (s.uptime_clock && s.uptime_clock !== '--') {
+        upVal.textContent = s.uptime_clock;
+        if (s.uptime_formatted) upVal.title = s.uptime_formatted;
+      } else if (s.uptime_seconds !== undefined && s.uptime_seconds !== null && Number(s.uptime_seconds) > 0) {
+        const secs = Number(s.uptime_seconds);
+        const d = Math.floor(secs / 86400);
+        const h = Math.floor((secs % 86400) / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        const sc = secs % 60;
+        const pad = (n) => String(n).padStart(2, '0');
+        upVal.textContent = d > 0 ? `${d}d ${pad(h)}:${pad(m)}:${pad(sc)}` : `${pad(h)}:${pad(m)}:${pad(sc)}`;
+        if (s.uptime_formatted) upVal.title = s.uptime_formatted;
+      } else {
+        upVal.textContent = s.uptime_str || '--';
+      }
+    }
     if (stBadge) {
-      const isOnline = s.current_status === 'RUNNING' || s.current_status === 'ONLINE';
       stBadge.textContent = s.current_status || 'OFFLINE';
       stBadge.style.background = isOnline ? 'rgba(46, 160, 67, 0.15)' : 'rgba(218, 54, 51, 0.15)';
       stBadge.style.color = isOnline ? '#3fb950' : '#f85149';

@@ -61,25 +61,39 @@ class ProcessManager:
         self._tps_poller_task: Optional[asyncio.Task] = None
 
     def format_uptime(self, seconds: int) -> str:
-        """Formats seconds into human-readable e.g. '2 hours, 27 minutes and 8 seconds'."""
+        """Formats seconds into human-readable Spanish e.g. '2 horas, 27 minutos y 8 segundos'."""
         if seconds <= 0:
             return "0 segundos"
-        hours = seconds // 3600
-        remainder = seconds % 3600
-        minutes = remainder // 60
-        secs = remainder % 60
+        days = seconds // 86400
+        hours = (seconds % 86400) // 3600
+        minutes = (seconds % 3600) // 60
+        secs = seconds % 60
         parts = []
+        if days > 0:
+            parts.append(f"{days} días" if days != 1 else "1 día")
         if hours > 0:
-            parts.append(f"{hours} hours" if hours != 1 else "1 hour")
-        if minutes > 0 or hours > 0:
-            parts.append(f"{minutes} minutes" if minutes != 1 else "1 minute")
-        parts.append(f"{secs} seconds" if secs != 1 else "1 second")
+            parts.append(f"{hours} horas" if hours != 1 else "1 hora")
+        if minutes > 0 or hours > 0 or days > 0:
+            parts.append(f"{minutes} minutos" if minutes != 1 else "1 minuto")
+        parts.append(f"{secs} segundos" if secs != 1 else "1 segundo")
         if len(parts) == 1:
             return parts[0]
         elif len(parts) == 2:
-            return f"{parts[0]} and {parts[1]}"
+            return f"{parts[0]} y {parts[1]}"
         else:
-            return f"{parts[0]}, {parts[1]} and {parts[2]}"
+            return f"{', '.join(parts[:-1])} y {parts[-1]}"
+
+    def format_uptime_clock(self, seconds: int) -> str:
+        """Formats seconds into HH:MM:SS format (or Xd HH:MM:SS if >= 24h) for telemetry cards."""
+        if seconds <= 0:
+            return "00:00:00"
+        days = seconds // 86400
+        hours = (seconds % 86400) // 3600
+        minutes = (seconds % 3600) // 60
+        secs = seconds % 60
+        if days > 0:
+            return f"{days}d {hours:02d}:{minutes:02d}:{secs:02d}"
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
     def find_running_server_processes(self) -> List[psutil.Process]:
         """Finds any running Java or Bedrock Minecraft server process on the host/container."""
@@ -294,11 +308,13 @@ class ProcessManager:
         if self.started_at and status != "OFFLINE":
             uptime_seconds = int(time.time() - self.started_at)
             uptime_formatted = self.format_uptime(uptime_seconds)
+            uptime_clock = self.format_uptime_clock(uptime_seconds)
             started_dt = datetime.fromtimestamp(self.started_at, tz=tz) if tz else datetime.fromtimestamp(self.started_at)
             started_at_str = started_dt.strftime("%Y-%m-%d %H:%M:%S")
         else:
             uptime_seconds = 0
             uptime_formatted = "Fuera de línea"
+            uptime_clock = "00:00:00"
             started_at_str = "No iniciado"
 
         # MOTD and max-players from server.properties
@@ -330,6 +346,7 @@ class ProcessManager:
             online_players_count = 0
             started_at_str = "--"
             uptime_formatted = "--"
+            uptime_clock = "--"
             assigned_memory_mb = 0.0
             memory_percent = 0.0
         else:
@@ -362,6 +379,7 @@ class ProcessManager:
             "started_at_str": started_at_str,
             "uptime_seconds": uptime_seconds,
             "uptime_formatted": uptime_formatted,
+            "uptime_clock": uptime_clock,
             "timezone": tz_name,
             "online_players": online_players_count,
             "max_players": max_players,
