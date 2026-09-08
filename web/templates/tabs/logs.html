@@ -1,0 +1,131 @@
+<!-- TAB: ACTIVITY & CONSOLE AUDIT LOGS -->
+<section class="tab-pane" id="tab-logs">
+  <!-- Top Stat Cards -->
+  <div class="grid-4" style="margin-bottom: 20px;">
+    <div class="stat-box">
+      <div class="stat-label">
+        <span data-i18n="logs_stat_total">Registros Totales</span>
+        <span id="logs-total-count" style="color: #58a6ff; font-weight: 600;">0 registros</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;" data-i18n="logs_stat_total_sub">Historial cronológico auditado</div>
+    </div>
+
+    <div class="stat-box">
+      <div class="stat-label">
+        <span data-i18n="logs_stat_commands">Comandos Consola</span>
+        <span id="logs-commands-count" style="color: #d2a8ff; font-weight: 600;">0 comandos</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;" data-i18n="logs_stat_commands_sub">Enviados por administradores</div>
+    </div>
+
+    <div class="stat-box">
+      <div class="stat-label">
+        <span data-i18n="logs_stat_system">Eventos del Sistema</span>
+        <span id="logs-system-count" style="color: #7ee787; font-weight: 600;">0 eventos</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;" data-i18n="logs_stat_system_sub">Inicios, copias y actualizaciones</div>
+    </div>
+
+    <div class="stat-box" style="justify-content: center;">
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px;">
+        <div style="display: flex; gap: 8px; width: 100%;">
+          <button class="btn btn-outline" id="btn-export-logs" onclick="Logs.exportLogs('csv')" style="flex: 1; padding: 6px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" title="Descargar registros como CSV">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Exportar CSV</span>
+          </button>
+          <button class="btn btn-outline" id="btn-clear-logs" onclick="Logs.clearLogs()" style="padding: 6px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-color: #f85149; color: #f85149;" title="Vaciar historial de registros">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span>Limpiar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Log Card -->
+  <div class="card">
+    <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <span data-i18n="logs_title">Registro de Auditoría y Comandos de Consola</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer;">
+          <input type="checkbox" id="logs-auto-refresh" checked onchange="Logs.toggleAutoRefresh(this.checked)">
+          <span data-i18n="logs_auto_refresh">Auto-actualizar (5s)</span>
+        </label>
+        <button class="btn btn-outline" onclick="Logs.loadLogs(true)" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <span data-i18n="logs_refresh">Actualizar</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Filters and Search Toolbar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; background: rgba(22, 27, 34, 0.6); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+      <!-- Category Pills -->
+      <div class="log-category-chips" style="display: flex; flex-wrap: wrap; gap: 6px;">
+        <button class="chip-btn log-chip active" data-category="all" onclick="Logs.setCategory('all')">
+          <span data-i18n="logs_cat_all">Todos</span>
+        </button>
+        <button class="chip-btn log-chip" data-category="console" onclick="Logs.setCategory('console')" style="border-color: rgba(163, 113, 247, 0.4); color: #d2a8ff;">
+          <span data-i18n="logs_cat_console">⌨️ Comandos</span>
+        </button>
+        <button class="chip-btn log-chip" data-category="server" onclick="Logs.setCategory('server')" style="border-color: rgba(63, 185, 80, 0.4); color: #7ee787;">
+          <span data-i18n="logs_cat_server">⚡ Servidor</span>
+        </button>
+        <button class="chip-btn log-chip" data-category="backup" onclick="Logs.setCategory('backup')" style="border-color: rgba(88, 166, 255, 0.4); color: #79c0ff;">
+          <span data-i18n="logs_cat_backup">💾 Respaldos</span>
+        </button>
+        <button class="chip-btn log-chip" data-category="update" onclick="Logs.setCategory('update')" style="border-color: rgba(45, 212, 191, 0.4); color: #5eead4;">
+          <span data-i18n="logs_cat_update">🔄 Actualizaciones</span>
+        </button>
+        <button class="chip-btn log-chip" data-category="security" onclick="Logs.setCategory('security')" style="border-color: rgba(248, 81, 73, 0.4); color: #ff7b72;">
+          <span data-i18n="logs_cat_security">🛡️ Seguridad</span>
+        </button>
+        <button class="chip-btn log-chip" data-category="tasks" onclick="Logs.setCategory('tasks')" style="border-color: rgba(227, 179, 65, 0.4); color: #f2cc60;">
+          <span data-i18n="logs_cat_tasks">⏱️ Tareas</span>
+        </button>
+      </div>
+
+      <!-- Search Input -->
+      <div style="position: relative; min-width: 240px; flex: 1; max-width: 380px;">
+        <input type="text" id="logs-search-input" class="form-input" placeholder="Buscar por comando, acción o detalle..." oninput="Logs.handleSearch(this.value)" style="padding-left: 32px; font-size: 0.83rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-dim); pointer-events: none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="logs-empty-state" style="display: none; text-align: center; padding: 48px 16px; color: var(--text-dim);">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 12px; opacity: 0.5;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <p style="font-size: 0.95rem; font-weight: 500;" data-i18n="logs_empty_title">No hay registros que coincidan con la búsqueda.</p>
+      <p style="font-size: 0.82rem; margin-top: 4px;" data-i18n="logs_empty_desc">Los comandos ejecutados en consola y eventos del servidor aparecerán aquí automáticamente.</p>
+    </div>
+
+    <!-- Logs Table -->
+    <div style="overflow-x: auto;">
+      <table class="data-table" id="logs-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="width: 160px;" data-i18n="logs_col_timestamp">Fecha / Hora</th>
+            <th style="width: 120px;" data-i18n="logs_col_category">Categoría</th>
+            <th style="width: 180px;" data-i18n="logs_col_action">Acción</th>
+            <th data-i18n="logs_col_details">Detalle / Comando</th>
+            <th style="width: 100px;" data-i18n="logs_col_user">Usuario</th>
+            <th style="width: 100px; text-align: center;" data-i18n="logs_col_status">Estado</th>
+          </tr>
+        </thead>
+        <tbody id="logs-table-body">
+          <!-- Populated dynamically by logs.js -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Logs Footer Status -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 0.8rem; color: var(--text-dim);">
+      <span id="logs-pagination-info">Cargando registros...</span>
+      <span style="font-size: 0.75rem;">Historial persistente protegido contra reinicios</span>
+    </div>
+  </div>
+</section>

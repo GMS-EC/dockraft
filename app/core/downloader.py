@@ -363,6 +363,53 @@ class DownloadManager:
 
         return {"server_file": "run.sh" if run_sh.exists() else "server.jar", "is_script": run_sh.exists()}
 
+    def verify_file_integrity(self, file_path: Any, expected_type: str = "jar") -> bool:
+        """
+        Validates downloaded archive/binary to guarantee zero corruptions before replacement.
+        Checks:
+        1. File existence and non-zero size (at least 512 KB for server binaries).
+        2. Binary magic headers (ZIP/JAR starts with PK\x03\x04).
+        3. Comprehensive CRC32 check on all members via zipfile.ZipFile.testzip().
+        Raises ValueError with descriptive reason if corrupt. Returns True if valid.
+        """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
+        if not file_path.exists():
+            raise ValueError(f"El archivo descargado no existe en {file_path}")
+
+        file_size = file_path.stat().st_size
+        min_size = 512 * 1024  # At least 512 KB
+
+        if file_size < min_size:
+            raise ValueError(
+                f"El archivo descargado está incompleto o truncado (tamaño: {file_size} bytes, mínimo: {min_size} bytes)"
+            )
+
+        ext = file_path.suffix.lower()
+        if expected_type in ["jar", "zip"] or ext in [".jar", ".zip"]:
+            # Check magic bytes
+            with open(file_path, "rb") as f:
+                header = f.read(4)
+                if not header.startswith(b"PK\x03\x04"):
+                    raise ValueError("El archivo descargado no tiene una cabecera ZIP/JAR válida (posible error 404/500 o descarga interrumpida)")
+
+            # Check full internal zip integrity with CRC32 test
+            try:
+                with zipfile.ZipFile(file_path, "r") as zf:
+                    corrupt_entry = zf.testzip()
+                    if corrupt_entry is not None:
+                        raise ValueError(
+                            f"Se detectó corrupción de datos en el archivo descargado (suma CRC32 inválida en '{corrupt_entry}')"
+                        )
+                    namelist = zf.namelist()
+                    if not namelist:
+                        raise ValueError("El archivo descargado está vacío sin contenido interno")
+            except zipfile.BadZipFile as bz:
+                raise ValueError(f"Archivo ZIP/JAR corrupto o dañado: {str(bz)}")
+
+        return True
+
     async def download_file(
         self,
         url: str,
@@ -370,10 +417,11 @@ class DownloadManager:
         is_zip: bool = False,
         preserve_existing_configs: bool = False,
         headers: Optional[Dict[str, str]] = None,
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+        verify_integrity: bool = True
     ) -> Path:
         """
-        Streams download to target path with progress tracking.
+        Streams download to target path with progress tracking and anti-corruption verification.
         If is_zip is True, extracts the contents into settings.data_dir.
         If preserve_existing_configs is True, avoids overwriting server.properties,
         permissions.json, allowlist.json, and worlds/ folder.
@@ -410,6 +458,9 @@ class DownloadManager:
                             if progress_callback:
                                 progress_callback(downloaded, total_size)
 
+            if verify_integrity:
+                self.verify_file_integrity(dest_path, "zip" if (is_zip or target_filename.endswith(".zip")) else "jar")
+
             # If it's a zip (Bedrock or modpack), extract it
             if is_zip or target_filename.endswith(".zip"):
                 self.active_download["status"] = "extracting"
@@ -442,6 +493,11 @@ class DownloadManager:
             return dest_path
 
         except Exception as e:
+            if dest_path.exists() and (is_zip or target_filename.endswith(".tmp") or target_filename.startswith(".")):
+                try:
+                    dest_path.unlink()
+                except Exception:
+                    pass
             if self.active_download:
                 self.active_download["status"] = f"error: {str(e)}"
             raise e
@@ -573,3 +629,4 @@ class DownloadManager:
         return None
 
 downloader = DownloadManager()
+verify_file_integrity = downloader.verify_file_integrity

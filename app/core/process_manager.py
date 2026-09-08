@@ -13,6 +13,7 @@ from typing import Set, List, Deque, Dict, Any, Optional
 from fastapi import WebSocket
 from app.config import settings
 from app.core.fs_utils import atomic_write_text
+from app.core.activity_manager import activity_manager
 
 # Optimized Aikar's flags for modern Paper/Purpur/Java servers
 AIKAR_FLAGS = [
@@ -747,6 +748,17 @@ class ProcessManager:
             asyncio.create_task(self._process_supervisor())
             self._tps_poller_task = asyncio.create_task(self._tps_poller_loop())
 
+            try:
+                activity_manager.log(
+                    category="server",
+                    action="Servidor iniciado",
+                    details=f"Tipo: {server_type} | Versión: {cfg.get('server_version', 'Desconocida')}",
+                    user="admin",
+                    status="success"
+                )
+            except Exception:
+                pass
+
             return {"status": "success", "message": "Server started"}
         except Exception as e:
             self.status = "OFFLINE"
@@ -780,6 +792,16 @@ class ProcessManager:
 
         target_pid = self.process.pid if self.process else None
         self._stop_task = asyncio.create_task(self._delayed_kill_check(target_pid=target_pid, timeout=25))
+        try:
+            activity_manager.log(
+                category="server",
+                action="Servidor detenido",
+                details="Solicitud de detención ordenada",
+                user="admin",
+                status="info"
+            )
+        except Exception:
+            pass
         return {"status": "success", "message": "Stop command sent"}
 
     async def _delayed_kill_check(self, target_pid: Optional[int] = None, timeout: int = 25) -> None:
@@ -853,6 +875,17 @@ class ProcessManager:
         await self.broadcast_message({"type": "log", "data": msg})
         await self.broadcast_message({"type": "status", "status": "OFFLINE"})
 
+        try:
+            activity_manager.log(
+                category="server",
+                action="Apagado forzado (Kill)",
+                details="Proceso de servidor finalizado forzosamente",
+                user="admin",
+                status="warning"
+            )
+        except Exception:
+            pass
+
         return {"status": "success", "message": "Server forcibly killed"}
 
     async def _tps_poller_loop(self) -> None:
@@ -883,6 +916,16 @@ class ProcessManager:
                 log_echo = f"> {clean_cmd}"
                 self._append_log(log_echo)
                 await self.broadcast_message({"type": "log", "data": log_echo})
+                try:
+                    activity_manager.log(
+                        category="console",
+                        action="Comando enviado",
+                        details=f"> {clean_cmd}",
+                        user="admin",
+                        status="success"
+                    )
+                except Exception:
+                    pass
             return {"status": "success"}
         except Exception as e:
             return {"status": "error", "message": str(e)}

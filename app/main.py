@@ -5,6 +5,7 @@ import time
 import shutil
 import zipfile
 import asyncio
+from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Dict, Any, Optional, List
@@ -36,6 +37,7 @@ from app.core.metrics_manager import metrics_manager
 from app.core.player_manager import player_manager
 from app.core.fs_utils import atomic_write_text
 from app.core.diagnostic_manager import diagnostic_manager
+from app.core.activity_manager import activity_manager
 
 
 # --- Security Headers Middleware ---
@@ -277,16 +279,29 @@ async def auth_login(req: LoginRequest, request: Request, response: Response):
         token = create_session_token()
         response.set_cookie(key="dockraft_token", value=token, httponly=True, max_age=max_age, samesite="lax")
         response.set_cookie(key="litemc_token", value=token, httponly=True, max_age=max_age, samesite="lax")
+        try:
+            activity_manager.log("security", "Inicio de sesión exitoso", f"Usuario '{req.username or 'admin'}' conectado (IP: {client_ip})", user=req.username or "admin", status="success")
+        except Exception:
+            pass
         return {"status": "success", "token": token, "session_timeout_minutes": max_age // 60}
 
     # 4. Record failed attempt and check if threshold reached
     remaining_attempts, cooldown = login_limiter.record_failure(client_ip)
     if cooldown > 0:
+        try:
+            activity_manager.log("security", "Bloqueo por fuerza bruta", f"5 intentos fallidos superados (IP: {client_ip})", user="desconocido", status="error")
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Ha alcanzado el límite de 5 intentos fallidos. Acceso bloqueado durante 10 minutos ({cooldown}s).",
             headers={"Retry-After": str(cooldown)}
         )
+
+    try:
+        activity_manager.log("security", "Intento de inicio fallido", f"Credenciales inválidas para '{req.username or 'admin'}' (IP: {client_ip})", user=req.username or "desconocido", status="warning")
+    except Exception:
+        pass
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -297,6 +312,10 @@ async def auth_login(req: LoginRequest, request: Request, response: Response):
 async def auth_logout(response: Response):
     response.delete_cookie(key="dockraft_token")
     response.delete_cookie(key="litemc_token")
+    try:
+        activity_manager.log("security", "Cierre de sesión", "Sesión cerrada por el usuario", user="admin", status="info")
+    except Exception:
+        pass
     return {"status": "success", "message": "Sesión cerrada"}
 
 @app.get("/logout")
@@ -828,10 +847,9 @@ async def get_update_info():
 
 @app.post("/api/installer/update", dependencies=[Depends(get_current_user)])
 async def update_server(req: UpdateRequest):
-    """Safely updates the existing server to a new version of the same software, preserving configs and worlds."""
-    if process_manager.get_status() != "OFFLINE":
-        raise HTTPException(status_code=400, detail="Por favor detén el servidor antes de actualizarlo")
-
+    """Safely updates the existing server to a new version of the same software,
+    preserving configs and worlds, auto-stopping gracefully if running,
+    creating a pre-update backup, and verifying file integrity against corruption."""
     if not _is_server_installed():
         raise HTTPException(status_code=400, detail="No hay ningún servidor instalado para actualizar")
 
@@ -872,35 +890,68 @@ async def update_server(req: UpdateRequest):
         else:
             raise HTTPException(status_code=400, detail="Tipo de servidor no soportado para actualización")
 
-        if server_type == "forge":
-            java_path = cfg.get("java_path") or JavaManager.get_best_java_path(req.version)
-            async def forge_update_pipeline():
-                try:
+        was_running = process_manager.get_status() != "OFFLINE"
+
+        async def safe_update_pipeline():
+            try:
+                # 1. Stop gracefully if running
+                if was_running:
+                    msg = "[Dockraft] Deteniendo servidor de forma segura para aplicar actualización..."
+                    process_manager._append_log(msg)
+                    await process_manager.broadcast_message({"type": "log", "data": msg})
+                    await process_manager.send_command("save-all", echo=False)
+                    await process_manager.stop_server()
+                    # Wait for offline status
+                    for _ in range(30):
+                        await asyncio.sleep(1)
+                        if process_manager.get_status() == "OFFLINE":
+                            break
+                    if process_manager.get_status() != "OFFLINE":
+                        await process_manager.kill_server()
+
+                # 2. Create pre-update backup
+                msg = f"[Dockraft] Generando copia de seguridad preventiva (pre-update-{req.version})..."
+                process_manager._append_log(msg)
+                await process_manager.broadcast_message({"type": "log", "data": msg})
+                pre_backup = await backup_manager.create_backup(
+                    scope="full",
+                    tag=f"pre-update-{req.version}",
+                    compress=True
+                )
+                if pre_backup.get("status") == "error":
+                    err_msg = f"[Dockraft] Error al crear copia preventiva: {pre_backup.get('message')}. Abortando actualización para seguridad de datos."
+                    process_manager._append_log(err_msg)
+                    await process_manager.broadcast_message({"type": "log", "data": err_msg})
+                    if was_running:
+                        await process_manager.start_server()
+                    return
+
+                # 3. Download and verify integrity
+                msg = f"[Dockraft] Descargando actualización {req.version} y verificando integridad anti-corrupción..."
+                process_manager._append_log(msg)
+                await process_manager.broadcast_message({"type": "log", "data": msg})
+
+                if server_type == "forge":
+                    java_path = cfg.get("java_path") or JavaManager.get_best_java_path(req.version)
                     installer_path = await downloader.download_file(
                         download_url,
                         target_file,
-                        preserve_existing_configs=True
+                        preserve_existing_configs=True,
+                        verify_integrity=True
                     )
                     res = await downloader.install_forge_server(installer_path, java_bin=java_path)
                     settings.save_runtime_config({
                         "server_file": res.get("server_file", "run.sh"),
                         "server_version": req.version
                     })
-                except Exception as ex:
-                    print(f"[Dockraft] Forge update error: {ex}")
-
-            asyncio.create_task(forge_update_pipeline())
-        else:
-            # Start download in background with preserve_existing_configs=True
-            async def update_pipeline():
-                try:
+                else:
                     await downloader.download_file(
                         download_url,
                         target_file,
                         is_zip=is_zip,
-                        preserve_existing_configs=True
+                        preserve_existing_configs=True,
+                        verify_integrity=True
                     )
-                    # Clean up old file if differently named (e.g. paper-.jar or paper-1.20.4.jar)
                     if old_server_file and old_server_file != target_file and not is_zip:
                         old_path = settings.data_dir / old_server_file
                         if old_path.exists():
@@ -913,22 +964,55 @@ async def update_server(req: UpdateRequest):
                         "server_file": target_file if not is_zip else old_server_file or "bedrock_server",
                         "server_version": req.version
                     })
-                except Exception as ex:
-                    print(f"[Dockraft] Update pipeline error: {ex}")
 
-            asyncio.create_task(update_pipeline())
+                # Log activity
+                activity_manager.log(
+                    category="update",
+                    action="Servidor actualizado",
+                    details=f"Actualizado con éxito a versión {req.version} ({server_type.upper()}). Respaldo preventivo: {pre_backup.get('filename')}",
+                    user="admin",
+                    status="success"
+                )
 
-        # Update saved version in runtime config
-        settings.save_runtime_config({
-            "server_version": req.version
-        })
+                succ_msg = f"[Dockraft] ¡Servidor actualizado exitosamente a la versión {req.version}!"
+                process_manager._append_log(succ_msg)
+                await process_manager.broadcast_message({"type": "log", "data": succ_msg})
+
+                # 4. Restart if was running
+                if was_running:
+                    restart_msg = "[Dockraft] Reiniciando servidor automáticamente con la nueva versión..."
+                    process_manager._append_log(restart_msg)
+                    await process_manager.broadcast_message({"type": "log", "data": restart_msg})
+                    await asyncio.sleep(1.5)
+                    await process_manager.start_server()
+
+            except Exception as ex:
+                err_msg = f"[Dockraft] Error en la actualización a {req.version}: {str(ex)}"
+                process_manager._append_log(err_msg)
+                await process_manager.broadcast_message({"type": "log", "data": err_msg})
+                activity_manager.log(
+                    category="update",
+                    action="Error en actualización",
+                    details=f"Fallo al actualizar a {req.version}: {str(ex)}",
+                    user="admin",
+                    status="error"
+                )
+                if was_running and process_manager.get_status() == "OFFLINE":
+                    await process_manager.start_server()
+
+        asyncio.create_task(safe_update_pipeline())
+
+        # Update saved version in runtime config optimistically
+        settings.save_runtime_config({"server_version": req.version})
 
         return {
             "status": "started",
             "server_type": server_type,
             "target_version": req.version,
-            "download_url": download_url
+            "download_url": download_url,
+            "auto_stopping": was_running
         }
+
     except HTTPException:
         raise
     except (ValueError, KeyError) as e:
@@ -939,6 +1023,41 @@ async def update_server(req: UpdateRequest):
         if "HTTPStatusError" in type(e).__name__:
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- Activity / Audit Log Endpoints ---
+@app.get("/api/activity/logs", dependencies=[Depends(get_current_user)])
+async def get_activity_logs(
+    category: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0)
+):
+    """Returns filtered and paginated activity logs and category counts."""
+    return activity_manager.get_logs(category=category, search=search, limit=limit, offset=offset)
+
+@app.post("/api/activity/clear", dependencies=[Depends(get_current_user)])
+async def clear_activity_logs():
+    """Clears all logged activities."""
+    activity_manager.clear_logs()
+    activity_manager.log("security", "Historial de registros vaciado", "El administrador vació el registro de actividad", user="admin", status="warning")
+    return {"status": "success", "message": "Registros de actividad vaciados correctamente"}
+
+@app.get("/api/activity/export", dependencies=[Depends(get_current_user)])
+async def export_activity_logs(format: str = Query("csv", pattern="^(txt|json|csv)$")):
+    """Exports activity logs as CSV, plain text or JSON file."""
+    content = activity_manager.export_logs(format_type=format)
+    if format == "json":
+        media_type = "application/json"
+    elif format == "csv":
+        media_type = "text/csv; charset=utf-8"
+    else:
+        media_type = "text/plain; charset=utf-8"
+    filename = f"dockraft_activity_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{format}"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 # --- File Manager Endpoints ---
 @app.get("/api/files/list", dependencies=[Depends(get_current_user)])
@@ -1123,12 +1242,18 @@ async def create_backup(req: BackupCreateRequest):
             await asyncio.sleep(1)
 
     try:
-        return backup_manager.create_backup(
+        res = backup_manager.create_backup(
             tag=req.tag or "manual",
             scope=req.scope or "full",
             targets=req.targets,
             compression=compression
         )
+        if res.get("status") == "success":
+            try:
+                activity_manager.log("backup", "Copia creada", f"Archivo: {res.get('filename')} | Tamaño: {res.get('size_human', 'N/A')}", user="admin", status="success")
+            except Exception:
+                pass
+        return res
     finally:
         if was_running and stop_server:
             await asyncio.sleep(1)
@@ -1138,11 +1263,23 @@ async def create_backup(req: BackupCreateRequest):
 async def restore_backup(req: BackupRestoreRequest):
     if process_manager.get_status() != "OFFLINE":
         raise HTTPException(status_code=400, detail="Por favor detén el servidor antes de restaurar una copia de seguridad")
-    return backup_manager.restore_backup(req.filename)
+    res = backup_manager.restore_backup(req.filename)
+    if res.get("status") == "success":
+        try:
+            activity_manager.log("backup", "Copia restaurada", f"Restaurada copia '{req.filename}'", user="admin", status="warning")
+        except Exception:
+            pass
+    return res
 
 @app.delete("/api/backups/{filename}", dependencies=[Depends(get_current_user)])
 async def delete_backup(filename: str):
-    return backup_manager.delete_backup(filename)
+    res = backup_manager.delete_backup(filename)
+    if res.get("status") == "success":
+        try:
+            activity_manager.log("backup", "Copia eliminada", f"Eliminada copia '{filename}'", user="admin", status="info")
+        except Exception:
+            pass
+    return res
 
 @app.get("/api/backups/download/{filename}", dependencies=[Depends(get_current_user)])
 async def download_backup(filename: str):

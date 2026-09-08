@@ -122,7 +122,7 @@ class BackupManager:
 
     def has_server_data(self) -> bool:
         """Checks if data_dir contains actual Minecraft server files/folders rather than just empty/system files."""
-        system_files = {"dockraft_config.json", "litemc_config.json", "tasks.json", "webhooks.json", "session.lock", "dockraft.pid", "litemc.pid"}
+        system_files = {"dockraft_config.json", "litemc_config.json", "tasks.json", "webhooks.json", "activity_logs.json", "session.lock", "dockraft.pid", "litemc.pid"}
         system_dirs = {"backups", ".git", ".idea", "__pycache__"}
         if not settings.data_dir.exists():
             return False

@@ -491,6 +491,24 @@ body {
   border-color: #8b949e;
 }
 
+.chip-btn.active {
+  color: #58a6ff;
+  background-color: rgba(56, 139, 253, 0.15);
+  border-color: #388bfd;
+  font-weight: 600;
+}
+
+#update-preview-badge,
+#update-status-badge {
+  transition: all 0.15s ease;
+}
+
+#update-preview-badge:hover,
+#update-status-badge:hover {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+
 /* File Manager */
 .file-manager-header {
   display: flex;

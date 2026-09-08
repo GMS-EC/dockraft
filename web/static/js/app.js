@@ -103,6 +103,15 @@ const App = {
       Tasks.loadTasks();
     } else if (tabId === 'webhooks') {
       Webhooks.loadConfig();
+    } else if (tabId === 'logs') {
+      if (typeof Logs !== 'undefined') {
+        Logs.loadLogs();
+        Logs.startPolling();
+      }
+    }
+
+    if (tabId !== 'logs' && typeof Logs !== 'undefined') {
+      Logs.stopPolling();
     }
   },
 

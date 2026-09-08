@@ -403,28 +403,57 @@ const Installer = {
       }
 
       if (statusBadge) {
+        statusBadge.style.cursor = 'pointer';
         if (data.current_version === 'importado') {
           statusBadge.textContent = `Actualización disponible (${data.latest_stable || 'Ver versiones'})`;
           statusBadge.style.background = 'rgba(56, 139, 253, 0.15)';
           statusBadge.style.borderColor = '#388bfd';
           statusBadge.style.color = '#58a6ff';
+          statusBadge.title = "Haz clic para seleccionar esta versión";
+          statusBadge.onclick = () => {
+            if (select && data.latest_stable) {
+              select.value = data.latest_stable;
+              select.dispatchEvent(new Event('change'));
+              App.showToast(`Versión seleccionada: ${data.latest_stable}`, 'info');
+            }
+          };
         } else if (data.update_available) {
-          statusBadge.textContent = `Nueva versión disponible: ${data.latest_stable}`;
+          statusBadge.innerHTML = `Nueva versión disponible: <strong>${data.latest_stable}</strong> <span style="font-size:0.75rem; margin-left:4px; opacity:0.85;">(clic para elegir)</span>`;
           statusBadge.style.background = 'rgba(56, 139, 253, 0.15)';
           statusBadge.style.borderColor = '#388bfd';
           statusBadge.style.color = '#58a6ff';
+          statusBadge.title = `Haz clic para seleccionar ${data.latest_stable}`;
+          statusBadge.onclick = () => {
+            if (select && data.latest_stable) {
+              select.value = data.latest_stable;
+              select.dispatchEvent(new Event('change'));
+              App.showToast(`Versión seleccionada: ${data.latest_stable}`, 'info');
+            }
+          };
         } else {
           statusBadge.textContent = `Servidor actualizado (Estable: ${data.latest_stable || data.current_version})`;
           statusBadge.style.background = 'rgba(46, 160, 67, 0.15)';
           statusBadge.style.borderColor = '#2ea043';
           statusBadge.style.color = '#3fb950';
+          statusBadge.title = "Servidor en la última versión estable";
+          statusBadge.onclick = null;
         }
       }
 
       if (previewBadge) {
         if (data.preview_available && data.latest_preview) {
-          previewBadge.style.display = 'inline-block';
-          previewBadge.textContent = `Beta disponible: ${data.latest_preview}`;
+          previewBadge.style.display = 'inline-flex';
+          previewBadge.style.alignItems = 'center';
+          previewBadge.style.cursor = 'pointer';
+          previewBadge.title = `Haz clic para seleccionar la beta ${data.latest_preview}`;
+          previewBadge.innerHTML = `Beta disponible: <strong>${data.latest_preview}</strong> <span style="font-size:0.75rem; margin-left:4px; opacity:0.85;">(clic para elegir)</span>`;
+          previewBadge.onclick = () => {
+            if (select) {
+              select.value = data.latest_preview;
+              select.dispatchEvent(new Event('change'));
+              App.showToast(`Versión beta seleccionada: ${data.latest_preview}`, 'info');
+            }
+          };
         } else {
           previewBadge.style.display = 'none';
         }
@@ -436,22 +465,10 @@ const Installer = {
         const stables = items.filter(v => v.channel === 'stable');
         const previews = items.filter(v => v.channel !== 'stable');
 
-        if (stables.length > 0) {
-          const optgStable = document.createElement('optgroup');
-          optgStable.label = "Versiones Estables (Recomendado)";
-          stables.forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v.id;
-            opt.textContent = v.label || v.id;
-            opt.setAttribute('data-channel', v.channel);
-            optgStable.appendChild(opt);
-          });
-          select.appendChild(optgStable);
-        }
-
+        // Previews & Betas on top so users immediately see recent test builds/snapshots
         if (previews.length > 0) {
           const optgPrev = document.createElement('optgroup');
-          optgPrev.label = "Pre-releases, Snapshots y Betas";
+          optgPrev.label = "🔥 Pre-releases, Snapshots y Betas";
           previews.forEach(v => {
             const opt = document.createElement('option');
             opt.value = v.id;
@@ -460,6 +477,19 @@ const Installer = {
             optgPrev.appendChild(opt);
           });
           select.appendChild(optgPrev);
+        }
+
+        if (stables.length > 0) {
+          const optgStable = document.createElement('optgroup');
+          optgStable.label = "⭐ Versiones Estables (Recomendado)";
+          stables.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.id;
+            opt.textContent = v.label || v.id;
+            opt.setAttribute('data-channel', v.channel);
+            optgStable.appendChild(opt);
+          });
+          select.appendChild(optgStable);
         }
 
         if (stables.length === 0 && previews.length === 0) {
@@ -474,10 +504,16 @@ const Installer = {
           if (warningBadge) {
             if (isRunning) {
               warningBadge.style.display = 'block';
-              warningBadge.innerHTML = '⚠️ <strong>El servidor está en ejecución.</strong> Debes detenerlo desde la Consola o la barra superior antes de aplicar una actualización.';
+              warningBadge.style.background = 'rgba(56, 139, 253, 0.1)';
+              warningBadge.style.border = '1px solid #388bfd';
+              warningBadge.style.color = '#58a6ff';
+              warningBadge.innerHTML = 'ℹ️ <strong>El servidor está en ejecución.</strong> Al pulsar "Actualizar Servidor", Dockraft guardará el mundo (save-all), apagará el servidor de forma segura, generará un respaldo automático previo, verificará la integridad contra corrupciones y lo reiniciará automáticamente al terminar.';
             } else if (ch && ch !== 'stable') {
               warningBadge.style.display = 'block';
-              warningBadge.textContent = "Advertencia: Has seleccionado una versión de prueba (Pre-Release / Snapshot / Beta). Puede contener errores experimentales y causar incompatibilidades con mundos o plugins.";
+              warningBadge.style.background = 'rgba(210, 153, 34, 0.1)';
+              warningBadge.style.border = '1px solid #d29922';
+              warningBadge.style.color = '#e3b341';
+              warningBadge.innerHTML = '⚠️ <strong>Versión de prueba seleccionada (Pre-Release / Snapshot / Beta):</strong> Puede contener errores experimentales. Se generará un respaldo automático antes de aplicarla.';
             } else {
               warningBadge.style.display = 'none';
             }
@@ -496,14 +532,11 @@ const Installer = {
   async startUpdate() {
     if (this.isInstalling) return;
 
-    // Check if server is running
+    let isRunning = false;
     try {
       const sRes = await fetch('/api/server/status');
       const stats = await sRes.json();
-      if (stats.status !== 'OFFLINE') {
-        App.showToast("Por favor detén el servidor antes de actualizarlo.", 'warning');
-        return;
-      }
+      isRunning = (stats.status && stats.status !== 'OFFLINE');
     } catch (e) {}
 
     const select = document.getElementById('update-version-select');
@@ -513,10 +546,14 @@ const Installer = {
     }
 
     const targetVer = select.value;
+    const confirmMessage = isRunning
+      ? `¿Deseas actualizar tu servidor a la versión "${targetVer}"?\n\n• El servidor se detendrá de forma segura (guardando mundos con save-all).\n• Se creará un respaldo de seguridad automático (pre-update-${targetVer}).\n• Se verificará la integridad del archivo para evitar corrupciones.\n• El servidor se reiniciará automáticamente al finalizar la actualización.`
+      : `¿Deseas actualizar tu servidor a la versión "${targetVer}"?\n\n• Se creará un respaldo de seguridad automático (pre-update-${targetVer}).\n• Se verificará la integridad del paquete descargado contra corrupciones.\n• Tus mundos, plugins y configuraciones se mantendrán intactos.`;
+
     const ok = await App.confirm({
       title: 'Actualizar Servidor',
-      message: `¿Deseas actualizar tu servidor a la versión "${targetVer}"?\n\nEsta operación reemplazará los binarios del servidor. Tus mundos, configuraciones y plugins se mantendrán intactos.`,
-      confirmText: 'Actualizar Versión',
+      message: confirmMessage,
+      confirmText: 'Actualizar Servidor',
       type: 'info'
     });
     if (!ok) return;
