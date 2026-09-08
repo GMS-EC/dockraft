@@ -146,6 +146,83 @@ def test_api_plugins_and_raw_properties(tmp_path, monkeypatch):
     assert get_res.json()["exists"] is True
     assert get_res.json()["content"] == prop_content
 
+def test_console_plugin_update_parsing():
+    # 1. LuckPerms format
+    line1 = "[12:34:56 INFO]: [LuckPerms] An update is available: 5.4.131 (you are running 5.4.102). Download: https://luckperms.net/download"
+    entry1 = plugin_manager.parse_console_update_line(line1)
+    assert entry1 is not None
+    assert entry1["plugin"] == "LuckPerms"
+    assert entry1["version"] == "5.4.131"
+    assert entry1["url"] == "https://luckperms.net/download"
+
+    # 2. ViaVersion format
+    line2 = "[ViaVersion] An update is available! Current: 4.9.2, New: 5.0.0. Download at: https://hangar.papermc.io/ViaVersion/ViaVersion"
+    entry2 = plugin_manager.parse_console_update_line(line2)
+    assert entry2 is not None
+    assert entry2["plugin"] == "ViaVersion"
+    assert entry2["version"] == "5.0.0"
+    assert "hangar.papermc.io" in entry2["url"]
+
+    # 3. EssentialsX format
+    line3 = "[08:12:00 WARN]: [Essentials] A new version (2.20.1) is available at https://github.com/EssentialsX/Essentials/releases"
+    entry3 = plugin_manager.parse_console_update_line(line3)
+    assert entry3 is not None
+    assert entry3["plugin"] == "Essentials"
+    assert entry3["version"] == "2.20.1"
+    assert "github.com" in entry3["url"]
+
+    # 4. Spigot resource link format
+    line4 = "[DecentHolograms] New update available! Version: 2.8.9 (You're on 2.8.5). Download at https://www.spigotmc.org/resources/96927/"
+    entry4 = plugin_manager.parse_console_update_line(line4)
+    assert entry4 is not None
+    assert entry4["plugin"] == "DecentHolograms"
+    assert entry4["version"] == "2.8.9"
+    assert "spigotmc.org" in entry4["url"]
+
+    # 5. Non-update line (should return None)
+    line_normal = "[12:34:56 INFO]: [Essentials] Loading Essentials v2.20.1"
+    assert plugin_manager.parse_console_update_line(line_normal) is None
+
+def test_console_log_scanning_and_api(tmp_path, monkeypatch):
+    test_logs_dir = tmp_path / "logs"
+    test_logs_dir.mkdir(parents=True)
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    plugin_manager._detected_updates = {}
+
+    log_file = test_logs_dir / "latest.log"
+    log_content = """[10:00:00 INFO]: Starting minecraft server version 1.21.4
+[10:00:05 INFO]: [LuckPerms] An update is available: 5.4.131 (you are running 5.4.102). Download: https://luckperms.net/download
+[10:00:06 INFO]: [Chunky] A new version is available: 1.4.10! Download: https://www.spigotmc.org/resources/81534/
+[10:00:10 INFO]: Done (5.2s)! For help, type "help"
+"""
+    log_file.write_text(log_content, encoding="utf-8")
+
+    # Test scan_console_logs
+    scanned = plugin_manager.scan_console_logs()
+    assert len(scanned) == 2
+    names = {s["plugin"] for s in scanned}
+    assert "LuckPerms" in names
+    assert "Chunky" in names
+
+    # Test API GET /api/plugins/console-updates
+    res_get = client.get("/api/plugins/console-updates")
+    assert res_get.status_code == 200
+    assert res_get.json()["count"] == 2
+
+    # Test API POST /api/plugins/scan-console
+    res_post = client.post("/api/plugins/scan-console")
+    assert res_post.status_code == 200
+    assert res_post.json()["count"] == 2
+
+    # Test handle_console_line with dispatch
+    with patch("app.core.webhook_manager.webhook_manager.dispatch") as mock_dispatch:
+        new_line = "[ViaVersion] An update is available! Current: 4.9.2, New: 5.0.0. Download at: https://hangar.papermc.io/ViaVersion/ViaVersion"
+        entry = plugin_manager.handle_console_line(new_line)
+        assert entry is not None
+        assert entry["plugin"] == "ViaVersion"
+        assert mock_dispatch.called
+        assert mock_dispatch.call_args[0][0] == "plugin_update"
+
 @pytest.mark.asyncio
 async def test_low_tps_alert_logic():
     pm = ProcessManager()

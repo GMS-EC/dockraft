@@ -1442,6 +1442,18 @@ async def check_plugin_updates():
     outdated = [p for p in results if p.get("has_update")]
     return {"status": "success", "plugins": results, "total": len(results), "outdated_count": len(outdated)}
 
+@app.get("/api/plugins/console-updates", dependencies=[Depends(get_current_user)])
+async def get_console_plugin_updates():
+    """Returns all plugin update notices detected from console logs."""
+    updates = plugin_manager.get_detected_updates()
+    return {"status": "success", "updates": updates, "count": len(updates)}
+
+@app.post("/api/plugins/scan-console", dependencies=[Depends(get_current_user)])
+async def scan_console_plugin_updates():
+    """Scans data/logs/latest.log and returns detected plugin updates."""
+    updates = plugin_manager.scan_console_logs()
+    return {"status": "success", "updates": updates, "count": len(updates)}
+
 @app.post("/api/plugins/notify-updates", dependencies=[Depends(get_current_user)])
 async def notify_plugin_updates():
     """Checks for plugin updates and broadcasts a webhook notification if any are outdated."""

@@ -557,6 +557,13 @@ class ProcessManager:
                             except Exception:
                                 pass
 
+                # Intercept Plugin Update notices in console output
+                try:
+                    from app.core.plugin_manager import plugin_manager
+                    plugin_manager.handle_console_line(clean_ansi)
+                except Exception:
+                    pass
+
                 # Intercept TPS line (Paper / Purpur / Spigot / Fabric Carpet)
                 tps_m = re.search(r'TPS from last 1m, 5m, 15m:\s*([0-9\.\*]+)[,\s]+([0-9\.\*]+)[,\s]+([0-9\.\*]+)', clean_ansi)
                 if tps_m:

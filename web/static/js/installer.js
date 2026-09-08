@@ -55,7 +55,6 @@ const Installer = {
           btn.className = "btn btn-outline";
         }
         await this.loadUpdateInfo(stats);
-        await this.loadInstalledPlugins(stats);
       } else {
         this.isLocked = false;
         this.allowForce = true;
@@ -64,8 +63,8 @@ const Installer = {
         if (btnDelete) btnDelete.style.display = 'none';
         const updateCard = document.getElementById('installer-update-card');
         if (updateCard) updateCard.style.display = 'none';
-        const pluginsCard = document.getElementById('installer-plugins-card');
-        if (pluginsCard) pluginsCard.style.display = 'none';
+        const sub = document.getElementById('update-plugins-subsection');
+        if (sub) sub.style.display = 'none';
         if (btn) {
           btn.disabled = false;
           btn.textContent = "Instalar y Configurar Servidor";
@@ -380,10 +379,20 @@ const Installer = {
 
       if (!data.is_installed) {
         card.style.display = 'none';
+        const sub = document.getElementById('update-plugins-subsection');
+        if (sub) sub.style.display = 'none';
         return;
       }
 
       card.style.display = 'block';
+      const isBedrock = (data.server_type || '').toLowerCase() === 'bedrock';
+      const pluginsSub = document.getElementById('update-plugins-subsection');
+      if (pluginsSub) {
+        pluginsSub.style.display = isBedrock ? 'none' : 'block';
+        if (!isBedrock) {
+          this.loadConsolePluginUpdates();
+        }
+      }
       const typeBadge = document.getElementById('update-server-type-badge');
       const curBadge = document.getElementById('update-current-version-badge');
       const statusBadge = document.getElementById('update-status-badge');
@@ -814,54 +823,56 @@ const Installer = {
     }
   },
 
-  installedPlugins: [],
+  consolePluginUpdates: [],
 
-  async loadInstalledPlugins(stats) {
-    const card = document.getElementById('installer-plugins-card');
-    if (!card) return;
-
-    const sType = ((stats && stats.server_type) || '').toLowerCase();
-    if (sType === 'bedrock') {
-      card.style.display = 'none';
-      return;
-    }
-
-    card.style.display = 'block';
+  async loadConsolePluginUpdates() {
+    const subsection = document.getElementById('update-plugins-subsection');
+    if (!subsection) return;
 
     try {
-      const res = await fetch('/api/plugins/list');
+      const res = await fetch('/api/plugins/console-updates');
       if (res.ok) {
         const data = await res.json();
-        this.installedPlugins = data.plugins || [];
-        this.renderPluginsList(this.installedPlugins);
+        this.consolePluginUpdates = data.updates || [];
+        this.renderConsolePluginUpdates(this.consolePluginUpdates);
       }
     } catch (e) {
-      console.warn("Could not load plugins list:", e);
-      const container = document.getElementById('plugins-list-container');
+      console.warn("Could not load console plugin updates:", e);
+      const container = document.getElementById('installer-plugins-list-container');
       if (container) {
-        container.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.85rem;">No se pudieron cargar los plugins.</div>`;
+        container.innerHTML = `<div style="text-align: center; padding: 16px; color: var(--text-muted); font-size: 0.84rem;">No se pudieron cargar los avisos de actualización.</div>`;
       }
     }
   },
 
-  renderPluginsList(plugins) {
-    const container = document.getElementById('plugins-list-container');
-    const badge = document.getElementById('plugins-count-badge');
-    const btnNotify = document.getElementById('btn-notify-plugin-updates');
+  renderConsolePluginUpdates(updates) {
+    const container = document.getElementById('installer-plugins-list-container');
+    const badge = document.getElementById('plugins-update-count-badge');
+    const btnNotify = document.getElementById('btn-notify-console-updates');
     if (!container) return;
 
-    const count = plugins ? plugins.length : 0;
+    const count = updates ? updates.length : 0;
     if (badge) {
-      badge.textContent = `${count} ${count === 1 ? 'plugin' : 'plugins'}`;
+      badge.textContent = `${count} ${count === 1 ? 'detectada' : 'detectadas'}`;
+      if (count > 0) {
+        badge.style.background = 'rgba(210, 153, 34, 0.18)';
+        badge.style.borderColor = '#d29922';
+        badge.style.color = '#e3b341';
+      } else {
+        badge.style.background = 'rgba(46, 160, 67, 0.15)';
+        badge.style.borderColor = '#2ea043';
+        badge.style.color = '#3fb950';
+      }
     }
 
-    if (!plugins || plugins.length === 0) {
+    if (!updates || updates.length === 0) {
       container.innerHTML = `
-        <div style="text-align: center; padding: 26px 20px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px dashed var(--border-color);">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-          <div style="font-weight: 500; font-size: 0.92rem; color: var(--text-primary); margin-bottom: 4px;">No se encontraron plugins en <code>data/plugins/</code></div>
-          <div style="font-size: 0.8rem; color: var(--text-muted); max-width: 480px; margin: 0 auto;">
-            Sube tus plugins <code>.jar</code> desde la pestaña <strong>Archivos</strong> dentro de la carpeta <code>plugins/</code> para gestionarlos y recibir alertas de actualización.
+        <div style="text-align: center; padding: 20px 16px; background: rgba(0, 0, 0, 0.25); border-radius: 8px; border: 1px dashed var(--border-color);">
+          <div style="font-size: 0.88rem; font-weight: 500; color: #7ee787; margin-bottom: 4px;">
+            ✅ Ningún plugin ha reportado actualizaciones pendientes en la consola
+          </div>
+          <div style="font-size: 0.78rem; color: var(--text-muted); max-width: 520px; margin: 0 auto;">
+            Cuando un plugin instalado detecte una nueva versión oficial (en GitHub, Hangar, Spigot o su web oficial), el aviso y su enlace de descarga aparecerán automáticamente aquí.
           </div>
         </div>
       `;
@@ -869,53 +880,39 @@ const Installer = {
       return;
     }
 
-    let hasAnyUpdate = false;
     let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
 
-    plugins.forEach(p => {
-      const isUpToDate = p.checked && !p.has_update;
-      const hasUpdate = p.checked && p.has_update;
-      if (hasUpdate) hasAnyUpdate = true;
+    updates.forEach(u => {
+      const verText = u.version ? `v${u.version}` : 'Nueva versión';
+      const timeBadge = u.time_str ? `<span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">${u.time_str}</span>` : '';
 
-      const cardClass = hasUpdate ? 'plugin-item-card has-update' : 'plugin-item-card';
-
-      let statusBadge = `<span class="badge" style="background: rgba(255, 255, 255, 0.06); color: var(--text-muted); border: 1px solid var(--border-color);">v${p.version || '1.0'}</span>`;
-      if (hasUpdate) {
-        statusBadge = `
-          <span class="badge" style="background: rgba(210, 153, 34, 0.18); border: 1px solid #d29922; color: #e3b341; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-            v${p.version} ➔ v${p.latest_version}
-          </span>
-        `;
-      } else if (isUpToDate) {
-        statusBadge = `
-          <span class="badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; display: inline-flex; align-items: center; gap: 4px;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            v${p.version} (Al día)
-          </span>
-        `;
-      }
-
-      const spigotLink = p.spigot_url ? `
-        <a href="${p.spigot_url}" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; border-color: rgba(255, 153, 0, 0.4); color: #ff9900;">
+      const downloadBtn = u.url ? `
+        <a href="${u.url}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="padding: 5px 12px; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          SpigotMC
+          Descargar ↗
         </a>
-      ` : '';
+      ` : `
+        <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted); font-size: 0.74rem;">Ver en consola</span>
+      `;
 
       html += `
-        <div class="${cardClass}">
+        <div class="plugin-item-card has-update" style="padding: 10px 14px;">
           <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px;">
-              <span style="font-weight: 600; font-size: 0.92rem; color: #f0f6fc;">${p.name || p.filename}</span>
-              ${statusBadge}
-              <span style="font-size: 0.75rem; color: var(--text-dim);">${p.filename} (${p.file_size_formatted || ''})</span>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+              <span style="font-weight: 600; font-size: 0.92rem; color: #f0f6fc;">${u.plugin}</span>
+              <span class="badge" style="background: rgba(210, 153, 34, 0.18); border: 1px solid #d29922; color: #e3b341; font-weight: 600; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+                ${verText} disponible
+              </span>
+              ${timeBadge}
             </div>
-            ${p.description ? `<div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 600px;">${p.description}</div>` : ''}
-            ${p.author ? `<div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 2px;">Por: ${p.author}</div>` : ''}
+            <div style="font-size: 0.8rem; color: #c9d1d9; font-family: monospace; background: rgba(0,0,0,0.3); padding: 5px 8px; border-radius: 4px; word-break: break-word; line-height: 1.4;">
+              ${u.message}
+            </div>
+            ${u.url ? `<div style="font-size: 0.72rem; color: #58a6ff; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><span style="color: var(--text-dim);">URL:</span> ${u.url}</div>` : ''}
           </div>
-          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-            ${spigotLink}
+          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 8px;">
+            ${downloadBtn}
           </div>
         </div>
       `;
@@ -925,34 +922,34 @@ const Installer = {
     container.innerHTML = html;
 
     if (btnNotify) {
-      btnNotify.style.display = hasAnyUpdate ? 'inline-flex' : 'none';
+      btnNotify.style.display = 'inline-flex';
     }
   },
 
-  async checkPluginUpdates() {
-    const btn = document.getElementById('btn-check-plugin-updates');
+  async scanConsolePluginUpdates() {
+    const btn = document.getElementById('btn-scan-console-updates');
     const originalHtml = btn ? btn.innerHTML : '';
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Comprobando...`;
+      btn.innerHTML = `<svg class="spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Escaneando...`;
     }
 
     try {
-      const res = await fetch('/api/plugins/check-updates', { method: 'POST' });
+      const res = await fetch('/api/plugins/scan-console', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        this.installedPlugins = data.plugins || [];
-        this.renderPluginsList(this.installedPlugins);
-        if (data.outdated_count > 0) {
-          App.showToast(`¡Se detectaron ${data.outdated_count} actualizaciones en SpigotMC!`, 'warning');
+        this.consolePluginUpdates = data.updates || [];
+        this.renderConsolePluginUpdates(this.consolePluginUpdates);
+        if (data.count > 0) {
+          App.showToast(`Se detectaron ${data.count} avisos de actualización de plugins en la consola`, 'warning');
         } else {
-          App.showToast("Todos los plugins compatibles están al día en SpigotMC.", 'success');
+          App.showToast("No se encontraron avisos de actualización en el log de la consola.", 'info');
         }
       } else {
-        App.showToast("Error al verificar actualizaciones de plugins.", 'danger');
+        App.showToast("Error al escanear los logs de la consola.", 'danger');
       }
     } catch (e) {
-      App.showToast("Error de conexión al verificar plugins.", 'danger');
+      App.showToast("Error de conexión al escanear logs.", 'danger');
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -961,15 +958,15 @@ const Installer = {
     }
   },
 
-  async notifyPluginUpdates() {
-    const btn = document.getElementById('btn-notify-plugin-updates');
+  async notifyConsolePluginUpdates() {
+    const btn = document.getElementById('btn-notify-console-updates');
     if (btn) btn.disabled = true;
 
     try {
       const res = await fetch('/api/plugins/notify-updates', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        App.showToast(`Alerta despachada a Webhooks para ${data.total_outdated} plugin(s) desactualizado(s)`, 'success');
+        App.showToast(`Alerta despachada a Webhooks para ${data.total_outdated || data.total_detected || 0} plugins`, 'success');
       } else {
         App.showToast("Error al notificar por Webhook.", 'danger');
       }
@@ -978,5 +975,16 @@ const Installer = {
     } finally {
       if (btn) btn.disabled = false;
     }
+  },
+
+  // Compatibility helpers
+  async loadInstalledPlugins(stats) {
+    return this.loadConsolePluginUpdates();
+  },
+  async checkPluginUpdates() {
+    return this.scanConsolePluginUpdates();
+  },
+  async notifyPluginUpdates() {
+    return this.notifyConsolePluginUpdates();
   }
 };

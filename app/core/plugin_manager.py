@@ -30,11 +30,153 @@ def is_newer_version(current: str, latest: str) -> bool:
 class PluginManager:
     def __init__(self):
         self.plugins_dir: Path = settings.data_dir / "plugins"
+        self.logs_dir: Path = settings.data_dir / "logs"
         self.spiget_base_url: str = "https://api.spiget.org/v2"
+        self._detected_updates: Dict[str, Dict[str, Any]] = {}
 
     def get_plugins_dir(self) -> Path:
         self.plugins_dir.mkdir(parents=True, exist_ok=True)
         return self.plugins_dir
+
+    def parse_console_update_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """Parses a console output line to detect whether a plugin is announcing an update with a link."""
+        if not line or not isinstance(line, str):
+            return None
+
+        # Strip ANSI escape codes
+        clean = re.sub(r'\x1b\[[0-9;]*[mGKF]', '', line).strip()
+        # Strip standard server log prefix: [12:34:56 INFO]: or [INFO]:
+        clean = re.sub(r'^\[\d{2}:\d{2}:\d{2}\s+(?:INFO|WARN|WARNING|ADVERTENCIA)\]:\s*', '', clean)
+        clean = re.sub(r'^\[(?:INFO|WARN|WARNING|ADVERTENCIA)\]\s*', '', clean)
+
+        # Match [PluginName] at start
+        m = re.match(r'^\[([a-zA-Z0-9_\-\.]{2,35})\]\s*(.*)$', clean)
+        if not m:
+            return None
+
+        plugin_name = m.group(1).strip()
+        msg = m.group(2).strip()
+
+        # Ignore generic server components
+        if plugin_name.lower() in ("server thread", "minecraft", "craftscheduler", "user authenticator", "main"):
+            return None
+
+        # Check for update keywords
+        update_kw = re.search(
+            r'\b(?:update\s+is\s+available|new\s+update|new\s+version|version\s+is\s+available|'
+            r'nueva\s+versi[oó]n|actualizaci[oó]n\s+disponible|outdated|update\s+available|'
+            r'new\s+build\s+available|update\s+found)\b',
+            msg,
+            re.IGNORECASE
+        )
+        if not update_kw:
+            return None
+
+        # Extract URL if present
+        url = None
+        url_m = re.search(r'(https?://[^\s\)\]\'"]+)', msg)
+        if url_m:
+            candidate_url = url_m.group(1).rstrip('.,;!?:')
+            generic_hosts = ("minecraft.net", "mojang.com", "oracle.com", "gnu.org", "w3.org", "aka.ms")
+            if not any(h in candidate_url.lower() for h in generic_hosts):
+                url = candidate_url
+
+        # Extract version if present (prioritize new version indicators)
+        version = None
+        new_ver_m = re.search(
+            r'(?:new|nueva|latest|to|->|➔)\s*(?:version|versi[oó]n|build|update)?\s*[:\s\(]\s*v?([0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?)',
+            msg,
+            re.IGNORECASE
+        )
+        if new_ver_m:
+            version = new_ver_m.group(1)
+        else:
+            ver_m = re.search(r'(?:version|v|\:|\#)\s*([0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?)', msg, re.IGNORECASE)
+            if ver_m:
+                version = ver_m.group(1)
+            else:
+                ver_num = re.search(r'\b([0-9]+\.[0-9]+(?:\.[0-9]+)?)\b', msg)
+                if ver_num:
+                    version = ver_num.group(1)
+
+        import time
+        return {
+            "plugin": plugin_name,
+            "version": version or "Nueva",
+            "url": url,
+            "message": msg,
+            "raw_line": clean,
+            "timestamp": time.time(),
+            "time_str": time.strftime("%H:%M:%S")
+        }
+
+    def handle_console_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """Called for each line output by the server process."""
+        entry = self.parse_console_update_line(line)
+        if not entry:
+            return None
+
+        p_key = entry["plugin"].lower()
+        is_new = p_key not in self._detected_updates
+
+        if is_new:
+            self._detected_updates[p_key] = entry
+            # Trigger webhook dispatch for the newly detected update
+            try:
+                from app.core.webhook_manager import webhook_manager as wh
+                s_info = wh._get_server_info()
+                plugin_title = entry["plugin"]
+                url_str = entry.get("url") or ""
+                body_desc = f"El plugin **{plugin_title}** ha reportado una nueva versión en consola:\n\n`{entry['message']}`"
+                if url_str:
+                    body_desc += f"\n\n[Descargar Actualización]({url_str})"
+
+                wh.dispatch(
+                    "plugin_update",
+                    f"📦 Actualización: {plugin_title}",
+                    body_desc,
+                    color=0x388bfd,
+                    fields=[
+                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                        {"name": "📦 Plugin", "value": f"`{plugin_title}`", "inline": True},
+                        {"name": "🔗 Enlace de Descarga", "value": f"<{url_str}>" if url_str else "`Ver en consola`", "inline": True}
+                    ]
+                )
+            except Exception:
+                pass
+        else:
+            if entry.get("url") and not self._detected_updates[p_key].get("url"):
+                self._detected_updates[p_key]["url"] = entry["url"]
+            self._detected_updates[p_key]["message"] = entry["message"]
+
+        return entry
+
+    def scan_console_logs(self) -> List[Dict[str, Any]]:
+        """Scans data/logs/latest.log to discover any updates announced during server boot."""
+        log_file = settings.data_dir / "logs" / "latest.log"
+        if not log_file.exists():
+            return list(self._detected_updates.values())
+
+        try:
+            with open(log_file, "r", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    entry = self.parse_console_update_line(line)
+                    if entry:
+                        p_key = entry["plugin"].lower()
+                        if p_key not in self._detected_updates:
+                            self._detected_updates[p_key] = entry
+                        elif entry.get("url") and not self._detected_updates[p_key].get("url"):
+                            self._detected_updates[p_key]["url"] = entry["url"]
+        except Exception:
+            pass
+
+        return list(self._detected_updates.values())
+
+    def get_detected_updates(self) -> List[Dict[str, Any]]:
+        """Returns detected updates; if empty, scans latest.log first."""
+        if not self._detected_updates:
+            self.scan_console_logs()
+        return list(self._detected_updates.values())
 
     def scan_installed_plugins(self) -> List[Dict[str, Any]]:
         """Scans data/plugins/*.jar, parses plugin.yml, and returns metadata for each installed plugin."""
@@ -153,6 +295,39 @@ class PluginManager:
 
     async def check_and_notify_updates(self) -> Dict[str, Any]:
         """Runs check and, if outdated plugins are found, dispatches webhook alert."""
+        console_updates = self.get_detected_updates()
+        if console_updates:
+            try:
+                from app.core.webhook_manager import webhook_manager as wh
+                s_info = wh._get_server_info()
+                
+                details_preview = "\n".join([
+                    f"• **{u['plugin']}** ({u.get('version') or 'Nueva'}): " + (f"<{u['url']}>" if u.get('url') else f"`{u['message'][:55]}`")
+                    for u in console_updates[:5]
+                ])
+                if len(console_updates) > 5:
+                    details_preview += f"\n_y {len(console_updates) - 5} plugin(s) más..._"
+
+                wh.dispatch(
+                    "plugin_update",
+                    "📦 Actualizaciones de Plugins (Consola)",
+                    f"Se han detectado **{len(console_updates)} plugin(s)** con avisos de actualización en la consola:\n\n{details_preview}",
+                    color=0x388bfd,
+                    fields=[
+                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                        {"name": "📦 Total Reportados", "value": f"`{len(console_updates)} plugins`", "inline": True},
+                        {"name": "📊 Fuente", "value": "`Consola del Servidor`", "inline": True}
+                    ]
+                )
+            except Exception:
+                pass
+
+            return {
+                "total_installed": len(console_updates),
+                "total_outdated": len(console_updates),
+                "plugins": console_updates
+            }
+
         results = await self.check_plugin_updates()
         outdated = [p for p in results if p.get("has_update")]
 
@@ -171,7 +346,7 @@ class PluginManager:
                 wh.dispatch(
                     "plugin_update",
                     "📦 Actualizaciones de Plugins Disponibles",
-                    f"Se han detectado **{len(outdated)} plugin(s)** con nuevas versiones en SpigotMC:\n\n{details_preview}",
+                    f"Se han detectado **{len(outdated)} plugin(s)** con nuevas versiones:\n\n{details_preview}",
                     color=0x388bfd,
                     fields=[
                         {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
