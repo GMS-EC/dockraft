@@ -206,11 +206,17 @@ class BackupManager:
 
             try:
                 from app.core.webhook_manager import webhook_manager
+                s_info = webhook_manager._get_server_info()
                 webhook_manager.dispatch(
                     "backup_created",
-                    "💾 Copia de Seguridad Creada",
-                    f"Se ha generado exitosamente el respaldo **{filename}** ({scope_label}) con un peso de {formatted_sz}.",
-                    color=0x388bfd
+                    "📦 Copia de Seguridad Completada",
+                    f"Se ha generado exitosamente el archivo de respaldo **{filename}**.",
+                    color=0x0ea5e9,
+                    fields=[
+                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                        {"name": "🗺️ Alcance", "value": f"`{scope_label}`", "inline": True},
+                        {"name": "📊 Estado", "value": f"📦 Backup OK ({formatted_sz})", "inline": True}
+                    ]
                 )
             except Exception:
                 pass

@@ -425,11 +425,17 @@ class ProcessManager:
                         await self.broadcast_message({"type": "status", "status": self.status})
                         try:
                             from app.core.webhook_manager import webhook_manager as wh
+                            s_info = wh._get_server_info()
                             wh.dispatch(
                                 "server_start",
-                                "\U0001f7e2 Servidor Iniciado",
-                                "El servidor de Minecraft ha iniciado correctamente y está en línea y accesible.",
-                                color=0x2ea043
+                                "🟢 Servidor Iniciado",
+                                "El servidor de Minecraft ha iniciado correctamente y está accesible para los jugadores.",
+                                color=0x2ea043,
+                                fields=[
+                                    {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                                    {"name": "📦 Tipo / Versión", "value": f"`{s_info['label']}`", "inline": True},
+                                    {"name": "📊 Estado", "value": "🟢 En Línea", "inline": True}
+                                ]
                             )
                         except Exception:
                             pass
@@ -452,7 +458,18 @@ class ProcessManager:
                                 pass
                             try:
                                 from app.core.webhook_manager import webhook_manager as wh
-                                wh.dispatch("player_join", "\U0001f464 Jugador Conectado", f"El jugador **{player}** se ha conectado al servidor.", color=0x238636)
+                                s_info = wh._get_server_info()
+                                wh.dispatch(
+                                    "player_join",
+                                    "👤 Jugador Conectado",
+                                    f"El jugador **{player}** se ha conectado al servidor.",
+                                    color=0x238636,
+                                    fields=[
+                                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                                        {"name": "👤 Jugador", "value": f"`{player}`", "inline": True},
+                                        {"name": "📊 Estado", "value": f"🟢 Conectado ({len(self.online_players)} online)", "inline": True}
+                                    ]
+                                )
                             except Exception:
                                 pass
                 elif "left the game" in line or "left the game" in clean_ansi:
@@ -468,7 +485,18 @@ class ProcessManager:
                                 pass
                             try:
                                 from app.core.webhook_manager import webhook_manager as wh
-                                wh.dispatch("player_leave", "\U0001f464 Jugador Desconectado", f"El jugador **{player}** ha salido del servidor.", color=0xd29922)
+                                s_info = wh._get_server_info()
+                                wh.dispatch(
+                                    "player_leave",
+                                    "👤 Jugador Desconectado",
+                                    f"El jugador **{player}** ha salido del servidor.",
+                                    color=0xd29922,
+                                    fields=[
+                                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                                        {"name": "👤 Jugador", "value": f"`{player}`", "inline": True},
+                                        {"name": "📊 Estado", "value": f"⚪ Desconectado ({len(self.online_players)} online)", "inline": True}
+                                    ]
+                                )
                             except Exception:
                                 pass
                 elif "Player connected:" in line or "Player connected:" in clean_ansi:
@@ -484,7 +512,18 @@ class ProcessManager:
                                 pass
                             try:
                                 from app.core.webhook_manager import webhook_manager as wh
-                                wh.dispatch("player_join", "\U0001f464 Jugador Conectado", f"El jugador **{player}** se ha conectado al servidor.", color=0x238636)
+                                s_info = wh._get_server_info()
+                                wh.dispatch(
+                                    "player_join",
+                                    "👤 Jugador Conectado",
+                                    f"El jugador **{player}** se ha conectado al servidor.",
+                                    color=0x238636,
+                                    fields=[
+                                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                                        {"name": "👤 Jugador", "value": f"`{player}`", "inline": True},
+                                        {"name": "📊 Estado", "value": f"🟢 Conectado ({len(self.online_players)} online)", "inline": True}
+                                    ]
+                                )
                             except Exception:
                                 pass
                 elif "Player disconnected:" in line or "Player disconnected:" in clean_ansi:
@@ -500,7 +539,18 @@ class ProcessManager:
                                 pass
                             try:
                                 from app.core.webhook_manager import webhook_manager as wh
-                                wh.dispatch("player_leave", "\U0001f464 Jugador Desconectado", f"El jugador **{player}** ha salido del servidor.", color=0xd29922)
+                                s_info = wh._get_server_info()
+                                wh.dispatch(
+                                    "player_leave",
+                                    "👤 Jugador Desconectado",
+                                    f"El jugador **{player}** ha salido del servidor.",
+                                    color=0xd29922,
+                                    fields=[
+                                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                                        {"name": "👤 Jugador", "value": f"`{player}`", "inline": True},
+                                        {"name": "📊 Estado", "value": f"⚪ Desconectado ({len(self.online_players)} online)", "inline": True}
+                                    ]
+                                )
                             except Exception:
                                 pass
 
@@ -574,19 +624,30 @@ class ProcessManager:
 
         try:
             from app.core.webhook_manager import webhook_manager as wh
+            s_info = wh._get_server_info()
             if is_intentional or exit_code == 0:
                 wh.dispatch(
                     "server_stop",
-                    "\U0001f6d1 Servidor Detenido",
-                    f"El servidor de Minecraft se ha detenido con código de salida {exit_code}.",
-                    color=0x8b949e
+                    "🛑 Servidor Detenido",
+                    f"El servidor de Minecraft se ha detenido de forma segura (código de salida {exit_code}).",
+                    color=0x8b949e,
+                    fields=[
+                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                        {"name": "📦 Tipo / Versión", "value": f"`{s_info['label']}`", "inline": True},
+                        {"name": "📊 Estado", "value": f"🛑 Detenido ({exit_code})", "inline": True}
+                    ]
                 )
             else:
                 wh.dispatch(
                     "server_crash",
-                    "\u26a0\ufe0f Caída Inesperada del Servidor (Crash)",
+                    "⚠️ Caída Inesperada del Servidor (Crash)",
                     f"¡Alerta! El servidor de Minecraft ha finalizado inesperadamente con código de salida {exit_code}.",
-                    color=0xda3633
+                    color=0xda3633,
+                    fields=[
+                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                        {"name": "📦 Tipo / Versión", "value": f"`{s_info['label']}`", "inline": True},
+                        {"name": "📊 Estado", "value": f"⚠️ Crash ({exit_code})", "inline": True}
+                    ]
                 )
         except Exception:
             pass

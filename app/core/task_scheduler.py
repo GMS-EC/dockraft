@@ -302,11 +302,18 @@ class TaskScheduler:
         # Dispatch webhook notification
         try:
             from app.core.webhook_manager import webhook_manager
+            s_info = webhook_manager._get_server_info()
+            is_success = result.get("status") == "success"
             webhook_manager.dispatch(
                 "task_executed",
                 "🕒 Tarea Programada Ejecutada",
-                f"La tarea **{task_name}** ({action}) ha concluido:\n{result.get('message', '')}",
-                color=0x8957e5 if result.get("status") == "success" else 0xda3633
+                f"La tarea **{task_name}** ha concluido:\n{result.get('message', '')}",
+                color=0x8957e5 if is_success else 0xda3633,
+                fields=[
+                    {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                    {"name": "⚡ Acción", "value": f"`{action.upper()}`", "inline": True},
+                    {"name": "📊 Estado", "value": "✅ Completado" if is_success else "❌ Error", "inline": True}
+                ]
             )
         except Exception:
             pass
