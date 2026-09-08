@@ -54,6 +54,16 @@ const Installer = {
           btn.textContent = "Servidor ya Instalado (Bloqueado)";
           btn.className = "btn btn-outline";
         }
+        const updateCard = document.getElementById('installer-update-card');
+        if (updateCard) updateCard.style.display = 'block';
+        const isBedrock = (cfg.server_type || '').toLowerCase() === 'bedrock';
+        const pluginsSub = document.getElementById('update-plugins-subsection');
+        if (pluginsSub) {
+          pluginsSub.style.display = isBedrock ? 'none' : 'block';
+          if (!isBedrock) {
+            this.loadConsolePluginUpdates();
+          }
+        }
         await this.loadUpdateInfo(stats);
       } else {
         this.isLocked = false;
@@ -148,6 +158,16 @@ const Installer = {
         if (maxInput) maxInput.value = ram;
       });
     });
+
+    // Console plugin updates buttons
+    const btnScan = document.getElementById('btn-scan-console-updates');
+    if (btnScan) {
+      btnScan.addEventListener('click', () => this.scanConsolePluginUpdates());
+    }
+    const btnNotify = document.getElementById('btn-notify-console-updates');
+    if (btnNotify) {
+      btnNotify.addEventListener('click', () => this.notifyConsolePluginUpdates());
+    }
   },
 
   async selectType(type) {
@@ -988,3 +1008,5 @@ const Installer = {
     return this.notifyConsolePluginUpdates();
   }
 };
+
+window.Installer = Installer;

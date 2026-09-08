@@ -5,14 +5,51 @@ const Settings = {
   serverStatus: {},
   javaRuntimes: [],
 
+  eventsSetup: false,
+
   async loadSettings() {
+    this.setupEvents();
     await Promise.all([
       this.fetchServerStatus(),
       this.fetchRuntimeConfig(),
       this.fetchJavaRuntimes(),
-      this.fetchProperties()
+      this.fetchProperties(),
+      this.loadRawProperties()
     ]);
     this.renderViewByServerType();
+  },
+
+  setupEvents() {
+    if (this.eventsSetup) return;
+    this.eventsSetup = true;
+
+    const btnVisual = document.getElementById('btn-mode-props-visual');
+    const btnRaw = document.getElementById('btn-mode-props-raw');
+    if (btnVisual) {
+      btnVisual.onclick = (e) => {
+        if (e) e.preventDefault();
+        this.setPropertiesMode('visual');
+      };
+    }
+    if (btnRaw) {
+      btnRaw.onclick = (e) => {
+        if (e) e.preventDefault();
+        this.setPropertiesMode('raw');
+      };
+    }
+
+    const searchInput = document.getElementById('props-search-input');
+    if (searchInput) {
+      searchInput.oninput = (e) => this.filterProperties(e.target.value);
+    }
+
+    document.querySelectorAll('.prop-cat-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        if (e) e.preventDefault();
+        const cat = btn.getAttribute('data-cat') || 'all';
+        this.setPropertiesCategory(cat);
+      };
+    });
   },
 
   async fetchServerStatus() {
@@ -677,3 +714,5 @@ const Settings = {
     }
   }
 };
+
+window.Settings = Settings;
