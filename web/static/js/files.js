@@ -577,9 +577,11 @@ const Files = {
     const modal = document.getElementById('file-editor-modal');
     const title = document.getElementById('editor-file-title');
     const textarea = document.getElementById('editor-textarea');
+    const saveBtn = document.getElementById('btn-editor-save');
 
     if (title) title.textContent = filePath;
-    if (textarea) textarea.value = 'Cargando archivo...';
+    if (textarea) { textarea.value = 'Cargando archivo...'; textarea.disabled = false; }
+    if (saveBtn) saveBtn.disabled = false;
     if (modal) modal.classList.add('open');
 
     try {
@@ -588,8 +590,12 @@ const Files = {
       if (!res.ok) throw new Error(data.detail || "Error loading file");
       if (textarea) textarea.value = data.content;
     } catch (e) {
+      if (textarea) {
+        textarea.value = `⚠️ No se puede abrir el archivo:\n${e.message}\n\nSi el archivo es muy grande, descárgalo para editarlo localmente.`;
+        textarea.disabled = true;
+      }
+      if (saveBtn) saveBtn.disabled = true;
       if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
-      if (textarea) textarea.value = '';
     }
   },
 

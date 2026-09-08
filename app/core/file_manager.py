@@ -73,8 +73,9 @@ class FileManager:
         if not target.exists() or not target.is_file():
             raise HTTPException(status_code=404, detail="File not found")
 
-        if target.stat().st_size > 2 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="File too large for inline editor (>2MB)")
+        if target.stat().st_size > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large for inline editor (>10MB)")
+
 
         try:
             with open(target, "r", encoding="utf-8", errors="replace") as f:
