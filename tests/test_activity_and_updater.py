@@ -8,7 +8,16 @@ from fastapi.testclient import TestClient
 from app.config import settings
 from app.core.activity_manager import ActivityManager
 from app.core.downloader import verify_file_integrity
+from app.core.security import get_current_user, create_session_token
 from app.main import app
+
+@pytest.fixture
+def client():
+    app.dependency_overrides[get_current_user] = lambda: True
+    c = TestClient(app)
+    c.cookies.set("dockraft_session", create_session_token())
+    yield c
+    app.dependency_overrides.clear()
 
 @pytest.fixture
 def temp_activity_mgr(tmp_path):
@@ -96,9 +105,8 @@ def test_downloader_integrity_verification(tmp_path):
         zf.writestr("content.bin", os.urandom(600000))
     assert verify_file_integrity(str(valid_jar), expected_type="paper") is True
 
-def test_api_activity_endpoints():
-    client = TestClient(app)
-    # Auth is disabled by default in test env or returns 200
+def test_api_activity_endpoints(client):
+    # Auth is provided via authenticated client fixture
     res = client.get("/api/activity/logs")
     assert res.status_code == 200
     data = res.json()
@@ -111,8 +119,7 @@ def test_api_activity_endpoints():
     assert "text/csv" in res_export.headers.get("content-type", "")
 
 @pytest.mark.asyncio
-async def test_update_server_workflow_with_safe_shutdown_and_backup(tmp_path):
-    client = TestClient(app)
+async def test_update_server_workflow_with_safe_shutdown_and_backup(tmp_path, client):
 
     with patch("app.main.process_manager") as mock_pm, \
          patch("app.main.backup_manager") as mock_bm, \
