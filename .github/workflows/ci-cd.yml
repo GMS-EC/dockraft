@@ -75,7 +75,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/dockraft
+          images: ${{ secrets.DOCKERHUB_USERNAME || 'marcusm99' }}/dockraft
           flavor: |
             latest=auto
           tags: |

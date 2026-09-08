@@ -7,7 +7,7 @@
       <h2>🎮 Dockraft — Dedicated Minecraft Server in Docker</h2>
       <p><strong>Panel web ultra-ligero y automatizado para administrar una única instancia dedicada de servidor de Minecraft (Java & Bedrock).</strong></p>
       <p>
-        <a href="https://hub.docker.com/r/gmsec/dockraft"><img src="https://img.shields.io/badge/docker%20hub-gmsec%2Fdockraft-0db7ed?style=flat-square&logo=docker" alt="Docker Hub" /></a>
+        <a href="https://hub.docker.com/r/marcusm99/dockraft"><img src="https://img.shields.io/badge/docker%20hub-marcusm99%2Fdockraft-0db7ed?style=flat-square&logo=docker" alt="Docker Hub" /></a>
         <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL%20v3-007ec6?style=flat-square" alt="License" /></a>
         <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/framework-fastapi-009688?style=flat-square&logo=fastapi" alt="FastAPI" /></a>
         <a href="https://gmsec.cc"><img src="https://img.shields.io/badge/author-gmsec.cc-8a2be2?style=flat-square" alt="gmsec.cc" /></a>
@@ -72,6 +72,35 @@ Al enfocarse exclusivamente en mantener y optimizar **una única instancia de se
 
 ### 🚀 Despliegue con Docker Compose (Recomendado)
 
+#### Opción 1: Copiar y Pegar (Más rápido, sin clonar repositorio)
+Crea una carpeta en tu servidor y un archivo `docker-compose.yml` con el siguiente contenido:
+
+```yaml
+services:
+  dockraft:
+    image: marcusm99/dockraft:latest
+    container_name: dockraft
+    restart: unless-stopped
+    ports:
+      - "8000:8000"       # Panel Web
+      - "25565:25565"     # Minecraft Java (TCP)
+      - "19132:19132/udp" # Minecraft Bedrock (UDP)
+    environment:
+      - TZ=America/Guayaquil
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD=MiContraseñaSegura
+      - SECRET_KEY=genera_una_clave_secreta_con_openssl
+    volumes:
+      - ./data:/server_data
+      - ./backups:/server_backups
+```
+
+Luego inicia el contenedor:
+```bash
+docker compose up -d
+```
+
+#### Opción 2: Clonando el repositorio oficial
 1. Clona el repositorio:
    ```bash
    git clone https://github.com/GMS-EC/dockraft.git
@@ -106,7 +135,7 @@ docker run -d \
   -e ADMIN_PASSWORD=MiContraseñaSegura \
   -e TZ=America/Guayaquil \
   --restart unless-stopped \
-  gmsec/dockraft:latest
+  marcusm99/dockraft:latest
 ```
 
 ---
@@ -192,6 +221,35 @@ By focusing strictly on managing and optimizing **a single server instance per c
 
 ### 🚀 Quick Start with Docker Compose (Recommended)
 
+#### Option 1: Copy & Paste (Fastest, no git clone needed)
+Create a new directory and save the following as `docker-compose.yml`:
+
+```yaml
+services:
+  dockraft:
+    image: marcusm99/dockraft:latest
+    container_name: dockraft
+    restart: unless-stopped
+    ports:
+      - "8000:8000"       # Web Panel
+      - "25565:25565"     # Minecraft Java (TCP)
+      - "19132:19132/udp" # Minecraft Bedrock (UDP)
+    environment:
+      - TZ=America/Guayaquil
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD=MySecurePassword
+      - SECRET_KEY=generate_a_secret_key_with_openssl
+    volumes:
+      - ./data:/server_data
+      - ./backups:/server_backups
+```
+
+Then launch the container:
+```bash
+docker compose up -d
+```
+
+#### Option 2: Clone the Repository
 1. Clone the repository:
    ```bash
    git clone https://github.com/GMS-EC/dockraft.git
@@ -226,7 +284,7 @@ docker run -d \
   -e ADMIN_PASSWORD=MySecurePassword \
   -e TZ=America/Guayaquil \
   --restart unless-stopped \
-  gmsec/dockraft:latest
+  marcusm99/dockraft:latest
 ```
 
 ---

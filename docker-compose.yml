@@ -1,5 +1,6 @@
 services:
   dockraft:
+    image: marcusm99/dockraft:latest
     build: .
     container_name: dockraft
     restart: unless-stopped
