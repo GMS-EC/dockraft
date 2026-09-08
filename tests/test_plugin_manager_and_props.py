@@ -84,6 +84,7 @@ async def test_plugin_check_and_notify_updates(tmp_path, monkeypatch):
     test_plugins_dir.mkdir(parents=True)
     monkeypatch.setattr(settings, "data_dir", tmp_path)
     monkeypatch.setattr(plugin_manager, "plugins_dir", test_plugins_dir)
+    plugin_manager._detected_updates = {}
 
     # Create outdated plugin jar
     jar_path = test_plugins_dir / "LuckPerms-5.3.0.jar"

@@ -1,4 +1,6 @@
 import re
+import json
+import time
 import asyncio
 import zipfile
 from pathlib import Path
@@ -29,14 +31,40 @@ def is_newer_version(current: str, latest: str) -> bool:
 
 class PluginManager:
     def __init__(self):
-        self.plugins_dir: Path = settings.data_dir / "plugins"
-        self.logs_dir: Path = settings.data_dir / "logs"
+        self.plugins_dir: Optional[Path] = None
         self.spiget_base_url: str = "https://api.spiget.org/v2"
         self._detected_updates: Dict[str, Dict[str, Any]] = {}
+        self._load_cache()
+
+    @property
+    def cache_file(self) -> Path:
+        return settings.data_dir / "plugin_updates.json"
+
+    @property
+    def logs_dir(self) -> Path:
+        return settings.data_dir / "logs"
+
+    def _save_cache(self):
+        try:
+            with open(self.cache_file, "w", encoding="utf-8") as f:
+                json.dump(self._detected_updates, f, indent=2)
+        except Exception:
+            pass
+
+    def _load_cache(self):
+        try:
+            if self.cache_file.exists():
+                with open(self.cache_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        self._detected_updates = data
+        except Exception:
+            pass
 
     def get_plugins_dir(self) -> Path:
-        self.plugins_dir.mkdir(parents=True, exist_ok=True)
-        return self.plugins_dir
+        p_dir = getattr(self, "plugins_dir", None) or (settings.data_dir / "plugins")
+        p_dir.mkdir(parents=True, exist_ok=True)
+        return p_dir
 
     def parse_console_update_line(self, line: str) -> Optional[Dict[str, Any]]:
         """Parses a console output line to detect whether a plugin is announcing an update with a link."""
@@ -149,31 +177,46 @@ class PluginManager:
                 self._detected_updates[p_key]["url"] = entry["url"]
             self._detected_updates[p_key]["message"] = entry["message"]
 
+        self._save_cache()
         return entry
 
     def scan_console_logs(self) -> List[Dict[str, Any]]:
-        """Scans data/logs/latest.log to discover any updates announced during server boot."""
-        log_file = settings.data_dir / "logs" / "latest.log"
-        if not log_file.exists():
-            return list(self._detected_updates.values())
-
+        """Scans in-memory console buffer and data/logs/latest.log to discover updates."""
+        # 1. Scan in-memory process_manager log_buffer
         try:
-            with open(log_file, "r", encoding="utf-8", errors="replace") as f:
-                for line in f:
-                    entry = self.parse_console_update_line(line)
-                    if entry:
-                        p_key = entry["plugin"].lower()
-                        if p_key not in self._detected_updates:
-                            self._detected_updates[p_key] = entry
-                        elif entry.get("url") and not self._detected_updates[p_key].get("url"):
-                            self._detected_updates[p_key]["url"] = entry["url"]
+            from app.core.process_manager import process_manager
+            for line in list(process_manager.log_buffer):
+                entry = self.parse_console_update_line(line)
+                if entry:
+                    p_key = entry["plugin"].lower()
+                    if p_key not in self._detected_updates:
+                        self._detected_updates[p_key] = entry
+                    elif entry.get("url") and not self._detected_updates[p_key].get("url"):
+                        self._detected_updates[p_key]["url"] = entry["url"]
         except Exception:
             pass
 
+        # 2. Scan data/logs/latest.log
+        log_file = settings.data_dir / "logs" / "latest.log"
+        if log_file.exists():
+            try:
+                with open(log_file, "r", encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        entry = self.parse_console_update_line(line)
+                        if entry:
+                            p_key = entry["plugin"].lower()
+                            if p_key not in self._detected_updates:
+                                self._detected_updates[p_key] = entry
+                            elif entry.get("url") and not self._detected_updates[p_key].get("url"):
+                                self._detected_updates[p_key]["url"] = entry["url"]
+            except Exception:
+                pass
+
+        self._save_cache()
         return list(self._detected_updates.values())
 
     def get_detected_updates(self) -> List[Dict[str, Any]]:
-        """Returns detected updates; if empty, scans latest.log first."""
+        """Returns detected updates; if empty, scans buffer and latest.log first."""
         if not self._detected_updates:
             self.scan_console_logs()
         return list(self._detected_updates.values())
@@ -295,43 +338,23 @@ class PluginManager:
 
     async def check_and_notify_updates(self) -> Dict[str, Any]:
         """Runs check and, if outdated plugins are found, dispatches webhook alert."""
-        console_updates = self.get_detected_updates()
-        if console_updates:
-            try:
-                from app.core.webhook_manager import webhook_manager as wh
-                s_info = wh._get_server_info()
-                
-                details_preview = "\n".join([
-                    f"• **{u['plugin']}** ({u.get('version') or 'Nueva'}): " + (f"<{u['url']}>" if u.get('url') else f"`{u['message'][:55]}`")
-                    for u in console_updates[:5]
-                ])
-                if len(console_updates) > 5:
-                    details_preview += f"\n_y {len(console_updates) - 5} plugin(s) más..._"
-
-                wh.dispatch(
-                    "plugin_update",
-                    "📦 Actualizaciones de Plugins (Consola)",
-                    f"Se han detectado **{len(console_updates)} plugin(s)** con avisos de actualización en la consola:\n\n{details_preview}",
-                    color=0x388bfd,
-                    fields=[
-                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
-                        {"name": "📦 Total Reportados", "value": f"`{len(console_updates)} plugins`", "inline": True},
-                        {"name": "📊 Fuente", "value": "`Consola del Servidor`", "inline": True}
-                    ]
-                )
-            except Exception:
-                pass
-
-            return {
-                "total_installed": len(console_updates),
-                "total_outdated": len(console_updates),
-                "plugins": console_updates
-            }
-
         results = await self.check_plugin_updates()
         outdated = [p for p in results if p.get("has_update")]
-
         if outdated:
+            for p in outdated:
+                p_key = p["name"].lower()
+                if p_key not in self._detected_updates:
+                    self._detected_updates[p_key] = {
+                        "plugin": p["name"],
+                        "version": p.get("latest_version") or "Nueva",
+                        "url": p.get("spigot_url") or "",
+                        "message": f"Nueva versión {p.get('latest_version')} disponible (instalada: {p.get('version')})",
+                        "raw_line": "",
+                        "timestamp": time.time(),
+                        "time_str": time.strftime("%H:%M:%S")
+                    }
+            self._save_cache()
+
             try:
                 from app.core.webhook_manager import webhook_manager as wh
                 s_info = wh._get_server_info()
@@ -357,10 +380,38 @@ class PluginManager:
             except Exception:
                 pass
 
+        console_updates = self.get_detected_updates()
+        if console_updates and not outdated:
+            try:
+                from app.core.webhook_manager import webhook_manager as wh
+                s_info = wh._get_server_info()
+                
+                details_preview = "\n".join([
+                    f"• **{u['plugin']}** ({u.get('version') or 'Nueva'}): " + (f"<{u['url']}>" if u.get('url') else f"`{u['message'][:55]}`")
+                    for u in console_updates[:5]
+                ])
+                if len(console_updates) > 5:
+                    details_preview += f"\n_y {len(console_updates) - 5} plugin(s) más..._"
+
+                wh.dispatch(
+                    "plugin_update",
+                    "📦 Actualizaciones de Plugins (Consola)",
+                    f"Se han detectado **{len(console_updates)} plugin(s)** con avisos de actualización en la consola:\n\n{details_preview}",
+                    color=0x388bfd,
+                    fields=[
+                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                        {"name": "📦 Total Reportados", "value": f"`{len(console_updates)} plugins`", "inline": True},
+                        {"name": "📊 Fuente", "value": "`Consola del Servidor`", "inline": True}
+                    ]
+                )
+            except Exception:
+                pass
+
         return {
             "total_installed": len(results),
             "total_outdated": len(outdated),
-            "plugins": results
+            "plugins": results,
+            "console_updates": console_updates
         }
 
     def _format_size(self, size_bytes: int) -> str:
