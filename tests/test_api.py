@@ -200,6 +200,12 @@ def test_page_routes_and_template_rendering():
 
 def test_ssr_initial_state_and_websocket_immediate_stats():
     from app.config import settings
+    from app.core.security import create_session_token
+
+    # Ensure authenticated session in CI environments where ADMIN_PASSWORD is set
+    token = create_session_token()
+    client.cookies.set("dockraft_token", token)
+    client.cookies.set("dockraft_session", token)
 
     # 1. Test SSR hydration when server is installed
     fake_jar = settings.data_dir / "server.jar"
@@ -219,7 +225,7 @@ def test_ssr_initial_state_and_websocket_immediate_stats():
         assert 'id="installer-update-card" style="display: block;' in html
 
         # 2. Test WebSocket sends immediate stats on connect
-        with client.websocket_connect("/ws/console") as websocket:
+        with client.websocket_connect(f"/ws/console?token={token}") as websocket:
             msg_init = websocket.receive_json()
             assert msg_init["type"] == "init"
             msg_stats = websocket.receive_json()
