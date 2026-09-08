@@ -54,7 +54,7 @@ const Installer = {
           btn.textContent = "Servidor ya Instalado (Bloqueado)";
           btn.className = "btn btn-outline";
         }
-        await this.loadUpdateInfo();
+        await this.loadUpdateInfo(stats);
       } else {
         this.isLocked = false;
         this.allowForce = true;
@@ -361,7 +361,7 @@ const Installer = {
     }
   },
 
-  async loadUpdateInfo() {
+  async loadUpdateInfo(stats) {
     const card = document.getElementById('installer-update-card');
     if (!card) return;
 
@@ -390,11 +390,20 @@ const Installer = {
                      data.current_channel === 'preview' ? 'Preview / Beta' : 'Snapshot';
 
       if (curBadge) {
-        curBadge.innerHTML = `Versión Actual: <strong>${data.current_version || 'Desconocida'}</strong> <span style="font-size:0.75rem; opacity:0.85; margin-left:4px;">(${chName})</span>`;
+        if (data.current_version === 'importado') {
+          curBadge.innerHTML = `Versión Actual: <strong>Importada (${(data.server_type || 'Paper').toUpperCase()})</strong>`;
+        } else {
+          curBadge.innerHTML = `Versión Actual: <strong>${data.current_version || 'Desconocida'}</strong> <span style="font-size:0.75rem; opacity:0.85; margin-left:4px;">(${chName})</span>`;
+        }
       }
 
       if (statusBadge) {
-        if (data.update_available) {
+        if (data.current_version === 'importado') {
+          statusBadge.textContent = `Actualización disponible (${data.latest_stable || 'Ver versiones'})`;
+          statusBadge.style.background = 'rgba(56, 139, 253, 0.15)';
+          statusBadge.style.borderColor = '#388bfd';
+          statusBadge.style.color = '#58a6ff';
+        } else if (data.update_available) {
           statusBadge.textContent = `Nueva versión disponible: ${data.latest_stable}`;
           statusBadge.style.background = 'rgba(56, 139, 253, 0.15)';
           statusBadge.style.borderColor = '#388bfd';
@@ -456,8 +465,12 @@ const Installer = {
         const checkWarning = () => {
           const selectedOpt = select.options[select.selectedIndex];
           const ch = selectedOpt ? selectedOpt.getAttribute('data-channel') : 'stable';
+          const isRunning = stats && stats.status && stats.status !== 'OFFLINE';
           if (warningBadge) {
-            if (ch && ch !== 'stable') {
+            if (isRunning) {
+              warningBadge.style.display = 'block';
+              warningBadge.innerHTML = '⚠️ <strong>El servidor está en ejecución.</strong> Debes detenerlo desde la Consola o la barra superior antes de aplicar una actualización.';
+            } else if (ch && ch !== 'stable') {
               warningBadge.style.display = 'block';
               warningBadge.textContent = "Advertencia: Has seleccionado una versión de prueba (Pre-Release / Snapshot / Beta). Puede contener errores experimentales y causar incompatibilidades con mundos o plugins.";
             } else {

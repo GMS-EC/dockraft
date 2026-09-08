@@ -142,13 +142,22 @@ class ProcessManager:
     def is_installed(self) -> bool:
         """Returns True if a server jar or binary is present in data_dir."""
         cfg = settings.runtime_config
-        server_file = cfg.get("server_file", "server.jar")
-        return (
-            (settings.data_dir / server_file).exists() or
-            (settings.data_dir / "server.jar").exists() or
-            (settings.data_dir / "bedrock_server").exists() or
-            (settings.data_dir / "bedrock_server.exe").exists()
-        )
+        server_file = cfg.get("server_file")
+        if server_file and (settings.data_dir / server_file).exists():
+            return True
+        if (settings.data_dir / "server.jar").exists():
+            return True
+        if (settings.data_dir / "bedrock_server").exists() or (settings.data_dir / "bedrock_server.exe").exists():
+            return True
+        if (settings.data_dir / "run.sh").exists():
+            return True
+        try:
+            for f in settings.data_dir.iterdir():
+                if f.is_file() and f.suffix == ".jar":
+                    return True
+        except Exception:
+            pass
+        return False
 
     def parse_memory_to_mb(self, mem_str: str) -> float:
         """Converts strings like '2G', '4096M', '1024K' into megabytes (float)."""

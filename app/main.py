@@ -114,12 +114,8 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # --- Helper ---
 def _is_server_installed() -> bool:
-    """Returns True if any known server binary exists in the data directory."""
-    return (
-        (settings.data_dir / "server.jar").exists()
-        or (settings.data_dir / "bedrock_server").exists()
-        or (settings.data_dir / "bedrock_server.exe").exists()
-    )
+    """Returns True if any known server binary or configured server_file exists in data_dir."""
+    return process_manager.is_installed()
 
 # --- Pydantic Schemas ---
 class LoginRequest(BaseModel):
@@ -678,6 +674,16 @@ async def get_update_info():
     cfg = settings.runtime_config
     server_type = cfg.get("server_type", "paper")
     current_version = cfg.get("server_version", "")
+    server_file = cfg.get("server_file")
+
+    # If version is generic, missing, or imported, attempt auto-detection from local files
+    if not current_version or current_version.lower() in ["importado", "desconocida", "unknown"]:
+        detected_ver = downloader.detect_server_version(server_file=server_file)
+        if detected_ver:
+            current_version = detected_ver
+            settings.save_runtime_config({"server_version": detected_ver})
+        else:
+            current_version = "importado"
     
     latest_stable = ""
     latest_preview = ""
@@ -793,9 +799,10 @@ async def get_update_info():
     curr_clean = curr_m.group(1) if curr_m else current_version
 
     # Update available:
-    # If on a stable version, only notify when a newer stable version is available!
     update_available = False
-    if current_channel == "stable":
+    if current_version == "importado":
+        update_available = bool(latest_stable)
+    elif current_channel == "stable":
         if latest_stable and curr_clean and latest_stable != curr_clean:
             update_available = True
     else:
@@ -829,6 +836,7 @@ async def update_server(req: UpdateRequest):
 
     cfg = settings.runtime_config
     server_type = cfg.get("server_type", "paper")
+    old_server_file = cfg.get("server_file")
     target_file = "server.jar"
     download_url = ""
     is_zip = False
@@ -874,7 +882,8 @@ async def update_server(req: UpdateRequest):
                     )
                     res = await downloader.install_forge_server(installer_path, java_bin=java_path)
                     settings.save_runtime_config({
-                        "server_file": res.get("server_file", "run.sh")
+                        "server_file": res.get("server_file", "run.sh"),
+                        "server_version": req.version
                     })
                 except Exception as ex:
                     print(f"[Dockraft] Forge update error: {ex}")
@@ -882,12 +891,31 @@ async def update_server(req: UpdateRequest):
             asyncio.create_task(forge_update_pipeline())
         else:
             # Start download in background with preserve_existing_configs=True
-            asyncio.create_task(downloader.download_file(
-                download_url,
-                target_file,
-                is_zip=is_zip,
-                preserve_existing_configs=True
-            ))
+            async def update_pipeline():
+                try:
+                    await downloader.download_file(
+                        download_url,
+                        target_file,
+                        is_zip=is_zip,
+                        preserve_existing_configs=True
+                    )
+                    # Clean up old file if differently named (e.g. paper-.jar or paper-1.20.4.jar)
+                    if old_server_file and old_server_file != target_file and not is_zip:
+                        old_path = settings.data_dir / old_server_file
+                        if old_path.exists():
+                            try:
+                                old_path.unlink()
+                            except Exception:
+                                pass
+
+                    settings.save_runtime_config({
+                        "server_file": target_file if not is_zip else old_server_file or "bedrock_server",
+                        "server_version": req.version
+                    })
+                except Exception as ex:
+                    print(f"[Dockraft] Update pipeline error: {ex}")
+
+            asyncio.create_task(update_pipeline())
 
         # Update saved version in runtime config
         settings.save_runtime_config({
@@ -1036,10 +1064,12 @@ async def import_server(file: UploadFile = File(...), accept_eula: bool = Form(T
         if accept_eula:
             downloader.accept_eula()
 
+        detected_version = downloader.detect_server_version(server_file=detected_file) or "importado"
+
         settings.save_runtime_config({
             "server_type": detected_type,
             "server_file": detected_file,
-            "server_version": "importado"
+            "server_version": detected_version
         })
 
         return {

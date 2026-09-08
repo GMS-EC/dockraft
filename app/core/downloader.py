@@ -486,4 +486,90 @@ class DownloadManager:
             except Exception:
                 pass
 
+    def detect_server_version(self, data_dir: Optional[Path] = None, server_file: Optional[str] = None) -> Optional[str]:
+        """
+        Attempts to detect the Minecraft server version from local files:
+        1. version_history.json (Paper / Purpur)
+        2. logs/latest.log (Server startup line)
+        3. Jar file name matching regex
+        4. Jar manifest / version.json inside archive
+        """
+        dir_path = data_dir or settings.data_dir
+        if not dir_path.exists():
+            return None
+
+        # 1. Check version_history.json (Standard in Paper/Purpur)
+        vh = dir_path / "version_history.json"
+        if vh.exists():
+            try:
+                content = vh.read_text(encoding="utf-8", errors="ignore")
+                m = re.search(r'MC:\s*([0-9]+\.[0-9]+(?:\.[0-9]+)?)', content)
+                if m:
+                    return m.group(1)
+                m2 = re.search(r'([0-9]+\.[0-9]+(?:\.[0-9]+)?)', content)
+                if m2:
+                    return m2.group(1)
+            except Exception:
+                pass
+
+        # 2. Check logs/latest.log if exists
+        latest_log = dir_path / "logs" / "latest.log"
+        if latest_log.exists():
+            try:
+                with open(latest_log, "r", encoding="utf-8", errors="ignore") as lf:
+                    for _ in range(120):
+                        line = lf.readline()
+                        if not line:
+                            break
+                        m = re.search(r'Starting minecraft server version ([0-9]+\.[0-9]+(?:\.[0-9]+)?)', line, re.IGNORECASE)
+                        if m:
+                            return m.group(1)
+                        m2 = re.search(r'\(MC:\s*([0-9]+\.[0-9]+(?:\.[0-9]+)?)\)', line)
+                        if m2:
+                            return m2.group(1)
+            except Exception:
+                pass
+
+        # 3. Check candidate jar files
+        candidates = []
+        if server_file and (dir_path / server_file).exists():
+            candidates.append(dir_path / server_file)
+
+        try:
+            for f in dir_path.iterdir():
+                if f.is_file() and f.suffix == ".jar" and f not in candidates:
+                    candidates.append(f)
+        except Exception:
+            pass
+
+        for jar_path in candidates:
+            # Check filename regex first (e.g. paper-1.20.4-398.jar)
+            fn_m = re.search(r'([0-9]+\.[0-9]+(?:\.[0-9]+)?)', jar_path.name)
+            if fn_m:
+                return fn_m.group(1)
+
+            # Check inside jar archive
+            try:
+                with zipfile.ZipFile(jar_path, 'r') as zf:
+                    # Check version.json (Mojang Vanilla / Fabric)
+                    if "version.json" in zf.namelist():
+                        import json
+                        v_data = json.loads(zf.read("version.json").decode("utf-8", errors="ignore"))
+                        if "id" in v_data:
+                            return str(v_data["id"])
+
+                    # Check META-INF/MANIFEST.MF
+                    if "META-INF/MANIFEST.MF" in zf.namelist():
+                        mf = zf.read("META-INF/MANIFEST.MF").decode("utf-8", errors="ignore")
+                        m = re.search(r'Specification-Version:\s*([0-9]+\.[0-9]+(?:\.[0-9]+)?)', mf)
+                        if m:
+                            return m.group(1)
+                        m2 = re.search(r'Implementation-Version:\s*.*?([0-9]+\.[0-9]+(?:\.[0-9]+)?)', mf)
+                        if m2:
+                            return m2.group(1)
+            except Exception:
+                pass
+
+        return None
+
 downloader = DownloadManager()

@@ -154,3 +154,26 @@ def test_server_import_from_zip(tmp_path):
     jar = settings.data_dir / "paper-1.21.4.jar"
     if jar.exists():
         jar.unlink()
+
+def test_imported_server_update_info_available():
+    paper_jar = settings.data_dir / "paper-.jar"
+    paper_jar.write_text("fake-paper-content", encoding="utf-8")
+
+    settings.save_runtime_config({
+        "server_type": "paper",
+        "server_file": "paper-.jar",
+        "server_version": "importado"
+    })
+
+    try:
+        res = client.get("/api/installer/update-info")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["is_installed"] is True
+        assert data["server_type"] == "paper"
+        assert data["update_available"] is True
+        assert len(data["versions"]) > 0
+    finally:
+        if paper_jar.exists():
+            paper_jar.unlink()
+
