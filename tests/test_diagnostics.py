@@ -87,6 +87,59 @@ def test_diagnostic_detects_eula():
     assert "EULA" in result["title"] or "Licencia" in result["title"]
 
 
+SAMPLE_NOCLASS_LOG = """
+Time: 2026-08-10 13:45:45
+Description: Exception in server tick loop
+
+java.lang.NoClassDefFoundError: Could not initialize class com.destroystokyo.paper.event.server.ServerExceptionEvent
+\tat io.papermc.paper.plugin.manager.PaperEventManager.callEvent(PaperEventManager.java:72)
+\tat io.papermc.paper.plugin.manager.PaperPluginManagerImpl.callEvent(PaperPluginManagerImpl.java:131)
+"""
+
+def test_diagnostic_detects_noclassdeffound_error():
+    result = _analyze_with_text(SAMPLE_NOCLASS_LOG)
+    assert result["has_issue"] is True
+    assert result.get("category") == "plugin"
+    assert "ServerExceptionEvent" in result["title"]
+    assert "ServerExceptionEvent" in result["recommendation"]
+
+
+def test_diagnostic_detects_sigkill_code():
+    dm = DiagnosticManager()
+    with patch.object(dm, "get_latest_crash_report", return_value=None):
+        with patch.object(dm, "get_recent_log_tail", return_value=""):
+            result = dm.analyze_diagnostics(exit_code=-9)
+            assert result["has_issue"] is True
+            assert result.get("category") == "system"
+            assert "-9" in result["title"] or "SIGKILL" in result["title"]
+
+
+def test_diagnostic_rejects_stale_crash_report(tmp_path):
+    from pathlib import Path
+    dm = DiagnosticManager()
+
+    # Create a dummy old crash report from 2026-08-10
+    fake_crash_dir = tmp_path / "crash-reports"
+    fake_crash_dir.mkdir(parents=True)
+    old_file = fake_crash_dir / "crash-2026-08-10_13.45.45-server.txt"
+    old_file.write_text("Time: 2026-08-10 13:45:45\nDescription: Exception in server tick loop\n", encoding="utf-8")
+
+    from app.config import settings
+    orig_data_dir = settings.data_dir
+    settings.data_dir = tmp_path
+    try:
+        # If server started at 2026-09-08 (timestamp ~ 1788830000)
+        start_ts = 1788830000.0
+        report = dm.get_latest_crash_report(since_timestamp=start_ts)
+        assert report is None, "Old crash report from August must be ignored for a September server run"
+
+        # If max_age_seconds is small (e.g. 60s) and file parsed ts is in the past
+        report_max_age = dm.get_latest_crash_report(max_age_seconds=60)
+        assert report_max_age is None, "Old crash report must be ignored when max_age_seconds is exceeded"
+    finally:
+        settings.data_dir = orig_data_dir
+
+
 def test_diagnostic_clean_log_no_issues():
     result = _analyze_with_text(SAMPLE_CLEAN_LOG)
     assert result["has_issue"] is False
@@ -180,3 +233,59 @@ def test_server_status_includes_tps():
     assert "tps" in data
     assert isinstance(data["tps"], dict)
     assert "status" in data["tps"]
+
+
+@pytest.mark.asyncio
+async def test_process_manager_intentional_stop_no_crash():
+    """Intentional stop or kill must NOT broadcast crash_diagnostics or trigger auto-restart."""
+    from app.core.process_manager import process_manager
+    import asyncio
+
+    # Setup dummy process
+    mock_proc = AsyncMock()
+    mock_proc.pid = 99999
+    mock_proc.returncode = -9
+    mock_proc.wait = AsyncMock(return_value=0)
+
+    process_manager.process = mock_proc
+    process_manager.status = "ONLINE"
+    process_manager._intentional_stop = True
+
+    broadcast_messages = []
+    async def mock_broadcast(msg):
+        broadcast_messages.append(msg)
+
+    process_manager.broadcast_message = mock_broadcast
+
+    # Run supervisor
+    await process_manager._process_supervisor()
+
+    # Verify no crash_diagnostics message was broadcast
+    diag_msgs = [m for m in broadcast_messages if m.get("type") == "crash_diagnostics"]
+    assert len(diag_msgs) == 0, "Intentional stop must NOT broadcast crash_diagnostics"
+
+    # Verify no auto-restart was initiated (recent crashes not incremented)
+    assert len(process_manager._recent_crashes) == 0, "Intentional stop must NOT trigger auto-restart"
+
+
+@pytest.mark.asyncio
+async def test_delayed_kill_check_ignores_different_process():
+    """_delayed_kill_check must do nothing if the process changed or status is no longer STOPPING."""
+    from app.core.process_manager import process_manager
+    mock_kill = AsyncMock()
+    process_manager.kill_server = mock_kill
+
+    # 1. Status is ONLINE (not STOPPING) -> should do nothing
+    process_manager.status = "ONLINE"
+    mock_proc = AsyncMock()
+    mock_proc.pid = 12345
+    mock_proc.returncode = None
+    process_manager.process = mock_proc
+
+    await process_manager._delayed_kill_check(target_pid=99999, timeout=0)
+    mock_kill.assert_not_called()
+
+    # 2. Status is STOPPING but target_pid does not match -> should do nothing
+    process_manager.status = "STOPPING"
+    await process_manager._delayed_kill_check(target_pid=99999, timeout=0)
+    mock_kill.assert_not_called()

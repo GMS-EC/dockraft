@@ -37,6 +37,10 @@ Al enfocarse exclusivamente en mantener y optimizar **una única instancia de se
 * **No tiene intermediarios pesados**: El panel corre en un único proceso asíncrono en Python con FastAPI y Uvicorn.
 * **Aprovechamiento máximo del hardware**: En un VPS o servidor con 2 GB, 4 GB u 8 GB de memoria, Dockraft apenas consume unos pocos megabytes. **Más del 98% de tu memoria RAM y CPU queda 100% disponible para el juego, tus mundos, mods y jugadores.**
 
+> 🏆 **¿Servidor pequeño o gigantesco? No importa.** 
+> Dockraft tiene todo lo que necesitas para administrar tu servidor Minecraft de forma profesional — sin consumir los recursos que tu mundo, jugadores y plugins necesitan.
+> Desde un servidor de amigos con 2 GB hasta una instancia de alto rendimiento con 64 GB, el panel siempre consume menos del 1% de tus recursos y deja el resto libre para el juego.
+
 ---
 
 ### 📊 Comparativa de Consumo Real de Memoria RAM (Prueba Empírica)
@@ -185,6 +189,10 @@ By focusing strictly on managing and optimizing **a single server instance per c
 * **No external databases required**: All settings and state are stored cleanly in lightweight local JSON files.
 * **No bloated middleware**: Runs as a single asynchronous Python process powered by FastAPI and Uvicorn.
 * **Maximum hardware efficiency**: On a 2 GB, 4 GB, or 8 GB VPS, Dockraft uses almost zero resources. **More than 98% of your CPU and RAM is 100% dedicated to Minecraft, your worlds, mods, and players.**
+
+> 🏆 **Small server or massive one? Doesn't matter.**
+> Dockraft gives you everything you need to manage a Minecraft server professionally — without eating into the resources your world, players and plugins actually need.
+> From a 2 GB friends server to a high-performance 64 GB dedicated machine, the panel always consumes less than 1% of your resources, leaving the rest entirely free for the game.
 
 ---
 

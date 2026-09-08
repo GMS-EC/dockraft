@@ -10,7 +10,40 @@ class DiagnosticManager:
     def __init__(self):
         self.mclogs_api_url = "https://api.mclogs.com/1/log"
 
-    def get_latest_crash_report(self) -> Optional[Dict[str, Any]]:
+    def _parse_crash_timestamp(self, path: Path) -> float:
+        """Extracts creation timestamp from filename, file header, or mtime."""
+        # Try filename first: crash-YYYY-MM-DD_HH.mm.ss-server.txt
+        m = re.search(r'crash-(\d{4})-(\d{2})-(\d{2})_(\d{2})\.(\d{2})\.(\d{2})', path.name)
+        if m:
+            try:
+                from datetime import datetime
+                year, month, day, hour, minute, second = map(int, m.groups())
+                dt = datetime(year, month, day, hour, minute, second)
+                return dt.timestamp()
+            except Exception:
+                pass
+
+        # Try reading first lines of file for "Time: YYYY-MM-DD HH:MM:SS"
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
+                header = [f.readline() for _ in range(10)]
+                for line in header:
+                    m_time = re.search(r'Time:\s*(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})', line)
+                    if m_time:
+                        from datetime import datetime
+                        year, month, day, hour, minute, second = map(int, m_time.groups())
+                        return datetime(year, month, day, hour, minute, second).timestamp()
+        except Exception:
+            pass
+
+        # Fallback to file mtime
+        return path.stat().st_mtime
+
+    def get_latest_crash_report(
+        self,
+        since_timestamp: Optional[float] = None,
+        max_age_seconds: Optional[int] = 1800
+    ) -> Optional[Dict[str, Any]]:
         """Finds and returns the content of the most recent crash report in crash-reports/."""
         crash_dir = settings.data_dir / "crash-reports"
         if not crash_dir.exists():
@@ -20,15 +53,29 @@ class DiagnosticManager:
         if not crash_files:
             return None
 
-        # Sort by mtime descending
-        crash_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-        latest = crash_files[0]
+        reports = []
+        for f in crash_files:
+            ts = self._parse_crash_timestamp(f)
+            reports.append((ts, f))
+
+        # Sort descending by parsed timestamp
+        reports.sort(key=lambda x: x[0], reverse=True)
+        latest_ts, latest_file = reports[0]
+
+        now = time.time()
+        # If since_timestamp provided, crash must have occurred during or after that start time
+        if since_timestamp is not None:
+            if latest_ts < (since_timestamp - 10.0):
+                return None
+        elif max_age_seconds is not None:
+            if (now - latest_ts) > max_age_seconds:
+                return None
 
         try:
-            content = latest.read_text(encoding="utf-8", errors="replace")
+            content = latest_file.read_text(encoding="utf-8", errors="replace")
             return {
-                "filename": latest.name,
-                "timestamp": latest.stat().st_mtime,
+                "filename": latest_file.name,
+                "timestamp": latest_ts,
                 "content": content
             }
         except Exception:
@@ -47,20 +94,24 @@ class DiagnosticManager:
         except Exception:
             return ""
 
-    def analyze_diagnostics(self) -> Dict[str, Any]:
+    def analyze_diagnostics(
+        self,
+        since_timestamp: Optional[float] = None,
+        exit_code: Optional[int] = None
+    ) -> Dict[str, Any]:
         """
         Analyzes recent logs and crash reports to identify the root cause
         of crashes or errors with actionable advice.
         """
-        crash = self.get_latest_crash_report()
+        max_age = 1800 if since_timestamp is None else None
+        crash = self.get_latest_crash_report(since_timestamp=since_timestamp, max_age_seconds=max_age)
         log_tail = self.get_recent_log_tail(300)
 
-        # Prefer crash report if recent (within 24 hours)
         is_crash_report = False
         text_to_analyze = ""
         source_name = "latest.log"
 
-        if crash and (time.time() - crash["timestamp"] < 86400):
+        if crash:
             text_to_analyze = crash["content"]
             source_name = f"crash-reports/{crash['filename']}"
             is_crash_report = True
@@ -68,6 +119,19 @@ class DiagnosticManager:
             text_to_analyze = log_tail
 
         if not text_to_analyze.strip():
+            # If server terminated with SIGKILL (-9 / 137) and log is empty
+            if exit_code in (-9, 137):
+                return {
+                    "has_issue": True,
+                    "severity": "critical",
+                    "category": "system",
+                    "title": f"Terminación Forzosa por el Sistema (Código {exit_code})",
+                    "cause": f"El proceso fue detenido mediante señal SIGKILL ({exit_code}). Esto suele ocurrir cuando el host o Docker agota la memoria RAM física (OOM Killer) o si el proceso no respondió a tiempo a la orden de apagado.",
+                    "recommendation": "Verifica los recursos de memoria RAM de la máquina anfitriona y asignados en docker-compose.yml. Si detuviste el servidor manualmente, este aviso es informativo del cierre forzado tras expirar el tiempo de espera.",
+                    "source": "Process Supervisor",
+                    "excerpt": f"Process terminated with exit code {exit_code} (SIGKILL)."
+                }
+
             return {
                 "has_issue": False,
                 "title": "Sin registros de errores",
@@ -127,23 +191,51 @@ class DiagnosticManager:
                 "excerpt": self._extract_relevant_excerpt(text_to_analyze, r'BindException|FAILED TO BIND TO PORT')
             }
 
-        # 4. Plugin / Mod Crash
-        m_plugin = re.search(r"(?:Could not load 'plugins/|Plugin `([a-zA-Z0-9_\-]+)` has failed|InvalidPluginException:.*?(?:Plugin|plugins/)([a-zA-Z0-9_\-]+)|Error occurred while enabling ([a-zA-Z0-9_\-]+))", text_to_analyze)
-        if m_plugin or "Exception in server tick loop" in text_to_analyze:
-            plugin_name = next((g for g in m_plugin.groups() if g), None) if m_plugin else None
-            title = f"Fallo Crítico provocado por Plugin '{plugin_name}'" if plugin_name else "Fallo Crítico en Bucle de Ticks del Servidor"
+        # 4. Incompatible Plugin / Missing Class (NoClassDefFoundError / ClassNotFoundException)
+        m_noclass = re.search(r'(?:NoClassDefFoundError|ClassNotFoundException):\s*(?:Could not initialize class\s+)?([a-zA-Z0-9_\.\$]+)', text_to_analyze)
+        if m_noclass:
+            missing_class = m_noclass.group(1).strip()
+            class_short = missing_class.split('.')[-1]
             return {
                 "has_issue": True,
-                "severity": "warning" if plugin_name else "critical",
+                "severity": "critical" if is_crash_report else "warning",
                 "category": "plugin",
-                "title": title,
-                "cause": f"El plugin {plugin_name or 'un plugin instalado'} provocó una excepción no controlada o le falta una dependencia requerida (ej. Vault, ProtocolLib)." if plugin_name else "Una excepción interna detuvo el bucle de procesamiento del servidor.",
-                "recommendation": f"Verifica si {plugin_name or 'el plugin'} tiene una versión más nueva compatible con tu versión de Minecraft, o desactívalo renombrándolo a '.disabled' en la pestaña Archivos." if plugin_name else "Revisa las trazas del error y comprueba la compatibilidad de plugins.",
+                "title": f"Incompatibilidad de Plugin (Clase no encontrada: {class_short})",
+                "cause": f"Un plugin intentó cargar la clase '{missing_class}', la cual no existe o fue removida en esta versión de Paper/Minecraft o le falta una dependencia requerida.",
+                "recommendation": f"Revisa los plugins que hacen referencia a '{class_short}'. Si actualizaste Paper recientemente, actualiza esos plugins a su versión compatible o desactívalos temporalmente en la pestaña Archivos.",
+                "source": source_name,
+                "excerpt": self._extract_relevant_excerpt(text_to_analyze, r'NoClassDefFoundError|ClassNotFoundException|Caused by')
+            }
+
+        # 5. Plugin / Mod Crash
+        m_plugin = re.search(r"(?:Could not load 'plugins/|Plugin `([a-zA-Z0-9_\-]+)` has failed|InvalidPluginException:.*?(?:Plugin|plugins/)([a-zA-Z0-9_\-]+)|Error occurred while enabling ([a-zA-Z0-9_\-]+))", text_to_analyze)
+        if m_plugin:
+            plugin_name = next((g for g in m_plugin.groups() if g), None)
+            return {
+                "has_issue": True,
+                "severity": "warning",
+                "category": "plugin",
+                "title": f"Fallo Crítico provocado por Plugin '{plugin_name}'" if plugin_name else "Fallo en Carga de Plugin",
+                "cause": f"El plugin {plugin_name or 'instalado'} provocó una excepción no controlada o le falta una dependencia requerida (ej. Vault, ProtocolLib).",
+                "recommendation": f"Verifica si {plugin_name or 'el plugin'} tiene una versión más nueva compatible con tu versión de Minecraft, o desactívalo renombrándolo a '.disabled' en la pestaña Archivos.",
                 "source": source_name,
                 "excerpt": self._extract_relevant_excerpt(text_to_analyze, r'Exception|Error|Caused by')
             }
 
-        # 5. EULA not accepted
+        # 6. Server Tick Loop Exception
+        if "Exception in server tick loop" in text_to_analyze:
+            return {
+                "has_issue": True,
+                "severity": "critical",
+                "category": "tick_loop",
+                "title": "Fallo Crítico en Bucle de Ticks del Servidor",
+                "cause": "Una excepción interna detuvo el bucle de procesamiento principal del servidor.",
+                "recommendation": "Revisa las trazas del error para comprobar la compatibilidad de plugins o entidades corruptas en el mundo.",
+                "source": source_name,
+                "excerpt": self._extract_relevant_excerpt(text_to_analyze, r'Exception in server tick loop|Caused by')
+            }
+
+        # 7. EULA not accepted
         if re.search(r'You need to agree to the EULA', text_to_analyze, re.IGNORECASE):
             return {
                 "has_issue": True,
@@ -156,7 +248,20 @@ class DiagnosticManager:
                 "excerpt": "You need to agree to the EULA in order to run the server."
             }
 
-        # 6. Generic Exception / Warning
+        # 8. SIGKILL / Forced system exit without specific log exception
+        if exit_code in (-9, 137):
+            return {
+                "has_issue": True,
+                "severity": "critical",
+                "category": "system",
+                "title": f"Terminación Forzosa por el Sistema (Código {exit_code})",
+                "cause": f"El proceso fue detenido mediante señal SIGKILL ({exit_code}). Esto ocurre comúnmente si Docker/host agotó la memoria física (Linux OOM Killer) o si el proceso no respondió a tiempo a la orden de apagado.",
+                "recommendation": "Verifica los recursos de memoria RAM del host y los límites asignados al contenedor en docker-compose.yml.",
+                "source": "Process Supervisor",
+                "excerpt": f"Process terminated with exit code {exit_code} (SIGKILL)."
+            }
+
+        # 9. Generic Exception / Warning in logs
         m_err = re.search(r'((?:FATAL|ERROR).*?\n(?:.*?\tat .*?\n){1,5})', text_to_analyze)
         if m_err:
             return {

@@ -241,6 +241,10 @@ const Console = {
     if (btnRestart) btnRestart.disabled = isOffline || isStopping;
     // Botón Kill siempre disponible como mecanismo de emergencia contra bloqueos o procesos huérfanos
     if (btnKill) btnKill.disabled = false;
+
+    if (isStarting || isRunning) {
+      this.hideCrashAlert();
+    }
   },
 
   updateStatsUI(stats) {
@@ -479,6 +483,13 @@ const Console = {
       alertText.innerHTML = `<strong>¡Alerta de Caída!</strong> ${diag.title || 'Error no controlado'}: ${diag.cause || ''}`;
     }
     App.showToast(`El servidor se detuvo: ${diag.title || 'Caída inesperada'}`, 'danger');
+  },
+
+  hideCrashAlert() {
+    const alertBox = document.getElementById('console-crash-alert');
+    if (alertBox) {
+      alertBox.style.display = 'none';
+    }
   },
 
   openDiagnosticsModal() {

@@ -49,6 +49,9 @@ class ProcessManager:
         self.started_at: Optional[float] = None
         self.online_players: Set[str] = set()
         self._recent_crashes: List[float] = []
+        self._intentional_stop: bool = False
+        self._stop_task: Optional[asyncio.Task] = None
+        self.last_start_time: Optional[float] = None
         self.current_tps: Dict[str, Any] = {
             "1m": 20.0,
             "5m": 20.0,
@@ -511,7 +514,15 @@ class ProcessManager:
             self._tps_poller_task.cancel()
             self._tps_poller_task = None
 
+        if self._stop_task and not self._stop_task.done():
+            self._stop_task.cancel()
+            self._stop_task = None
+
         prev_status = self.status
+        is_intentional = self._intentional_stop or (prev_status == "STOPPING")
+        self._intentional_stop = False
+
+        run_start_time = self.started_at
         self.status = "OFFLINE"
         self.started_at = None
         self.online_players.clear()
@@ -522,11 +533,14 @@ class ProcessManager:
         await self.broadcast_message({"type": "status", "status": "OFFLINE"})
         self.process = None
 
-        # Auto-diagnose crash if stopped unexpectedly
-        if prev_status != "STOPPING" and exit_code != 0:
+        # Auto-diagnose crash ONLY if stopped unexpectedly
+        if not is_intentional and exit_code != 0:
             try:
                 from app.core.diagnostic_manager import diagnostic_manager
-                diag = diagnostic_manager.analyze_diagnostics()
+                diag = diagnostic_manager.analyze_diagnostics(
+                    since_timestamp=run_start_time,
+                    exit_code=exit_code
+                )
                 if diag.get("has_issue"):
                     await self.broadcast_message({"type": "crash_diagnostics", "data": diag})
             except Exception:
@@ -534,7 +548,7 @@ class ProcessManager:
 
         try:
             from app.core.webhook_manager import webhook_manager as wh
-            if prev_status == "STOPPING" or exit_code == 0:
+            if is_intentional or exit_code == 0:
                 wh.dispatch(
                     "server_stop",
                     "\U0001f6d1 Servidor Detenido",
@@ -551,8 +565,8 @@ class ProcessManager:
         except Exception:
             pass
 
-        # Crash Detection and Auto-restart with crash-loop backoff protection
-        if prev_status != "STOPPING" and exit_code != 0:
+        # Crash Detection and Auto-restart with crash-loop backoff protection (only on non-intentional unexpected crashes)
+        if not is_intentional and exit_code != 0:
             crash_detection_enabled = settings.runtime_config.get("crash_detection", True)
             if crash_detection_enabled:
                 now = time.time()
@@ -679,13 +693,18 @@ class ProcessManager:
 
             cmd.extend(["-jar", str(server_path), "nogui"])
 
-        try:
-            self.status = "STARTING"
-            msg = f"[Dockraft] Starting command: {' '.join(cmd)}"
-            self._append_log(msg)
-            await self.broadcast_message({"type": "log", "data": msg})
-            await self.broadcast_message({"type": "status", "status": self.status})
+        if self._stop_task and not self._stop_task.done():
+            self._stop_task.cancel()
+            self._stop_task = None
+        self._intentional_stop = False
 
+        self.status = "STARTING"
+        msg = f"[Dockraft] Starting command: {' '.join(cmd)}"
+        self._append_log(msg)
+        await self.broadcast_message({"type": "log", "data": msg})
+        await self.broadcast_message({"type": "status", "status": self.status})
+
+        try:
             self.process = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=str(settings.data_dir),
@@ -695,6 +714,7 @@ class ProcessManager:
                 env=env
             )
             self.started_at = time.time()
+            self.last_start_time = self.started_at
             self.online_players.clear()
 
             # Start background stream reading
@@ -717,6 +737,7 @@ class ProcessManager:
         if (not self.process or self.process.returncode is not None) and not rogue:
             return {"status": "error", "message": "Server is not running"}
 
+        self._intentional_stop = True
         self.status = "STOPPING"
         await self.broadcast_message({"type": "status", "status": self.status})
 
@@ -729,17 +750,30 @@ class ProcessManager:
                 except Exception:
                     pass
 
-        # Give it up to 25 seconds to terminate gracefully
-        asyncio.create_task(self._delayed_kill_check(timeout=25))
+        if self._stop_task and not self._stop_task.done():
+            self._stop_task.cancel()
+
+        target_pid = self.process.pid if self.process else None
+        self._stop_task = asyncio.create_task(self._delayed_kill_check(target_pid=target_pid, timeout=25))
         return {"status": "success", "message": "Stop command sent"}
 
-    async def _delayed_kill_check(self, timeout: int = 25) -> None:
-        await asyncio.sleep(timeout)
-        if (self.process and self.process.returncode is None) or self.find_running_server_processes():
-            msg = "[Dockraft] Server did not stop in time. Terminating forcibly..."
-            self._append_log(msg)
-            await self.broadcast_message({"type": "log", "data": msg})
-            await self.kill_server()
+    async def _delayed_kill_check(self, target_pid: Optional[int] = None, timeout: int = 25) -> None:
+        try:
+            await asyncio.sleep(timeout)
+            if self.status == "STOPPING":
+                target_running = False
+                if self.process and self.process.returncode is None:
+                    if target_pid is None or self.process.pid == target_pid:
+                        target_running = True
+
+                rogue = [p for p in self.find_running_server_processes() if target_pid is None or p.pid == target_pid]
+                if target_running or rogue:
+                    msg = "[Dockraft] Server did not stop in time. Terminating forcibly..."
+                    self._append_log(msg)
+                    await self.broadcast_message({"type": "log", "data": msg})
+                    await self.kill_server()
+        except asyncio.CancelledError:
+            pass
 
     async def restart_server(self) -> Dict[str, Any]:
         """Stops and automatically restarts once offline."""
@@ -758,6 +792,11 @@ class ProcessManager:
 
     async def kill_server(self) -> Dict[str, Any]:
         """Immediately terminates the process and any orphaned server processes."""
+        self._intentional_stop = True
+        if self._stop_task and not self._stop_task.done():
+            self._stop_task.cancel()
+            self._stop_task = None
+
         killed_any = False
         if self.process and self.process.returncode is None:
             try:
@@ -789,7 +828,7 @@ class ProcessManager:
         await self.broadcast_message({"type": "log", "data": msg})
         await self.broadcast_message({"type": "status", "status": "OFFLINE"})
 
-        return {"status": "success", "message": "Server killed successfully"}
+        return {"status": "success", "message": "Server forcibly killed"}
 
     async def _tps_poller_loop(self) -> None:
         """Periodically requests 'tps' silently from Paper/Purpur/Spigot to keep TPS metric updated."""
