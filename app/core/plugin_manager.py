@@ -89,6 +89,17 @@ class PluginManager:
         if plugin_name.lower() in ("server thread", "minecraft", "craftscheduler", "user authenticator", "main"):
             return None
 
+        # Reject negative phrases first (false positives: "No new version available", "already up to date", etc.)
+        negative_kw = re.search(
+            r'\b(?:no\s+new\s+version|no\s+update\s+(?:found|available|needed)|already\s+up.to.date|'
+            r'up\s+to\s+date|not\s+(?:outdated|found)|ninguna\s+actualizaci[oó]n|'
+            r'ya\s+(?:está|esta)\s+actualizado|sin\s+actualizaciones?)\b',
+            msg,
+            re.IGNORECASE
+        )
+        if negative_kw:
+            return None
+
         # Check for update keywords
         update_kw = re.search(
             r'\b(?:update\s+is\s+available|new\s+update|new\s+version|version\s+is\s+available|'

@@ -184,6 +184,15 @@ def test_console_plugin_update_parsing():
     line_normal = "[12:34:56 INFO]: [Essentials] Loading Essentials v2.20.1"
     assert plugin_manager.parse_console_update_line(line_normal) is None
 
+    # 6. False-positive guard: "No new version available" must NOT be detected as an update
+    line_vault_negative = "[02:31:39 INFO]: [Vault] No new version available"
+    assert plugin_manager.parse_console_update_line(line_vault_negative) is None, \
+        "Vault 'No new version available' should NOT trigger an update detection"
+
+    # 7. "already up to date" must also be rejected
+    line_up_to_date = "[Chunky] You are already up to date! (v1.4.10)"
+    assert plugin_manager.parse_console_update_line(line_up_to_date) is None
+
 def test_console_log_scanning_and_api(tmp_path, monkeypatch):
     test_logs_dir = tmp_path / "logs"
     test_logs_dir.mkdir(parents=True)
