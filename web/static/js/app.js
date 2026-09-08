@@ -59,11 +59,37 @@ const App = {
 
   initBannerToggle() {
     const banner = document.getElementById('server-overview-banner');
+    const bar = document.getElementById('banner-mobile-bar');
     if (!banner) return;
+
+    if (bar && !bar._toggleBound) {
+      bar._toggleBound = true;
+      bar.setAttribute('role', 'button');
+      bar.setAttribute('tabindex', '0');
+      bar.setAttribute('aria-expanded', 'false');
+
+      const onToggle = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        this.toggleBannerDetails();
+      };
+
+      bar.addEventListener('click', onToggle);
+      bar.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.toggleBannerDetails();
+        }
+      });
+    }
+
     try {
       const saved = localStorage.getItem('dockraft_banner_expanded');
       if (saved === '1') {
         banner.classList.add('expanded');
+        if (bar) bar.setAttribute('aria-expanded', 'true');
         const hint = document.getElementById('banner-toggle-hint');
         if (hint) hint.textContent = typeof I18n !== 'undefined' ? I18n.t('banner_collapse', 'Ocultar') : 'Ocultar';
       }
@@ -72,9 +98,13 @@ const App = {
 
   toggleBannerDetails() {
     const banner = document.getElementById('server-overview-banner');
+    const bar = document.getElementById('banner-mobile-bar');
     const hint = document.getElementById('banner-toggle-hint');
     if (!banner) return;
     const isExpanded = banner.classList.toggle('expanded');
+    if (bar) {
+      bar.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    }
     if (hint) {
       hint.textContent = isExpanded 
         ? (typeof I18n !== 'undefined' ? I18n.t('banner_collapse', 'Ocultar') : 'Ocultar')
@@ -574,6 +604,9 @@ const App = {
     });
   }
 };
+
+window.App = App;
+window.toggleBannerDetails = () => App.toggleBannerDetails();
 
 document.addEventListener('DOMContentLoaded', () => {
   App.init();

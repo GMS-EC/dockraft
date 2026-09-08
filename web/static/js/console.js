@@ -242,6 +242,11 @@ const Console = {
     const isStarting = status === 'STARTING';
     const isStopping = status === 'STOPPING';
 
+    const mobDot = document.getElementById('banner-mob-dot');
+    if (mobDot) {
+      mobDot.className = `status-dot ${(status || 'offline').toLowerCase()}`;
+    }
+
     if (btnStart) btnStart.disabled = !isOffline;
     if (btnStop) btnStop.disabled = isOffline || isStopping;
     if (btnRestart) btnRestart.disabled = isOffline || isStopping;
@@ -250,6 +255,8 @@ const Console = {
 
     if (isStarting || isRunning) {
       this.hideCrashAlert();
+    } else if (isOffline) {
+      this.updateTpsUI(null);
     }
   },
 
@@ -380,16 +387,14 @@ const Console = {
 
     // Update mobile overview bar if present
     const mobDot = document.getElementById('banner-mob-dot');
-    const mobTitle = document.getElementById('banner-mob-title');
-    const mobTps = document.getElementById('banner-mob-tps');
     if (mobDot && stats) {
-      mobDot.className = `status-dot ${stats.status ? stats.status.toLowerCase() : 'offline'}`;
+      const st = (stats.status || 'offline').toLowerCase();
+      mobDot.className = `status-dot ${st}`;
     }
-    if (mobTitle && topStatus) {
-      mobTitle.textContent = topStatus.textContent;
-    }
-    if (mobTps && stats) {
-      mobTps.textContent = stats.tps !== undefined && stats.tps !== null ? `${stats.tps} TPS` : '-- TPS';
+    if (stats && stats.tps) {
+      this.updateTpsUI(stats.tps);
+    } else if (stats && stats.status !== 'RUNNING') {
+      this.updateTpsUI(null);
     }
   },
 
@@ -436,16 +441,37 @@ const Console = {
 
   updateTpsUI(tps) {
     const topTps = document.getElementById('top-server-tps');
+    const mobTps = document.getElementById('banner-mob-tps');
     const kpiVal = document.getElementById('metric-kpi-tps-val');
     const kpiBadge = document.getElementById('metric-kpi-tps-badge');
     const kpi1m = document.getElementById('metric-kpi-tps-1m');
     const kpi5m = document.getElementById('metric-kpi-tps-5m');
     const kpi15m = document.getElementById('metric-kpi-tps-15m');
 
-    if (!tps || tps.status === 'offline' || tps['1m'] === null || tps['1m'] === undefined) {
+    let raw1m = null;
+    let raw5m = null;
+    let raw15m = null;
+
+    if (tps && typeof tps === 'object') {
+      if (tps.status !== 'offline') {
+        raw1m = tps['1m'] !== undefined ? tps['1m'] : tps.tps_1m;
+        raw5m = tps['5m'] !== undefined ? tps['5m'] : tps.tps_5m;
+        raw15m = tps['15m'] !== undefined ? tps['15m'] : tps.tps_15m;
+      }
+    } else if (typeof tps === 'number') {
+      raw1m = tps;
+    }
+
+    if (raw1m === null || raw1m === undefined || isNaN(Number(raw1m))) {
       if (topTps) {
         topTps.textContent = '--';
         topTps.style.color = 'var(--text-dim)';
+      }
+      if (mobTps) {
+        mobTps.textContent = '-- TPS';
+        mobTps.style.color = '#8b949e';
+        mobTps.style.background = 'rgba(110, 118, 129, 0.15)';
+        mobTps.style.borderColor = 'rgba(110, 118, 129, 0.3)';
       }
       if (kpiVal) kpiVal.textContent = '--';
       if (kpiBadge) {
@@ -456,29 +482,39 @@ const Console = {
       return;
     }
 
-    const val1m = Number(tps['1m']);
-    const val5m = Number(tps['5m'] !== undefined ? tps['5m'] : val1m);
-    const val15m = Number(tps['15m'] !== undefined ? tps['15m'] : val1m);
+    const val1m = Number(raw1m);
+    const val5m = Number(raw5m !== null && raw5m !== undefined ? raw5m : val1m);
+    const val15m = Number(raw15m !== null && raw15m !== undefined ? raw15m : val1m);
 
     let color = '#3fb950'; // green
     let label = 'Óptimo';
     let bg = 'rgba(46, 160, 67, 0.15)';
+    let border = 'rgba(63, 185, 80, 0.35)';
 
     if (val1m < 16.0) {
       color = '#f85149'; // red lag
       label = 'Lag Severo';
       bg = 'rgba(248, 81, 73, 0.15)';
+      border = 'rgba(248, 81, 73, 0.35)';
     } else if (val1m < 19.5) {
       color = '#d29922'; // amber moderate
       label = 'Carga Moderada';
       bg = 'rgba(210, 153, 34, 0.15)';
+      border = 'rgba(210, 153, 34, 0.35)';
     }
+
+    const tpsText = `${val1m.toFixed(1)} TPS`;
 
     if (topTps) {
-      topTps.textContent = `${val1m.toFixed(1)} TPS`;
+      topTps.textContent = tpsText;
       topTps.style.color = color;
     }
-
+    if (mobTps) {
+      mobTps.textContent = tpsText;
+      mobTps.style.color = color;
+      mobTps.style.background = bg;
+      mobTps.style.borderColor = border;
+    }
     if (kpiVal) {
       kpiVal.textContent = val1m.toFixed(1);
       kpiVal.style.color = color;

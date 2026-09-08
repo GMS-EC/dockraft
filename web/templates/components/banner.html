@@ -1,13 +1,13 @@
 <!-- Top Server Overview & Metrics Banner -->
 <div class="server-overview-banner" id="server-overview-banner">
   <!-- Mobile Summary & Toggle Header (Only on screens <= 768px) -->
-  <div class="banner-mobile-bar" id="banner-mobile-bar" onclick="App.toggleBannerDetails()">
+  <div class="banner-mobile-bar" id="banner-mobile-bar" role="button" tabindex="0" aria-expanded="false" aria-controls="overview-grid" onclick="if(window.App&&App.toggleBannerDetails)App.toggleBannerDetails();else if(window.toggleBannerDetails)toggleBannerDetails();">
     <div class="banner-mobile-left">
       <span class="status-dot offline" id="banner-mob-dot" style="width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>
       <span class="banner-mob-title" id="banner-mob-title" style="font-weight: 600; font-size: 0.82rem;" data-i18n="banner_server_details">Detalles del Servidor</span>
       <span class="banner-mob-pill" id="banner-mob-tps" style="color: #3fb950; font-size: 0.75rem; font-weight: 700; background: rgba(63, 185, 80, 0.1); border: 1px solid rgba(63, 185, 80, 0.3); border-radius: 4px; padding: 1px 6px;">-- TPS</span>
     </div>
-    <div class="banner-mobile-right">
+    <div class="banner-mobile-right" id="banner-mobile-toggle-btn">
       <span class="banner-toggle-hint" id="banner-toggle-hint" style="font-size: 0.74rem; color: var(--text-dim);" data-i18n="banner_expand">Expandir</span>
       <svg id="banner-chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.25s ease; color: var(--text-muted);"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
