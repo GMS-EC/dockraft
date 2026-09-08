@@ -50,6 +50,7 @@ const App = {
     // Register Service Worker for PWA if supported
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
       navigator.serviceWorker.register('/static/sw.js').then((reg) => {
+        reg.update().catch(() => {});
         console.log('[Dockraft PWA] Service Worker registrado con éxito:', reg.scope);
       }).catch((err) => {
         console.debug('[Dockraft PWA] Service Worker registration skipped:', err);
@@ -453,13 +454,78 @@ const App = {
     }, 3500);
   },
 
+  ensureConfirmModal() {
+    let modal = document.getElementById('modal-app-confirm');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.className = 'modal-backdrop modal-dialog-backdrop';
+    modal.id = 'modal-app-confirm';
+    modal.style.zIndex = '1200';
+    modal.innerHTML = `
+      <div class="modal-box modal-dialog-box" style="max-width: 480px;">
+        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid #30363d;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div id="modal-confirm-icon" style="width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"></div>
+            <h3 id="modal-confirm-title-text" style="font-size: 1.05rem; font-weight: 600; color: #f0f6fc; margin: 0;">Confirmación</h3>
+          </div>
+          <button class="action-icon-btn" id="modal-confirm-btn-close" type="button" aria-label="Cerrar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+          <div id="modal-confirm-message" style="font-size: 0.92rem; line-height: 1.6; color: #cbd5e1; white-space: pre-line; word-break: break-word;"></div>
+        </div>
+        <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid #30363d; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-outline" id="modal-confirm-btn-cancel">Cancelar</button>
+          <button type="button" class="btn btn-danger" id="modal-confirm-btn-ok">Confirmar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+  },
+
+  ensurePromptModal() {
+    let modal = document.getElementById('modal-app-prompt');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.className = 'modal-backdrop modal-dialog-backdrop';
+    modal.id = 'modal-app-prompt';
+    modal.style.zIndex = '1200';
+    modal.innerHTML = `
+      <div class="modal-box modal-dialog-box" style="max-width: 480px;">
+        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid #30363d;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div id="modal-prompt-icon" style="width: 36px; height: 36px; border-radius: 8px; background: rgba(56, 139, 253, 0.15); border: 1px solid rgba(56, 139, 253, 0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
+            <h3 id="modal-prompt-title-text" style="font-size: 1.05rem; font-weight: 600; color: #f0f6fc; margin: 0;">Entrada Requerida</h3>
+          </div>
+          <button class="action-icon-btn" id="modal-prompt-btn-close" type="button" aria-label="Cerrar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+          <div id="modal-prompt-message" style="font-size: 0.92rem; line-height: 1.5; color: #cbd5e1; margin-bottom: 14px; white-space: pre-line; word-break: break-word;"></div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <input type="text" class="form-input" id="modal-prompt-input" autocomplete="off" spellcheck="false" style="font-size: 0.95rem; padding: 9px 12px;">
+          </div>
+        </div>
+        <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid #30363d; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-outline" id="modal-prompt-btn-cancel">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="modal-prompt-btn-ok">Aceptar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+  },
+
   confirm(options) {
     return new Promise((resolve) => {
-      const modal = document.getElementById('modal-app-confirm');
-      if (!modal) {
-        resolve(window.confirm(typeof options === 'string' ? options : (options && options.message ? options.message : '¿Confirmas esta acción?')));
-        return;
-      }
+      const modal = this.ensureConfirmModal();
 
       const opts = typeof options === 'string' ? { message: options } : (options || {});
       const isDanger = Boolean(opts.danger || opts.type === 'danger');
@@ -543,11 +609,7 @@ const App = {
 
   prompt(options) {
     return new Promise((resolve) => {
-      const modal = document.getElementById('modal-app-prompt');
-      if (!modal) {
-        resolve(window.prompt(typeof options === 'string' ? options : (options && options.message ? options.message : '')));
-        return;
-      }
+      const modal = this.ensurePromptModal();
 
       const opts = typeof options === 'string' ? { message: options } : (options || {});
       const titleEl = document.getElementById('modal-prompt-title-text');

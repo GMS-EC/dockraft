@@ -1,5 +1,5 @@
 // Dockraft Service Worker for PWA
-const CACHE_NAME = 'dockraft-v1';
+const CACHE_NAME = 'dockraft-v2';
 const STATIC_ASSETS = [
   '/static/css/style.css',
   '/static/img/logo.png',
@@ -35,7 +35,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Never intercept or cache API requests, WebSockets or login actions
+  // Never intercept or cache API requests, WebSockets or non-GET actions
   if (
     url.pathname.startsWith('/api') ||
     url.pathname.startsWith('/ws') ||
@@ -44,7 +44,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for HTML pages
+  // Network-first for HTML navigation
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
@@ -52,7 +52,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-while-revalidate for static assets
+  // Network-first for JavaScript files and versioned assets to guarantee fresh UI logic
+  if (url.pathname.endsWith('.js') || url.search) {
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const copy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return networkResponse;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Stale-while-revalidate for images, icons, and non-versioned static assets
   if (url.pathname.startsWith('/static/')) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
@@ -68,3 +82,4 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
