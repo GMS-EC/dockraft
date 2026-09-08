@@ -44,11 +44,20 @@ const I18n = {
       banner_mem_label: 'Uso de memoria:',
       banner_players_label: 'Jugadores:',
       banner_name_label: 'Nombre del Servidor:',
+      banner_version_label: 'Versión:',
       banner_desc_label: 'Descripción:',
       banner_type_label: 'Tipo de Servidor:',
+      banner_tps_label: 'Rendimiento (TPS):',
 
       // Console Tab
       console_title: 'Consola en Tiempo Real',
+      stat_cpu: 'CPU',
+      stat_cpu_sub: 'Uso en núcleos activos',
+      stat_ram: 'RAM',
+      stat_mem_sub: 'De la memoria asignada',
+      stat_disk: 'Disco',
+      stat_disk_sub: 'Almacenamiento (/server_data)',
+      stat_control: 'Control',
       console_auto_scroll: 'Desplazamiento automático',
       console_quick_cmds: 'Comandos Rápidos',
       btn_start: 'Iniciar',
@@ -291,11 +300,20 @@ const I18n = {
       banner_mem_label: 'Memory Usage:',
       banner_players_label: 'Players:',
       banner_name_label: 'Server Name:',
+      banner_version_label: 'Version:',
       banner_desc_label: 'Description:',
       banner_type_label: 'Server Type:',
+      banner_tps_label: 'TPS Performance:',
 
       // Console Tab
       console_title: 'Real-Time Console',
+      stat_cpu: 'CPU',
+      stat_cpu_sub: 'Active core usage',
+      stat_ram: 'RAM',
+      stat_mem_sub: 'Of allocated memory',
+      stat_disk: 'Storage',
+      stat_disk_sub: 'Storage volume (/server_data)',
+      stat_control: 'Control',
       console_auto_scroll: 'Auto-scroll',
       console_quick_cmds: 'Quick Commands',
       btn_start: 'Start',
@@ -677,6 +695,39 @@ const I18n = {
       const t = document.getElementById('btn-login-text') || btnLogin.querySelector('#btn-login-text');
       if (t) t.textContent = dict.login_submit_btn;
     }
+
+    // Refresh dynamic Console stats if available
+    if (typeof Console !== 'undefined' && Console.lastStats) {
+      Console.updateStatsUI(Console.lastStats);
+    }
+  },
+
+  formatUptime(seconds) {
+    if (!seconds || seconds <= 0) {
+      return this.t('banner_status_offline', 'Fuera de línea');
+    }
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    const isEn = this.currentLang === 'en';
+
+    const parts = [];
+    if (days > 0) {
+      parts.push(isEn ? (days === 1 ? '1 day' : `${days} days`) : (days === 1 ? '1 día' : `${days} días`));
+    }
+    if (hours > 0) {
+      parts.push(isEn ? (hours === 1 ? '1 hour' : `${hours} hours`) : (hours === 1 ? '1 hora' : `${hours} horas`));
+    }
+    if (minutes > 0 || hours > 0 || days > 0) {
+      parts.push(isEn ? (minutes === 1 ? '1 minute' : `${minutes} minutes`) : (minutes === 1 ? '1 minuto' : `${minutes} minutos`));
+    }
+    parts.push(isEn ? (secs === 1 ? '1 second' : `${secs} seconds`) : (secs === 1 ? '1 segundo' : `${secs} segundos`));
+
+    const andWord = isEn ? ' and ' : ' y ';
+    if (parts.length === 1) return parts[0];
+    if (parts.length === 2) return parts[0] + andWord + parts[1];
+    return parts.slice(0, -1).join(', ') + andWord + parts[parts.length - 1];
   }
 };
 

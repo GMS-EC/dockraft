@@ -348,7 +348,13 @@ const Console = {
       }
       if (topName) topName.textContent = stats.server_name || 'Mi Servidor Dockraft';
       if (topStarted) topStarted.textContent = stats.started_at_str || (typeof I18n !== 'undefined' ? I18n.t('banner_status_offline') : 'No iniciado');
-      if (topUptime) topUptime.textContent = stats.uptime_formatted || (typeof I18n !== 'undefined' ? I18n.t('banner_status_offline') : 'Fuera de línea');
+      if (topUptime) {
+        if (typeof I18n !== 'undefined' && stats.uptime_seconds !== undefined && stats.uptime_seconds !== null && Number(stats.uptime_seconds) > 0) {
+          topUptime.textContent = I18n.formatUptime(Number(stats.uptime_seconds));
+        } else {
+          topUptime.textContent = stats.uptime_formatted || (typeof I18n !== 'undefined' ? I18n.t('banner_status_offline') : 'Fuera de línea');
+        }
+      }
       if (topCpu) topCpu.textContent = `${cpuPct.toFixed(1)} %`;
       if (topMem) {
         const curGb = (currentMem / 1024).toFixed(1);
