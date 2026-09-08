@@ -375,8 +375,21 @@ const Console = {
         topVersion.textContent = `${typeLabel} ${stats.server_version || ''}`;
       }
       if (topMotd) topMotd.textContent = stats.motd || 'A Dockraft Minecraft Server';
-      if (topType) topType.textContent = stats.server_type_display || 'minecraft-java';
       if (stats.tps) this.updateTpsUI(stats.tps);
+    }
+
+    // Update mobile overview bar if present
+    const mobDot = document.getElementById('banner-mob-dot');
+    const mobTitle = document.getElementById('banner-mob-title');
+    const mobTps = document.getElementById('banner-mob-tps');
+    if (mobDot && stats) {
+      mobDot.className = `status-dot ${stats.status ? stats.status.toLowerCase() : 'offline'}`;
+    }
+    if (mobTitle && topStatus) {
+      mobTitle.textContent = topStatus.textContent;
+    }
+    if (mobTps && stats) {
+      mobTps.textContent = stats.tps !== undefined && stats.tps !== null ? `${stats.tps} TPS` : '-- TPS';
     }
   },
 

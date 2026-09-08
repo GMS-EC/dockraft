@@ -49,6 +49,9 @@ const I18n = {
       banner_desc_label: 'Descripción:',
       banner_type_label: 'Tipo de Servidor:',
       banner_tps_label: 'Rendimiento (TPS):',
+      banner_server_details: 'Detalles del Servidor',
+      banner_expand: 'Expandir',
+      banner_collapse: 'Ocultar',
 
       // Console Tab
       console_title: 'Consola en Tiempo Real',
@@ -333,6 +336,9 @@ const I18n = {
       banner_desc_label: 'Description:',
       banner_type_label: 'Server Type:',
       banner_tps_label: 'TPS Performance:',
+      banner_server_details: 'Server Details',
+      banner_expand: 'Expand',
+      banner_collapse: 'Collapse',
 
       // Console Tab
       console_title: 'Real-Time Console',

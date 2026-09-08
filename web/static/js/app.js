@@ -45,6 +45,8 @@ const App = {
       Files.init();
     }
 
+    this.initBannerToggle();
+
     // Register Service Worker for PWA if supported
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
       navigator.serviceWorker.register('/static/sw.js').then((reg) => {
@@ -53,6 +55,34 @@ const App = {
         console.debug('[Dockraft PWA] Service Worker registration skipped:', err);
       });
     }
+  },
+
+  initBannerToggle() {
+    const banner = document.getElementById('server-overview-banner');
+    if (!banner) return;
+    try {
+      const saved = localStorage.getItem('dockraft_banner_expanded');
+      if (saved === '1') {
+        banner.classList.add('expanded');
+        const hint = document.getElementById('banner-toggle-hint');
+        if (hint) hint.textContent = typeof I18n !== 'undefined' ? I18n.t('banner_collapse', 'Ocultar') : 'Ocultar';
+      }
+    } catch(e) {}
+  },
+
+  toggleBannerDetails() {
+    const banner = document.getElementById('server-overview-banner');
+    const hint = document.getElementById('banner-toggle-hint');
+    if (!banner) return;
+    const isExpanded = banner.classList.toggle('expanded');
+    if (hint) {
+      hint.textContent = isExpanded 
+        ? (typeof I18n !== 'undefined' ? I18n.t('banner_collapse', 'Ocultar') : 'Ocultar')
+        : (typeof I18n !== 'undefined' ? I18n.t('banner_expand', 'Expandir') : 'Expandir');
+    }
+    try {
+      localStorage.setItem('dockraft_banner_expanded', isExpanded ? '1' : '0');
+    } catch(e) {}
   },
 
   setupTabs() {
