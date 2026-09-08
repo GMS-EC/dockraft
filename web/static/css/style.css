@@ -2730,3 +2730,59 @@ input:checked + .slider:before {
     align-items: center !important;
   }
 }
+
+/* Server Properties Dual Mode & Category Filters */
+.prop-cat-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.prop-cat-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.prop-cat-btn.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Plugin Update Checker */
+.plugin-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: rgba(22, 27, 34, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  gap: 12px;
+  transition: border-color 0.2s ease;
+}
+
+.plugin-item-card:hover {
+  border-color: var(--border-hover);
+}
+
+.plugin-item-card.has-update {
+  border-left: 3px solid #d29922;
+  background: rgba(210, 153, 34, 0.05);
+}
+
+@media (max-width: 768px) {
+  .plugin-item-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

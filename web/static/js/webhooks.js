@@ -60,8 +60,8 @@ const Webhooks = {
     const evStop = document.getElementById('webhook-event-stop');
     const evCrash = document.getElementById('webhook-event-crash');
     const evBackup = document.getElementById('webhook-event-backup');
-    const evTask = document.getElementById('webhook-event-task');
-    const evPlayer = document.getElementById('webhook-event-player');
+    const evLowTps = document.getElementById('webhook-event-lowtps');
+    const evPlugin = document.getElementById('webhook-event-plugin');
 
     if (evStart) evStart.checked = ev.server_start !== false;
     if (evStop) evStop.checked = ev.server_stop !== false;
@@ -69,6 +69,8 @@ const Webhooks = {
     if (evBackup) evBackup.checked = ev.backup_created !== false;
     if (evTask) evTask.checked = ev.task_executed !== false;
     if (evPlayer) evPlayer.checked = !!ev.player_join;
+    if (evLowTps) evLowTps.checked = ev.low_tps !== false;
+    if (evPlugin) evPlugin.checked = ev.plugin_update !== false;
 
     this.updateStatusBadges();
   },
@@ -203,7 +205,9 @@ const Webhooks = {
         backup_created: document.getElementById('webhook-event-backup')?.checked || false,
         task_executed: document.getElementById('webhook-event-task')?.checked || false,
         player_join: document.getElementById('webhook-event-player')?.checked || false,
-        player_leave: document.getElementById('webhook-event-player')?.checked || false
+        player_leave: document.getElementById('webhook-event-player')?.checked || false,
+        low_tps: document.getElementById('webhook-event-lowtps')?.checked || false,
+        plugin_update: document.getElementById('webhook-event-plugin')?.checked || false
       }
     };
 

@@ -39,7 +39,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "backup_created": True,
         "task_executed": True,
         "player_join": False,
-        "player_leave": False
+        "player_leave": False,
+        "low_tps": True,
+        "plugin_update": True
     }
 }
 
@@ -119,6 +121,10 @@ class WebhookManager:
             status_badge = "⚪ Desconectado"
         elif event_type == "test":
             status_badge = "✅ Canal Activo"
+        elif event_type == "low_tps":
+            status_badge = "⚠️ Lag Detectado"
+        elif event_type == "plugin_update":
+            status_badge = "📦 Actualización Disp."
 
         return [
             {"name": "🎮 Servidor", "value": f"`{name}`", "inline": True},

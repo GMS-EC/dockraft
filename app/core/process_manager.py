@@ -60,6 +60,9 @@ class ProcessManager:
             "status": "optimal"
         }
         self._tps_poller_task: Optional[asyncio.Task] = None
+        self._consecutive_low_tps: int = 0
+        self._last_tps_alert_time: float = 0.0
+        self._tps_alert_active: bool = False
 
     def format_uptime(self, seconds: int) -> str:
         """Formats seconds into human-readable Spanish e.g. '2 horas, 27 minutos y 8 segundos'."""
@@ -572,6 +575,34 @@ class ProcessManager:
                             "status": st
                         }
                         await self.broadcast_message({"type": "tps", "data": self.current_tps})
+
+                        # Low TPS / Lag Detection and Proactive Notification
+                        now = time.time()
+                        if t1 < 15.0:
+                            self._consecutive_low_tps += 1
+                            # Trigger alert after 2 consecutive low checks and 20 min cooldown (1200s)
+                            if self._consecutive_low_tps >= 2 and (now - self._last_tps_alert_time > 1200):
+                                self._last_tps_alert_time = now
+                                self._tps_alert_active = True
+                                try:
+                                    from app.core.webhook_manager import webhook_manager as wh
+                                    s_info = wh._get_server_info()
+                                    wh.dispatch(
+                                        "low_tps",
+                                        "⚠️ Alerta de Rendimiento (TPS Bajos)",
+                                        f"El servidor de Minecraft está experimentando lag sostenido. TPS actual: **{t1:.1f} / 20.0** (1m: {t1:.1f}, 5m: {t5:.1f}).",
+                                        color=0xd29922 if t1 >= 12.0 else 0xda3633,
+                                        fields=[
+                                            {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                                            {"name": "📊 TPS Actual", "value": f"`{t1:.1f} / 20.0`", "inline": True},
+                                            {"name": "⚡ Estado", "value": "⚠️ Lag Sostenido" if t1 >= 12.0 else "🚨 Lag Crítico", "inline": True}
+                                        ]
+                                    )
+                                except Exception:
+                                    pass
+                        elif t1 >= 18.5:
+                            self._consecutive_low_tps = 0
+                            self._tps_alert_active = False
                     except Exception:
                         pass
 

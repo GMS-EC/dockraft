@@ -55,6 +55,7 @@ const Installer = {
           btn.className = "btn btn-outline";
         }
         await this.loadUpdateInfo(stats);
+        await this.loadInstalledPlugins(stats);
       } else {
         this.isLocked = false;
         this.allowForce = true;
@@ -63,6 +64,8 @@ const Installer = {
         if (btnDelete) btnDelete.style.display = 'none';
         const updateCard = document.getElementById('installer-update-card');
         if (updateCard) updateCard.style.display = 'none';
+        const pluginsCard = document.getElementById('installer-plugins-card');
+        if (pluginsCard) pluginsCard.style.display = 'none';
         if (btn) {
           btn.disabled = false;
           btn.textContent = "Instalar y Configurar Servidor";
@@ -808,6 +811,172 @@ const Installer = {
       App.switchTab('installer');
     } catch (err) {
       App.showToast(err.message, 'danger');
+    }
+  },
+
+  installedPlugins: [],
+
+  async loadInstalledPlugins(stats) {
+    const card = document.getElementById('installer-plugins-card');
+    if (!card) return;
+
+    const sType = ((stats && stats.server_type) || '').toLowerCase();
+    if (sType === 'bedrock') {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = 'block';
+
+    try {
+      const res = await fetch('/api/plugins/list');
+      if (res.ok) {
+        const data = await res.json();
+        this.installedPlugins = data.plugins || [];
+        this.renderPluginsList(this.installedPlugins);
+      }
+    } catch (e) {
+      console.warn("Could not load plugins list:", e);
+      const container = document.getElementById('plugins-list-container');
+      if (container) {
+        container.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.85rem;">No se pudieron cargar los plugins.</div>`;
+      }
+    }
+  },
+
+  renderPluginsList(plugins) {
+    const container = document.getElementById('plugins-list-container');
+    const badge = document.getElementById('plugins-count-badge');
+    const btnNotify = document.getElementById('btn-notify-plugin-updates');
+    if (!container) return;
+
+    const count = plugins ? plugins.length : 0;
+    if (badge) {
+      badge.textContent = `${count} ${count === 1 ? 'plugin' : 'plugins'}`;
+    }
+
+    if (!plugins || plugins.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 26px 20px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px dashed var(--border-color);">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          <div style="font-weight: 500; font-size: 0.92rem; color: var(--text-primary); margin-bottom: 4px;">No se encontraron plugins en <code>data/plugins/</code></div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); max-width: 480px; margin: 0 auto;">
+            Sube tus plugins <code>.jar</code> desde la pestaña <strong>Archivos</strong> dentro de la carpeta <code>plugins/</code> para gestionarlos y recibir alertas de actualización.
+          </div>
+        </div>
+      `;
+      if (btnNotify) btnNotify.style.display = 'none';
+      return;
+    }
+
+    let hasAnyUpdate = false;
+    let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+
+    plugins.forEach(p => {
+      const isUpToDate = p.checked && !p.has_update;
+      const hasUpdate = p.checked && p.has_update;
+      if (hasUpdate) hasAnyUpdate = true;
+
+      const cardClass = hasUpdate ? 'plugin-item-card has-update' : 'plugin-item-card';
+
+      let statusBadge = `<span class="badge" style="background: rgba(255, 255, 255, 0.06); color: var(--text-muted); border: 1px solid var(--border-color);">v${p.version || '1.0'}</span>`;
+      if (hasUpdate) {
+        statusBadge = `
+          <span class="badge" style="background: rgba(210, 153, 34, 0.18); border: 1px solid #d29922; color: #e3b341; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+            v${p.version} ➔ v${p.latest_version}
+          </span>
+        `;
+      } else if (isUpToDate) {
+        statusBadge = `
+          <span class="badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            v${p.version} (Al día)
+          </span>
+        `;
+      }
+
+      const spigotLink = p.spigot_url ? `
+        <a href="${p.spigot_url}" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; border-color: rgba(255, 153, 0, 0.4); color: #ff9900;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          SpigotMC
+        </a>
+      ` : '';
+
+      html += `
+        <div class="${cardClass}">
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px;">
+              <span style="font-weight: 600; font-size: 0.92rem; color: #f0f6fc;">${p.name || p.filename}</span>
+              ${statusBadge}
+              <span style="font-size: 0.75rem; color: var(--text-dim);">${p.filename} (${p.file_size_formatted || ''})</span>
+            </div>
+            ${p.description ? `<div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 600px;">${p.description}</div>` : ''}
+            ${p.author ? `<div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 2px;">Por: ${p.author}</div>` : ''}
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            ${spigotLink}
+          </div>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+
+    if (btnNotify) {
+      btnNotify.style.display = hasAnyUpdate ? 'inline-flex' : 'none';
+    }
+  },
+
+  async checkPluginUpdates() {
+    const btn = document.getElementById('btn-check-plugin-updates');
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Comprobando...`;
+    }
+
+    try {
+      const res = await fetch('/api/plugins/check-updates', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        this.installedPlugins = data.plugins || [];
+        this.renderPluginsList(this.installedPlugins);
+        if (data.outdated_count > 0) {
+          App.showToast(`¡Se detectaron ${data.outdated_count} actualizaciones en SpigotMC!`, 'warning');
+        } else {
+          App.showToast("Todos los plugins compatibles están al día en SpigotMC.", 'success');
+        }
+      } else {
+        App.showToast("Error al verificar actualizaciones de plugins.", 'danger');
+      }
+    } catch (e) {
+      App.showToast("Error de conexión al verificar plugins.", 'danger');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    }
+  },
+
+  async notifyPluginUpdates() {
+    const btn = document.getElementById('btn-notify-plugin-updates');
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/plugins/notify-updates', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        App.showToast(`Alerta despachada a Webhooks para ${data.total_outdated} plugin(s) desactualizado(s)`, 'success');
+      } else {
+        App.showToast("Error al notificar por Webhook.", 'danger');
+      }
+    } catch (e) {
+      App.showToast("Error al despachar alerta de plugins.", 'danger');
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 };

@@ -276,153 +276,331 @@
   </div>
 
   <!-- State: Java Edition Settings (Paper, Purpur, Vanilla, Fabric) -->
-  <div id="settings-java-container">
+  <div id="settings-java">
     <div class="grid-2">
-      <!-- Java Minecraft Server Properties -->
-      <div class="card">
-        <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Opciones de Juego (server.properties)
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Mensaje del Servidor (MOTD)</label>
-          <input type="text" class="form-input" id="prop-motd" placeholder="A Minecraft Server">
-        </div>
-
-        <div class="grid-2">
-          <div class="form-group">
-            <label class="form-label">Modo de Juego</label>
-            <select class="form-select" id="prop-gamemode">
-              <option value="survival">Supervivencia (Survival)</option>
-              <option value="creative">Creativo (Creative)</option>
-              <option value="adventure">Aventura (Adventure)</option>
-              <option value="spectator">Espectador (Spectator)</option>
-            </select>
+      <!-- Java Minecraft Server Properties Dual-Mode Editor -->
+      <div class="card" id="card-server-properties">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+          <div class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Editor de server.properties
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Dificultad</label>
-            <select class="form-select" id="prop-difficulty">
-              <option value="peaceful">Pacífico (Peaceful)</option>
-              <option value="easy">Fácil (Easy)</option>
-              <option value="normal">Normal</option>
-              <option value="hard">Difícil (Hard)</option>
-            </select>
+          <!-- Dual Mode Toggle Pills -->
+          <div style="display: flex; background: rgba(0, 0, 0, 0.3); padding: 3px; border-radius: 8px; border: 1px solid #30363d;">
+            <button type="button" class="btn-mode active" id="btn-mode-props-visual" onclick="Settings.setPropertiesMode('visual')" style="padding: 4px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: #238636; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+              Vista Guiada
+            </button>
+            <button type="button" class="btn-mode" id="btn-mode-props-raw" onclick="Settings.setPropertiesMode('raw')" style="padding: 4px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: transparent; color: #8b949e; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              Editor Directo (Raw)
+            </button>
           </div>
         </div>
 
-        <div class="grid-2">
-          <div class="form-group">
-            <label class="form-label">Puerto del Servidor</label>
-            <input type="number" class="form-input" id="prop-server-port" value="25565">
+        <!-- VISUAL MODE -->
+        <div id="props-view-visual">
+          <!-- Search & Category Filters -->
+          <div style="margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="position: relative;">
+              <input type="search" class="form-input" id="props-search-input" placeholder="Buscar propiedad (seed, pvp, flight, port, world, nether)..." oninput="Settings.filterProperties(this.value)" style="padding-left: 32px; font-size: 0.84rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b949e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+            
+            <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;">
+              <button type="button" class="prop-cat-btn active" data-cat="all" onclick="Settings.setPropertiesCategory('all')">Todas</button>
+              <button type="button" class="prop-cat-btn" data-cat="game" onclick="Settings.setPropertiesCategory('game')">🎮 Partida</button>
+              <button type="button" class="prop-cat-btn" data-cat="world" onclick="Settings.setPropertiesCategory('world')">🌍 Mundo</button>
+              <button type="button" class="prop-cat-btn" data-cat="performance" onclick="Settings.setPropertiesCategory('performance')">⚡ Rendimiento</button>
+              <button type="button" class="prop-cat-btn" data-cat="security" onclick="Settings.setPropertiesCategory('security')">🛡️ Seguridad</button>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Máximo de Jugadores</label>
-            <input type="number" class="form-input" id="prop-max-players" value="20">
+          <!-- Properties Fields by Category -->
+          <div id="props-fields-container">
+            <!-- CATEGORY: GAME -->
+            <div class="prop-item" data-cat="game" data-key="motd">
+              <div class="form-group">
+                <label class="form-label">Mensaje del Servidor (MOTD)</label>
+                <input type="text" class="form-input" id="prop-motd" placeholder="A Minecraft Server">
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="prop-item" data-cat="game" data-key="gamemode">
+                <div class="form-group">
+                  <label class="form-label">Modo de Juego</label>
+                  <select class="form-select" id="prop-gamemode">
+                    <option value="survival">Supervivencia (Survival)</option>
+                    <option value="creative">Creativo (Creative)</option>
+                    <option value="adventure">Aventura (Adventure)</option>
+                    <option value="spectator">Espectador (Spectator)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="prop-item" data-cat="game" data-key="difficulty">
+                <div class="form-group">
+                  <label class="form-label">Dificultad</label>
+                  <select class="form-select" id="prop-difficulty">
+                    <option value="peaceful">Pacífico (Peaceful)</option>
+                    <option value="easy">Fácil (Easy)</option>
+                    <option value="normal">Normal</option>
+                    <option value="hard">Difícil (Hard)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- CATEGORY: WORLD -->
+            <div class="grid-2">
+              <div class="prop-item" data-cat="world" data-key="level-name">
+                <div class="form-group">
+                  <label class="form-label">Nombre del Mundo (Carpeta)</label>
+                  <input type="text" class="form-input" id="prop-level-name" placeholder="world">
+                </div>
+              </div>
+
+              <div class="prop-item" data-cat="world" data-key="level-seed">
+                <div class="form-group">
+                  <label class="form-label">Semilla del Mundo (Seed)</label>
+                  <input type="text" class="form-input" id="prop-level-seed" placeholder="Dejar vacío para aleatoria">
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="prop-item" data-cat="world" data-key="level-type">
+                <div class="form-group">
+                  <label class="form-label">Tipo de Mundo</label>
+                  <select class="form-select" id="prop-level-type">
+                    <option value="minecraft:normal">Normal</option>
+                    <option value="minecraft:flat">Superplano (Flat)</option>
+                    <option value="minecraft:large_biomes">Biomas Grandes</option>
+                    <option value="minecraft:amplified">Amplificado</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="prop-item" data-cat="world" data-key="spawn-protection">
+                <div class="form-group">
+                  <label class="form-label">Radio de Protección de Spawn</label>
+                  <input type="number" class="form-input" id="prop-spawn-protection" value="16" min="0">
+                </div>
+              </div>
+            </div>
+
+            <!-- CATEGORY: PERFORMANCE & NETWORK -->
+            <div class="grid-2">
+              <div class="prop-item" data-cat="performance" data-key="server-port">
+                <div class="form-group">
+                  <label class="form-label">Puerto del Servidor</label>
+                  <input type="number" class="form-input" id="prop-server-port" value="25565">
+                </div>
+              </div>
+
+              <div class="prop-item" data-cat="performance" data-key="max-players">
+                <div class="form-group">
+                  <label class="form-label">Máximo de Jugadores</label>
+                  <input type="number" class="form-input" id="prop-max-players" value="20">
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="prop-item" data-cat="performance" data-key="view-distance">
+                <div class="form-group">
+                  <label class="form-label">Distancia de Renderizado (Chunks)</label>
+                  <input type="number" class="form-input" id="prop-view-distance" value="10">
+                </div>
+              </div>
+
+              <div class="prop-item" data-cat="performance" data-key="simulation-distance">
+                <div class="form-group">
+                  <label class="form-label">Distancia de Simulación (Chunks)</label>
+                  <input type="number" class="form-input" id="prop-simulation-distance" value="8">
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="prop-item" data-cat="performance" data-key="network-compression-threshold">
+                <div class="form-group">
+                  <label class="form-label">Umbral Compresión de Red (bytes)</label>
+                  <input type="number" class="form-input" id="prop-compression-threshold" value="256">
+                </div>
+              </div>
+
+              <div class="prop-item" data-cat="performance" data-key="rate-limit">
+                <div class="form-group">
+                  <label class="form-label">Límite de Paquetes (Rate Limit)</label>
+                  <input type="number" class="form-input" id="prop-rate-limit" value="0">
+                </div>
+              </div>
+            </div>
+
+            <!-- CATEGORY: SECURITY & ACCESS TOGGLES -->
+            <div class="prop-item" data-cat="security" data-key="online-mode">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">Modo Online (Autenticación Mojang / Microsoft)</div>
+                  <div style="font-size:0.75rem; color:var(--text-dim);">Desactivar permite cuentas No-Premium / Offline.</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-online-mode" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="prop-item" data-cat="security" data-key="white-list">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">Lista Blanca (Whitelist)</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-white-list">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="prop-item" data-cat="security" data-key="enforce-whitelist">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">Forzar Lista Blanca (Enforce Whitelist)</div>
+                  <div style="font-size:0.75rem; color:var(--text-dim);">Expulsa a jugadores si se activó la lista después de su entrada.</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-enforce-whitelist">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="prop-item" data-cat="game" data-key="pvp">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">PVP (Combate entre jugadores)</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-pvp" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="prop-item" data-cat="game" data-key="allow-flight">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">Permitir Volar (Allow Flight)</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-allow-flight">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="prop-item" data-cat="world" data-key="allow-nether">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">Habilitar Dimensión del Nether</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-allow-nether" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="prop-item" data-cat="world" data-key="generate-structures">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">Generar Estructuras (Aldeas, Templos, etc.)</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-generate-structures" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="prop-item" data-cat="game" data-key="spawn-monsters">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">Spawn de Monstruos</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-spawn-monsters" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="prop-item" data-cat="game" data-key="spawn-animals">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">Spawn de Animales</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-spawn-animals" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="prop-item" data-cat="game" data-key="enable-command-block">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">Bloques de Comandos</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-enable-command-block">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="prop-item" data-cat="game" data-key="hardcore">
+              <div class="toggle-wrapper">
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">Modo Hardcore</div>
+                  <div style="font-size:0.75rem; color:var(--text-dim);">Los jugadores pasan a modo espectador al morir.</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="prop-hardcore">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 16px;">
+            <button class="btn btn-primary" onclick="Settings.saveProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Guardar Opciones Visuales
+            </button>
           </div>
         </div>
 
-        <div class="grid-2">
-          <div class="form-group">
-            <label class="form-label">Distancia de Renderizado (Chunks)</label>
-            <input type="number" class="form-input" id="prop-view-distance" value="10">
+        <!-- RAW CODE EDITOR MODE -->
+        <div id="props-view-raw" style="display: none;">
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
+            Edita directamente el archivo <code>server.properties</code>. Puedes añadir cualquier propiedad avanzada o comentario (#).
+          </p>
+          <textarea id="props-raw-textarea" class="form-input" spellcheck="false" style="min-height: 440px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; line-height: 1.5; background: #0d1117; color: #58a6ff; white-space: pre; tab-size: 2; resize: vertical;"></textarea>
+          <div style="margin-top: 14px; display: flex; gap: 8px;">
+            <button class="btn btn-primary" onclick="Settings.saveRawProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Guardar Archivo Directo
+            </button>
+            <button class="btn btn-outline" onclick="Settings.loadRawProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              Recargar desde Disco
+            </button>
           </div>
-
-          <div class="form-group">
-            <label class="form-label">Distancia de Simulación</label>
-            <input type="number" class="form-input" id="prop-simulation-distance" value="8">
-          </div>
-        </div>
-
-        <div class="toggle-wrapper">
-          <div>
-            <div style="font-weight:600; font-size:0.9rem;">Modo Online (Autenticación Mojang / Microsoft)</div>
-            <div style="font-size:0.75rem; color:var(--text-dim);">Desactivar permite cuentas No-Premium / Offline.</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="prop-online-mode" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="toggle-wrapper">
-          <div>
-            <div style="font-weight:600; font-size:0.9rem;">PVP (Combate entre jugadores)</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="prop-pvp" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="toggle-wrapper">
-          <div>
-            <div style="font-weight:600; font-size:0.9rem;">Lista Blanca (Whitelist)</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="prop-white-list">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="toggle-wrapper">
-          <div>
-            <div style="font-weight:600; font-size:0.9rem;">Permitir Volar (Allow Flight)</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="prop-allow-flight">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="toggle-wrapper">
-          <div>
-            <div style="font-weight:600; font-size:0.9rem;">Spawn de Monstruos</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="prop-spawn-monsters" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="toggle-wrapper">
-          <div>
-            <div style="font-weight:600; font-size:0.9rem;">Spawn de Animales</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="prop-spawn-animals" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="toggle-wrapper">
-          <div>
-            <div style="font-weight:600; font-size:0.9rem;">Bloques de Comandos</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="prop-enable-command-block">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="toggle-wrapper">
-          <div>
-            <div style="font-weight:600; font-size:0.9rem;">Modo Hardcore</div>
-            <div style="font-size:0.75rem; color:var(--text-dim);">Los jugadores pasan a modo espectador al morir.</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="prop-hardcore">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div style="margin-top: 14px;">
-          <button class="btn btn-primary" onclick="Settings.saveProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            Guardar server.properties
-          </button>
         </div>
       </div>
 

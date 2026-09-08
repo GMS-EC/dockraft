@@ -227,6 +227,9 @@ class TaskUpdateRequest(BaseModel):
 class TaskToggleRequest(BaseModel):
     enabled: Optional[bool] = None
 
+class RawPropertiesRequest(BaseModel):
+    content: str
+
 # --- Authentication Endpoints ---
 @app.get("/api/auth/status")
 async def auth_status(user: bool = Depends(get_current_user)):
@@ -539,6 +542,24 @@ async def save_properties(new_props: Dict[str, str]):
 
     atomic_write_text(prop_file, "".join(lines))
 
+    return {"status": "success", "server_type": server_type}
+
+@app.get("/api/server/properties/raw", dependencies=[Depends(get_current_user)])
+async def get_raw_properties():
+    """Reads full raw text of server.properties."""
+    prop_file = settings.data_dir / "server.properties"
+    server_type = settings.runtime_config.get("server_type", "paper")
+    if not prop_file.exists():
+        return {"exists": False, "server_type": server_type, "content": ""}
+    content = prop_file.read_text(encoding="utf-8", errors="replace")
+    return {"exists": True, "server_type": server_type, "content": content}
+
+@app.post("/api/server/properties/raw", dependencies=[Depends(get_current_user)])
+async def save_raw_properties(req: RawPropertiesRequest):
+    """Saves full raw text of server.properties with atomic write."""
+    prop_file = settings.data_dir / "server.properties"
+    server_type = settings.runtime_config.get("server_type", "paper")
+    atomic_write_text(prop_file, req.content)
     return {"status": "success", "server_type": server_type}
 
 # --- Java & Runtimes ---
@@ -1404,6 +1425,27 @@ async def share_log(req: Optional[ShareLogRequest] = None):
     if not res.get("success"):
         raise HTTPException(status_code=500, detail=res.get("error", "Error al compartir log en mclo.gs"))
     return res
+
+# --- Plugins & SpigotMC Update Checker Endpoints ---
+from app.core.plugin_manager import plugin_manager
+
+@app.get("/api/plugins/list", dependencies=[Depends(get_current_user)])
+async def list_installed_plugins():
+    """Returns all installed plugins detected in data/plugins/*.jar."""
+    plugins = plugin_manager.scan_installed_plugins()
+    return {"status": "success", "plugins": plugins, "count": len(plugins)}
+
+@app.post("/api/plugins/check-updates", dependencies=[Depends(get_current_user)])
+async def check_plugin_updates():
+    """Queries Spiget API to check for available updates of installed plugins."""
+    results = await plugin_manager.check_plugin_updates()
+    outdated = [p for p in results if p.get("has_update")]
+    return {"status": "success", "plugins": results, "total": len(results), "outdated_count": len(outdated)}
+
+@app.post("/api/plugins/notify-updates", dependencies=[Depends(get_current_user)])
+async def notify_plugin_updates():
+    """Checks for plugin updates and broadcasts a webhook notification if any are outdated."""
+    return await plugin_manager.check_and_notify_updates()
 
 # --- WebSocket Console & Stats Hub ---
 @app.websocket("/ws/console")

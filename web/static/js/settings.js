@@ -362,6 +362,111 @@ const Settings = {
     }
   },
 
+  activePropsMode: 'visual',
+  activePropsCategory: 'all',
+
+  setPropertiesMode(mode) {
+    this.activePropsMode = mode;
+    const btnVisual = document.getElementById('btn-mode-props-visual');
+    const btnRaw = document.getElementById('btn-mode-props-raw');
+    const viewVisual = document.getElementById('props-view-visual');
+    const viewRaw = document.getElementById('props-view-raw');
+
+    if (mode === 'raw') {
+      if (btnRaw) {
+        btnRaw.classList.add('active');
+        btnRaw.style.background = '#238636';
+        btnRaw.style.color = '#fff';
+      }
+      if (btnVisual) {
+        btnVisual.classList.remove('active');
+        btnVisual.style.background = 'transparent';
+        btnVisual.style.color = '#8b949e';
+      }
+      if (viewVisual) viewVisual.style.display = 'none';
+      if (viewRaw) viewRaw.style.display = 'block';
+      this.loadRawProperties();
+    } else {
+      if (btnVisual) {
+        btnVisual.classList.add('active');
+        btnVisual.style.background = '#238636';
+        btnVisual.style.color = '#fff';
+      }
+      if (btnRaw) {
+        btnRaw.classList.remove('active');
+        btnRaw.style.background = 'transparent';
+        btnRaw.style.color = '#8b949e';
+      }
+      if (viewVisual) viewVisual.style.display = 'block';
+      if (viewRaw) viewRaw.style.display = 'none';
+    }
+  },
+
+  async loadRawProperties() {
+    const textarea = document.getElementById('props-raw-textarea');
+    if (!textarea) return;
+    try {
+      const res = await fetch('/api/server/properties/raw');
+      if (res.ok) {
+        const data = await res.json();
+        textarea.value = data.content || '';
+      }
+    } catch (e) {
+      console.warn("Could not load raw properties:", e);
+      App.showToast("Error al cargar server.properties en modo texto", 'danger');
+    }
+  },
+
+  async saveRawProperties() {
+    const textarea = document.getElementById('props-raw-textarea');
+    if (!textarea) return;
+    try {
+      const res = await fetch('/api/server/properties/raw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: textarea.value })
+      });
+      if (res.ok) {
+        App.showToast("server.properties guardado exitosamente", 'success');
+        await this.fetchProperties();
+        this.populateJavaPropertiesUI();
+      } else {
+        App.showToast("Error al guardar server.properties", 'danger');
+      }
+    } catch (e) {
+      App.showToast(e.message, 'danger');
+    }
+  },
+
+  setPropertiesCategory(cat) {
+    this.activePropsCategory = cat;
+    document.querySelectorAll('.prop-cat-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-cat') === cat);
+    });
+    const searchVal = document.getElementById('props-search-input')?.value || '';
+    this.filterProperties(searchVal);
+  },
+
+  filterProperties(query) {
+    const q = (query || '').toLowerCase().trim();
+    const activeCat = this.activePropsCategory || 'all';
+
+    document.querySelectorAll('.prop-item').forEach(item => {
+      const cat = item.getAttribute('data-cat') || 'game';
+      const key = (item.getAttribute('data-key') || '').toLowerCase();
+      const text = (item.textContent || '').toLowerCase();
+
+      const matchesCat = (activeCat === 'all' || cat === activeCat);
+      const matchesSearch = (!q || key.includes(q) || text.includes(q));
+
+      if (matchesCat && matchesSearch) {
+        item.style.display = '';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  },
+
   populateJavaPropertiesUI() {
     const p = this.properties;
 
@@ -383,10 +488,21 @@ const Settings = {
     setVal('prop-view-distance', 'view-distance', '10');
     setVal('prop-simulation-distance', 'simulation-distance', '8');
 
+    // Extended properties
+    setVal('prop-level-name', 'level-name', 'world');
+    setVal('prop-level-seed', 'level-seed', '');
+    setVal('prop-level-type', 'level-type', 'minecraft:normal');
+    setVal('prop-spawn-protection', 'spawn-protection', '16');
+    setVal('prop-compression-threshold', 'network-compression-threshold', '256');
+    setVal('prop-rate-limit', 'rate-limit', '0');
+
     setCheck('prop-online-mode', 'online-mode', true);
     setCheck('prop-pvp', 'pvp', true);
     setCheck('prop-white-list', 'white-list', false);
+    setCheck('prop-enforce-whitelist', 'enforce-whitelist', false);
     setCheck('prop-allow-flight', 'allow-flight', false);
+    setCheck('prop-allow-nether', 'allow-nether', true);
+    setCheck('prop-generate-structures', 'generate-structures', true);
     setCheck('prop-spawn-monsters', 'spawn-monsters', true);
     setCheck('prop-spawn-animals', 'spawn-animals', true);
     setCheck('prop-enable-command-block', 'enable-command-block', false);
@@ -413,15 +529,24 @@ const Settings = {
       'server-name': motd,
       'gamemode': getVal('prop-gamemode') || 'survival',
       'difficulty': getVal('prop-difficulty') || 'easy',
+      'level-name': getVal('prop-level-name') || 'world',
+      'level-seed': getVal('prop-level-seed') || '',
+      'level-type': getVal('prop-level-type') || 'minecraft:normal',
+      'spawn-protection': getVal('prop-spawn-protection') || '16',
       'max-players': getVal('prop-max-players') || '20',
       'server-port': getVal('prop-server-port') || '25565',
       'view-distance': getVal('prop-view-distance') || '10',
       'simulation-distance': getVal('prop-simulation-distance') || '8',
+      'network-compression-threshold': getVal('prop-compression-threshold') || '256',
+      'rate-limit': getVal('prop-rate-limit') || '0',
       'online-mode': getCheck('prop-online-mode'),
       'pvp': getCheck('prop-pvp'),
       'white-list': isWhitelist,
       'allow-list': isWhitelist,
+      'enforce-whitelist': getCheck('prop-enforce-whitelist'),
       'allow-flight': getCheck('prop-allow-flight'),
+      'allow-nether': getCheck('prop-allow-nether'),
+      'generate-structures': getCheck('prop-generate-structures'),
       'spawn-monsters': getCheck('prop-spawn-monsters'),
       'spawn-animals': getCheck('prop-spawn-animals'),
       'enable-command-block': getCheck('prop-enable-command-block'),
