@@ -18,7 +18,7 @@
     </div>
 
     <div class="stat-box" style="grid-column: span 2; justify-content: center;">
-      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+      <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%;">
         <div>
           <div style="font-weight: 600; font-size: 0.95rem; color: #c9d1d9;" data-i18n="t_backup_immediate_title">Copia Inmediata</div>
           <div style="font-size: 0.75rem; color: var(--text-dim);" data-i18n="t_backup_immediate_desc">Comprime el servidor protegiendo mundos y configuraciones</div>
@@ -34,7 +34,7 @@
   <!-- Backup Progress -->
   <div id="backup-progress-box" style="display: none; margin-bottom: 16px;">
     <div class="card" style="padding: 12px 16px; border: 1px solid #388bfd;">
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 6px;">
+      <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 6px;">
         <span style="color: #58a6ff; display: inline-flex; align-items: center; gap: 6px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin-icon"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
           <span data-i18n="t_backup_progress_compressing">Comprimiendo archivos del servidor...</span>
@@ -92,7 +92,7 @@
 
         <!-- Custom Targets Checkboxes for Config -->
         <div id="backup-cfg-custom-targets-box" style="display: none; margin-top: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <span style="font-size: 0.82rem; font-weight: 600; color: #c9d1d9;" data-i18n="t_backup_cfg_targets_title">Carpetas y archivos a incluir:</span>
             <div style="display: flex; gap: 8px; font-size: 0.75rem;">
               <a href="javascript:void(0)" onclick="Backups.toggleAllConfigTargets(true)" style="color: #58a6ff; text-decoration: underline;" data-i18n="t_backup_targets_all">Todos</a>
@@ -123,7 +123,7 @@
         </div>
 
         <!-- 1. Comprimir la copia -->
-        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <div>
             <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-config-compression" data-i18n="t_backup_cfg_compression_label">
               Comprimir la copia (.zip)
@@ -137,7 +137,7 @@
         </div>
 
         <!-- 2. Apagar el servidor durante el backup -->
-        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <div>
             <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-config-stop" data-i18n="t_backup_cfg_stop_label">
               Apagar el servidor durante el backup
@@ -199,7 +199,7 @@
 
   <!-- Backups Table -->
   <div class="card" style="margin-top: 16px;">
-    <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="card-title" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
         <span data-i18n="t_backup_list_title">Archivos de Copias de Seguridad Disponibles</span>

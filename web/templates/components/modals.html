@@ -42,7 +42,7 @@
 
       <!-- Custom Targets Checkbox Container -->
       <div id="backup-custom-targets-box" style="display: none; margin-top: 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <span style="font-size: 0.85rem; font-weight: 600; color: #c9d1d9;" data-i18n="t_modal_backup_targets_title">Selecciona carpetas y archivos a incluir:</span>
           <div style="display: flex; gap: 10px; font-size: 0.78rem;">
             <a href="javascript:void(0)" onclick="Backups.toggleAllTargets(true)" style="color: #58a6ff; text-decoration: underline;" data-i18n="t_modal_backup_targets_all">Todos</a>
@@ -70,7 +70,7 @@
         </div>
 
         <!-- 1. Comprimir la copia -->
-        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <div>
             <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-modal-compression" data-i18n="t_modal_backup_compression_label">
               Comprimir la copia (.zip)
@@ -84,7 +84,7 @@
         </div>
 
         <!-- 2. Apagar el servidor durante el backup -->
-        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <div>
             <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-modal-stop" data-i18n="t_modal_backup_stop_label">
               Apagar el servidor durante el backup
@@ -207,7 +207,7 @@
       </div>
 
     </div>
-    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="modal-footer" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center;">
       <button type="button" class="btn btn-outline" id="webhook-modal-test-btn" onclick="Webhooks.testCurrentModalChannel()" style="display: inline-flex; align-items: center; gap: 6px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         Probar Canal
@@ -473,7 +473,7 @@
           </div>
 
           <div id="diag-excerpt-container" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <span style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-dim);"><span data-i18n="t_modal_diag_excerpt_title_a">Fragmento de Error Relevante (</span><span id="diag-source">--</span><span data-i18n="t_modal_diag_excerpt_title_b">):</span></span>
             </div>
             <pre id="diag-excerpt" style="background: #0d1117; border: 1px solid #30363d; padding: 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.78rem; color: #f85149; max-height: 180px; overflow: auto; white-space: pre-wrap; line-height: 1.4;"></pre>
