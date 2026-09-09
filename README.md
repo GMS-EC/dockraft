@@ -39,7 +39,7 @@ Al enfocarse exclusivamente en mantener y optimizar **una única instancia de se
 
 > 🏆 **¿Servidor pequeño o gigantesco? No importa.** 
 > Dockraft tiene todo lo que necesitas para administrar tu servidor Minecraft de forma profesional — sin consumir los recursos que tu mundo, jugadores y plugins necesitan.
-> Desde un servidor de amigos con 2 GB hasta una instancia de alto rendimiento con 64 GB, el panel consume una fracción mínima (50–75 MB, ~0 % CPU en reposo): menos del 4 % en un 2 GB y por debajo del 1 % desde 8 GB en adelante, dejando el resto libre para el juego.
+> Desde un servidor de amigos con 2 GB hasta una instancia de alto rendimiento con 64 GB, el panel está pensado para apenas notarse: el resto de tus recursos queda libre para el juego.
 
 ---
 
@@ -216,7 +216,7 @@ By focusing strictly on managing and optimizing **a single server instance per c
 
 > 🏆 **Small server or massive one? Doesn't matter.**
 > Dockraft gives you everything you need to manage a Minecraft server professionally — without eating into the resources your world, players and plugins actually need.
-> From a 2 GB friends server to a high-performance 64 GB dedicated machine, the panel uses a minimal footprint (50–75 MB, ~0% CPU at idle): under 4% of a 2 GB box and below 1% on 8 GB and up, leaving the rest entirely free for the game.
+> From a small 2 GB friends box to a 64 GB high-performance machine, the panel is designed to stay out of the way: the rest of your resources stay free for the game.
 
 ---
 
