@@ -245,8 +245,8 @@ const I18n = {
       logs_col_status: 'Estado',
 
       // Footer
-      footer_desc: 'Panel de control ultra-ligero y modular para servidores de Minecraft Java y Bedrock sobre contenedores Docker.',
-      footer_copyright: '© 2026 Dockraft · Distribuido bajo Licencia GNU GPLv3',
+      footer_desc: 'Panel de control ultra-ligero y modular para servidores de Minecraft Java y Bedrock.',
+      footer_copyright: '© 2026 Dockraft',
 
       // Modals
       modal_create_backup_title: 'Crear Copia de Seguridad',
@@ -532,8 +532,8 @@ const I18n = {
       players_reason_label: 'Reason (Optional):',
 
       // Footer
-      footer_desc: 'Ultra-lightweight, modular control panel for Minecraft Java and Bedrock servers in Docker.',
-      footer_copyright: '© 2026 Dockraft · Distributed under GNU GPLv3 License',
+      footer_desc: 'Ultra-lightweight, modular control panel for Minecraft Java and Bedrock servers.',
+      footer_copyright: '© 2026 Dockraft',
 
       // Modals
       modal_create_backup_title: 'Create Backup Archive',
