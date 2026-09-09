@@ -81,6 +81,9 @@ async def lifespan(app: FastAPI):
     yield
     metrics_manager.stop()
     task_scheduler.stop_loop()
+    # Flush debounced writers so no activity/player history is lost on shutdown.
+    activity_manager.flush(force=True)
+    player_manager.flush()
 
 
 app = FastAPI(

@@ -547,6 +547,43 @@ body {
   border-radius: 4px;
 }
 
+.terminal-body-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: #0d1117;
+}
+
+.terminal-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.terminal-jump-bottom {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(22, 27, 34, 0.92);
+  color: #58a6ff;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.terminal-jump-bottom:hover {
+  background: #21262d;
+  color: #79c0ff;
+}
+
 .terminal-input-bar {
   display: flex;
   background-color: var(--bg-card);

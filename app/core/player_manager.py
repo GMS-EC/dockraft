@@ -2,6 +2,7 @@ import json
 import logging
 import hashlib
 import re
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -13,6 +14,9 @@ from app.core.process_manager import process_manager
 from app.core.fs_utils import atomic_write_json
 
 logger = logging.getLogger("dockraft.players")
+
+_MAX_PLAYER_HISTORY = 2000
+_SAVE_DEBOUNCE_SECONDS = 2.0
 
 _JAVA_NAME_RE = re.compile(r"^[A-Za-z0-9_]{1,16}$")
 _BEDROCK_NAME_RE = re.compile(r"^[A-Za-z0-9_ ]{1,16}$")
@@ -70,6 +74,9 @@ class PlayerManager:
     def __init__(self):
         self._history_file = settings.data_dir / "dockraft_players.json"
         self._player_history: Dict[str, Dict[str, Any]] = {}
+        self._history_lock = threading.Lock()
+        self._save_timer: Optional[threading.Timer] = None
+        self._save_pending: bool = False
         self._load_history()
 
     def _load_history(self) -> None:
@@ -78,26 +85,64 @@ class PlayerManager:
             try:
                 with open(self._history_file, "r", encoding="utf-8") as f:
                     self._player_history = json.load(f)
+                if not isinstance(self._player_history, dict):
+                    self._player_history = {}
+                # Bound memory immediately on load.
+                self._trim_history()
             except Exception as e:
                 logger.debug(f"Error loading player history: {e}")
                 self._player_history = {}
 
-    def _save_history(self) -> None:
-        """Persists player history to disk."""
+    def _trim_history(self) -> None:
+        """Keeps only the most recent _MAX_PLAYER_HISTORY entries (by last seen)."""
+        if len(self._player_history) <= _MAX_PLAYER_HISTORY:
+            return
+        ordered = sorted(
+            self._player_history.items(),
+            key=lambda kv: (kv[1] or {}).get("last_timestamp", 0) or 0,
+            reverse=True
+        )
+        self._player_history = dict(ordered[:_MAX_PLAYER_HISTORY])
+
+    def _schedule_save(self) -> None:
+        """Coalesces writes so joins/leaves don't fsync the whole file every event."""
+        with self._history_lock:
+            self._save_pending = True
+            if self._save_timer is None:
+                timer = threading.Timer(_SAVE_DEBOUNCE_SECONDS, self.flush)
+                timer.daemon = True
+                self._save_timer = timer
+                timer.start()
+
+    def flush(self) -> None:
+        """Writes any pending player history to disk (called by debounce timer and on shutdown)."""
+        with self._history_lock:
+            self._save_timer = None
+            if not self._save_pending:
+                return
+            self._save_pending = False
+            self._trim_history()
+            data = json.dumps(self._player_history, indent=2, ensure_ascii=False)
         try:
-            atomic_write_json(self._history_file, self._player_history, indent=2)
+            atomic_write_text(self._history_file, data)
         except Exception as e:
-            logger.debug(f"Error saving player history: {e}")
+            logger.warning(f"Error saving player history: {e}")
+
+    def _save_history(self) -> None:
+        """Debounced persist (kept as internal alias for existing callers)."""
+        self._schedule_save()
 
     def record_connection(self, player_name: str) -> None:
         """Records a player join event."""
         if not player_name:
             return
         now_dt = datetime.now().strftime("%d/%m/%Y %H:%M")
-        if player_name not in self._player_history:
-            self._player_history[player_name] = {}
-        self._player_history[player_name]["last_connection"] = now_dt
-        self._player_history[player_name]["last_timestamp"] = time.time()
+        with self._history_lock:
+            if player_name not in self._player_history:
+                self._player_history[player_name] = {}
+            self._player_history[player_name]["last_connection"] = now_dt
+            self._player_history[player_name]["last_timestamp"] = time.time()
+            self._trim_history()
         self._save_history()
 
     def record_disconnection(self, player_name: str) -> None:
@@ -105,10 +150,12 @@ class PlayerManager:
         if not player_name:
             return
         now_dt = datetime.now().strftime("%d/%m/%Y %H:%M")
-        if player_name not in self._player_history:
-            self._player_history[player_name] = {}
-        self._player_history[player_name]["last_connection"] = now_dt
-        self._player_history[player_name]["last_timestamp"] = time.time()
+        with self._history_lock:
+            if player_name not in self._player_history:
+                self._player_history[player_name] = {}
+            self._player_history[player_name]["last_connection"] = now_dt
+            self._player_history[player_name]["last_timestamp"] = time.time()
+            self._trim_history()
         self._save_history()
 
     def _read_json_file(self, filename: str) -> Any:
@@ -408,12 +455,16 @@ class PlayerManager:
         name = _validate_player_name(player_name)
         if not name:
             return {"status": "error", "message": "Nombre de jugador inválido (usa 1-16 letras/números, sin caracteres especiales)."}
-        if name not in self._player_history:
-            self._player_history[name] = {
-                "last_connection": "never",
-                "last_timestamp": 0.0,
-                "added_manually": True
-            }
+        added = False
+        with self._history_lock:
+            if name not in self._player_history:
+                self._player_history[name] = {
+                    "last_connection": "never",
+                    "last_timestamp": 0.0,
+                    "added_manually": True
+                }
+                added = True
+        if added:
             self._save_history()
         return {"status": "success", "message": f"Jugador {name} registrado."}
 

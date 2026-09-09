@@ -229,6 +229,25 @@ const App = {
       this.hasRecentActivity = true;
     };
 
+    const onVisibility = () => {
+      if (!document.hidden) {
+        this.checkSessionInactivity();
+      }
+    };
+
+    // Register listeners exactly once per session (removing previous duplicates if
+    // setupSessionMonitoring is re-invoked after saving a new timeout).
+    if (this._sessionActivityHandler) {
+      ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+        window.removeEventListener(evt, this._sessionActivityHandler);
+      });
+    }
+    if (this._sessionVisibilityHandler) {
+      document.removeEventListener('visibilitychange', this._sessionVisibilityHandler);
+    }
+    this._sessionActivityHandler = onActivity;
+    this._sessionVisibilityHandler = onVisibility;
+
     ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
       window.addEventListener(evt, onActivity, { passive: true });
     });
@@ -250,11 +269,7 @@ const App = {
     }, refreshIntervalMs);
 
     // Immediate check on tab focus / wake
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        this.checkSessionInactivity();
-      }
-    });
+    document.addEventListener('visibilitychange', onVisibility);
   },
 
   checkSessionInactivity() {

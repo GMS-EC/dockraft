@@ -4,6 +4,9 @@ const Console = {
   history: [],
   historyIndex: -1,
   maxLogs: 1500,
+  reconnectDelay: 3000,
+  followEnabled: true,
+  userScrolledAway: false,
 
   init() {
     // Consume pre-hydrated state immediately to prevent any flash or delay
@@ -15,11 +18,61 @@ const Console = {
 
     this.setupWebSocket();
     this.setupEvents();
+    this.setupAutoScroll();
     this.pollStatus();
 
     window.addEventListener('dockraft:language_changed', () => {
       if (this.lastStats) this.updateStats(this.lastStats);
     });
+  },
+
+  setupAutoScroll() {
+    const body = document.getElementById('terminal-content');
+    const toggle = document.getElementById('btn-auto-scroll');
+    const jump = document.getElementById('terminal-jump-bottom');
+
+    if (body) body.addEventListener('scroll', () => this.handleTerminalScroll(), { passive: true });
+    if (jump) jump.addEventListener('click', () => this.jumpToBottom());
+
+    this.followEnabled = true;
+    this.userScrolledAway = false;
+    this.updateAutoScrollToggle();
+    if (toggle) {
+      toggle.addEventListener('click', () => {
+        this.followEnabled = !this.followEnabled;
+        this.updateAutoScrollToggle();
+        if (this.followEnabled) this.jumpToBottom();
+      });
+    }
+  },
+
+  updateAutoScrollToggle() {
+    const toggle = document.getElementById('btn-auto-scroll');
+    const dot = document.getElementById('btn-auto-scroll-dot');
+    if (toggle) {
+      toggle.style.borderColor = this.followEnabled ? '#2ea043' : '#30363d';
+      toggle.style.color = this.followEnabled ? '#3fb950' : '#8b949e';
+      toggle.title = this.followEnabled ? 'Auto-scroll activado: haz clic para pausar' : 'Auto-scroll pausado: haz clic para activar';
+    }
+    if (dot) dot.style.background = this.followEnabled ? '#3fb950' : '#6e7681';
+  },
+
+  handleTerminalScroll() {
+    const body = document.getElementById('terminal-content');
+    if (!body) return;
+    const nearBottom = (body.scrollHeight - body.scrollTop - body.clientHeight) < 48;
+    this.userScrolledAway = !nearBottom;
+    const jump = document.getElementById('terminal-jump-bottom');
+    if (jump) jump.style.display = nearBottom ? 'none' : 'flex';
+  },
+
+  jumpToBottom() {
+    const body = document.getElementById('terminal-content');
+    if (!body) return;
+    body.scrollTop = body.scrollHeight;
+    this.userScrolledAway = false;
+    const jump = document.getElementById('terminal-jump-bottom');
+    if (jump) jump.style.display = 'none';
   },
 
   setupWebSocket() {
@@ -29,6 +82,7 @@ const Console = {
     this.socket = new WebSocket(wsUrl);
 
     this.socket.onopen = () => {
+      this.reconnectDelay = 3000;
       this.appendTerminalLine("[Dockraft] Connected to live server console stream.");
     };
 
@@ -74,8 +128,11 @@ const Console = {
         }
         return;
       }
-      this.appendTerminalLine("[Dockraft] Connection to console lost. Reconnecting in 3s...");
-      setTimeout(() => this.setupWebSocket(), 3000);
+      this.appendTerminalLine("[Dockraft] Connection to console lost. Reconnecting...");
+      // Exponential backoff (3s -> 60s) so a long outage doesn't hammer the server.
+      const delay = this.reconnectDelay;
+      this.reconnectDelay = Math.min(60000, this.reconnectDelay * 2);
+      setTimeout(() => this.setupWebSocket(), delay);
     };
   },
 
@@ -146,6 +203,8 @@ const Console = {
 
     this.sendCommand(cmd);
     this.history.push(cmd);
+    // Bound the in-memory command history of long-lived panel sessions.
+    if (this.history.length > 100) this.history.shift();
     this.historyIndex = -1;
     input.value = '';
   },
@@ -443,7 +502,10 @@ const Console = {
       container.removeChild(container.firstChild);
     }
 
-    container.scrollTop = container.scrollHeight;
+    // Auto-scroll: follow the tail only while enabled and the user hasn't scrolled up.
+    if (this.followEnabled && !this.userScrolledAway) {
+      container.scrollTop = container.scrollHeight;
+    }
   },
 
   updateTpsUI(tps) {

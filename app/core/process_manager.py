@@ -238,12 +238,8 @@ class ProcessManager:
         if self._disk_check_running:
             return self._cached_disk_bytes
 
-        # On initial cold start when cached value is 0, do a single quick pass
-        if self._cached_disk_bytes == 0 and self._last_disk_check == 0.0:
-            self._compute_disk_size_worker()
-            return self._cached_disk_bytes
-
-        # Otherwise trigger non-blocking background thread update
+        # Trigger non-blocking background thread update (also on first ever call,
+        # so a large data_dir never blocks the asyncio event loop).
         self._disk_check_running = True
         t = threading.Thread(target=self._compute_disk_size_worker, daemon=True)
         t.start()
@@ -581,6 +577,20 @@ class ProcessManager:
                                 )
                             except Exception:
                                 pass
+
+                # Authoritative player reconciliation: the tps poller periodically issues
+                # "list"; the server replies "There are N ... online: name1, name2".
+                # Replacing the set here prevents stale names when a leave variant is missed.
+                if "players online:" in clean_ansi and self.status in ("RUNNING", "STARTING"):
+                    try:
+                        after = clean_ansi.split("players online:", 1)[1].strip()
+                        raw_names = [n.strip().lstrip(":") for n in after.split(",") if n.strip()]
+                        if after == ":" or not raw_names:
+                            self.online_players.clear()
+                        else:
+                            self.online_players = {n for n in raw_names if n}
+                    except Exception:
+                        pass
 
                 # Intercept Plugin Update notices in console output
                 try:
@@ -1044,13 +1054,18 @@ class ProcessManager:
         return {"status": "success", "message": "Server forcibly killed"}
 
     async def _tps_poller_loop(self) -> None:
-        """Periodically requests 'tps' silently from Paper/Purpur/Spigot to keep TPS metric updated."""
+        """Periodically requests 'tps' (Paper/Purpur/Spigot) and reconciles the online
+        player list via a silent 'list' command every ~3 minutes to avoid stale players."""
         await asyncio.sleep(15)
+        poll_tick = 0
         while self.get_status() == "RUNNING":
             try:
                 cfg = settings.runtime_config
                 if cfg.get("server_type") != "bedrock":
                     await self.send_command("tps", echo=False)
+                    poll_tick += 1
+                    if poll_tick % 4 == 0:
+                        await self.send_command("list", echo=False)
                 await asyncio.sleep(45)
             except asyncio.CancelledError:
                 break

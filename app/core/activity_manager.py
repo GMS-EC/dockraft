@@ -1,4 +1,5 @@
 import json
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +14,7 @@ class ActivityManager:
 
     MAX_ENTRIES = 1500
     RETENTION_DAYS = 7
+    SAVE_DEBOUNCE_SECONDS = 3.0
 
     def __init__(self, log_file: Optional[Any] = None, max_entries: int = 1500, retention_days: int = 7):
         self._entries: List[Dict[str, Any]] = []
@@ -21,6 +23,9 @@ class ActivityManager:
         self._custom_log_file = Path(log_file) if log_file else None
         self.max_entries = max_entries
         self.retention_days = retention_days
+        self._lock = threading.Lock()
+        self._save_timer: Optional[threading.Timer] = None
+        self._save_pending: bool = False
 
     @property
     def log_file(self) -> Path:
@@ -43,10 +48,42 @@ class ActivityManager:
                             self._next_id = max_id + 1
                         # Prune expired records upon load
                         if self.prune_expired(self.retention_days) > 0:
-                            self._save()
+                            self.flush(force=True)
             except Exception as e:
                 print(f"[Dockraft] Warning loading activity_logs.json: {e}")
                 self._entries = []
+
+    def _schedule_save(self) -> None:
+        """Coalesces disk writes so frequent events don't fsync the whole file each time."""
+        with self._lock:
+            self._save_pending = True
+            if self._save_timer is None:
+                timer = threading.Timer(self.SAVE_DEBOUNCE_SECONDS, self.flush)
+                timer.daemon = True
+                self._save_timer = timer
+                timer.start()
+
+    def flush(self, force: bool = False) -> None:
+        """Writes pending entries to disk. Call at shutdown with force=True."""
+        with self._lock:
+            self._save_timer = None
+            if not self._save_pending and not force:
+                return
+            self._save_pending = False
+            self.prune_expired(self.retention_days)
+            # Keep at most max_entries
+            limit = self.max_entries or self.MAX_ENTRIES
+            if len(self._entries) > limit:
+                self._entries = self._entries[-limit:]
+            json_str = json.dumps(self._entries, indent=2, ensure_ascii=False)
+        try:
+            atomic_write_text(self.log_file, json_str)
+        except Exception as e:
+            print(f"[Dockraft] Error saving activity_logs.json: {e}")
+
+    def _save(self):
+        """Debounced persist (internal alias)."""
+        self._schedule_save()
 
     def prune_expired(self, max_age_days: Optional[int] = None) -> int:
         """Prunes log entries older than max_age_days (default: 7 days).
@@ -102,18 +139,6 @@ class ActivityManager:
             self._entries = survivors
         return pruned
 
-    def _save(self):
-        try:
-            self.prune_expired(self.retention_days)
-            # Keep at most max_entries
-            limit = self.max_entries or self.MAX_ENTRIES
-            if len(self._entries) > limit:
-                self._entries = self._entries[-limit:]
-            json_str = json.dumps(self._entries, indent=2, ensure_ascii=False)
-            atomic_write_text(self.log_file, json_str)
-        except Exception as e:
-            print(f"[Dockraft] Error saving activity_logs.json: {e}")
-
     def log(
         self,
         category: str,
@@ -141,6 +166,10 @@ class ActivityManager:
         }
         self._next_id += 1
         self._entries.append(entry)
+        # Enforce the in-memory ring buffer immediately (debounced write trims the disk copy).
+        limit = self.max_entries or self.MAX_ENTRIES
+        if len(self._entries) > limit:
+            self._entries = self._entries[-limit:]
         self._save()
         return entry
 
@@ -205,7 +234,7 @@ class ActivityManager:
         """Clears all logged activities."""
         self._ensure_loaded()
         self._entries = []
-        self._save()
+        self.flush(force=True)
         return True
 
     def export_logs(self, format_type: str = "csv") -> str:
