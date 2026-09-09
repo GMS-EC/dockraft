@@ -23,6 +23,9 @@ def is_newer_version(current: str, latest: str) -> bool:
     """Returns True if latest version is higher than current version."""
     if not current or not latest:
         return False
+    # Unknown/unparseable versions must never be flagged as outdated.
+    if not re.search(r'\d', str(current)):
+        return False
     if current.strip().lower() == latest.strip().lower():
         return False
     curr_t = parse_version_tuple(current)
@@ -34,8 +37,6 @@ NEGATIVE_UPDATE_PATTERN = re.compile(
     r'no\s+update\s+(?:found|available|needed)|'
     r'already\s+up[\s\-]to[\s\-]date|'
     r'up[\s\-]to[\s\-]date|'
-    r'latest\s+version|'
-    r'running\s+the\s+latest|'
     r'not\s+(?:outdated|found)|'
     r'ninguna\s+actualizaci[oó]n|'
     r'ya\s+(?:está|esta)\s+actualizado|'
@@ -360,13 +361,14 @@ class PluginManager:
             return result
 
         try:
-            # 1. Search Spiget for plugin name
-            search_url = f"{self.spiget_base_url}/search/resources/{name}?size=5"
+            # 1. Search Spiget for plugin name (URL-encoded)
+            from urllib.parse import quote as _url_quote
+            search_url = f"{self.spiget_base_url}/search/resources/{_url_quote(name, safe='')}?size=5"
             resp = await client.get(search_url)
             if resp.status_code == 200:
                 items = resp.json()
                 if isinstance(items, list) and items:
-                    # Find exact or best match
+                    # Find exact or best match; never fall back to an arbitrary resource.
                     match = None
                     clean_name_lower = name.lower()
                     for item in items:
@@ -375,7 +377,8 @@ class PluginManager:
                             match = item
                             break
                     if not match:
-                        match = items[0]
+                        result["not_on_spigot"] = True
+                        return result
 
                     res_id = match.get("id")
                     result["spigot_id"] = res_id

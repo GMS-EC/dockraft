@@ -481,7 +481,7 @@ class ProcessManager:
                             self.online_players.add(player)
                             try:
                                 from app.core.player_manager import player_manager
-                                player_manager.record_connection(player)
+                                await asyncio.to_thread(player_manager.record_connection, player)
                             except Exception:
                                 pass
                             try:
@@ -508,7 +508,7 @@ class ProcessManager:
                             self.online_players.discard(player)
                             try:
                                 from app.core.player_manager import player_manager
-                                player_manager.record_disconnection(player)
+                                await asyncio.to_thread(player_manager.record_disconnection, player)
                             except Exception:
                                 pass
                             try:
@@ -535,7 +535,7 @@ class ProcessManager:
                             self.online_players.add(player)
                             try:
                                 from app.core.player_manager import player_manager
-                                player_manager.record_connection(player)
+                                await asyncio.to_thread(player_manager.record_connection, player)
                             except Exception:
                                 pass
                             try:
@@ -562,7 +562,7 @@ class ProcessManager:
                             self.online_players.discard(player)
                             try:
                                 from app.core.player_manager import player_manager
-                                player_manager.record_disconnection(player)
+                                await asyncio.to_thread(player_manager.record_disconnection, player)
                             except Exception:
                                 pass
                             try:
@@ -904,18 +904,25 @@ class ProcessManager:
 
         if self.process and self.process.returncode is None and self.process.stdin:
             await self.send_command("stop")
+            # The attached process supervisor (_process_supervisor) will reset the state
+            # when the process exits; a watchdog force-kills it if it hangs.
+            if self._stop_task and not self._stop_task.done():
+                self._stop_task.cancel()
+            target_pid = self.process.pid
+            self._stop_task = asyncio.create_task(self._delayed_kill_check(target_pid=target_pid, timeout=25))
         elif rogue:
+            # Unattached / orphaned server process (e.g. survived a panel restart).
+            # There is no attached supervisor, so terminate it and watch until OFFLINE,
+            # otherwise the status would remain stuck in STOPPING forever.
             for p in rogue:
                 try:
                     p.terminate()
                 except Exception:
                     pass
+            if self._stop_task and not self._stop_task.done():
+                self._stop_task.cancel()
+            self._stop_task = asyncio.create_task(self._watch_orphan_stop(timeout=25))
 
-        if self._stop_task and not self._stop_task.done():
-            self._stop_task.cancel()
-
-        target_pid = self.process.pid if self.process else None
-        self._stop_task = asyncio.create_task(self._delayed_kill_check(target_pid=target_pid, timeout=25))
         try:
             activity_manager.log(
                 category="server",
@@ -927,6 +934,30 @@ class ProcessManager:
         except Exception:
             pass
         return {"status": "success", "message": "Stop command sent"}
+
+    async def _watch_orphan_stop(self, timeout: int = 25) -> None:
+        """Waits for an unattached server process to exit and resets state to OFFLINE."""
+        try:
+            for _ in range(timeout):
+                await asyncio.sleep(1)
+                if self.get_status() == "OFFLINE":
+                    break
+            if self.get_status() != "OFFLINE":
+                await self.kill_server()
+                return
+
+            # Orphaned process stopped but no supervisor exists to finalize state.
+            self.status = "OFFLINE"
+            self.started_at = None
+            self._psutil_proc = None
+            self.online_players.clear()
+            self.clean_stale_session_locks()
+            msg = "[Dockraft] Server stopped."
+            self._append_log(msg)
+            await self.broadcast_message({"type": "log", "data": msg})
+            await self.broadcast_message({"type": "status", "status": "OFFLINE"})
+        except asyncio.CancelledError:
+            pass
 
     async def _delayed_kill_check(self, target_pid: Optional[int] = None, timeout: int = 25) -> None:
         try:

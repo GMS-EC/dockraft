@@ -345,3 +345,18 @@ def test_cache_purging_of_negative_notices(tmp_path, monkeypatch):
         on_disk = json.load(f)
     assert "vault" not in on_disk
     assert "luckperms" in on_disk
+
+def test_is_newer_version_unknown_not_outdated():
+    # Unknown/non-numeric versions must never be flagged as outdated.
+    assert is_newer_version("Desconocida", "1.2.3") is False
+    assert is_newer_version("Unknown", "1.2.3") is False
+    assert is_newer_version("indev", "1.2.3") is False
+
+def test_negative_pattern_allows_positive_update_notices():
+    from app.core.plugin_manager import PluginManager
+    assert PluginManager.is_negative_notice("No new version available") is True
+    assert PluginManager.is_negative_notice("The server is up to date") is True
+    # Mixed phrasing ("NOT running the latest... download available") is a POSITIVE
+    # update notice and must not be discarded as negative.
+    mixed = "You are NOT running the latest version! A new version 2.20.0 is available at https://example.com/download"
+    assert PluginManager.is_negative_notice(mixed) is False

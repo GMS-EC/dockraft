@@ -566,7 +566,7 @@ async def save_raw_properties(req: RawPropertiesRequest):
 # --- Java & Runtimes ---
 @app.get("/api/java/runtimes", dependencies=[Depends(get_current_user)])
 async def get_runtimes():
-    return JavaManager.detect_runtimes()
+    return await asyncio.to_thread(JavaManager.detect_runtimes)
 
 # --- Downloader & Installer ---
 @app.get("/api/installer/versions", dependencies=[Depends(get_current_user)])
@@ -622,7 +622,7 @@ async def install_server(req: InstallRequest):
         # Auto-resolve best Java runtime if not specifically provided
         if req.server_type != "bedrock":
             if not req.java_path or req.java_path == "java":
-                req.java_path = JavaManager.get_best_java_path(req.version)
+                req.java_path = await asyncio.to_thread(JavaManager.get_best_java_path, req.version)
 
         if req.server_type in ["paper", "folia", "velocity"]:
             info = await downloader.get_paper_latest_build(req.server_type, req.version)
@@ -1593,6 +1593,11 @@ async def root(request: Request):
     is_installed = bool(stats.get("is_installed", False))
     server_status = stats.get("status", "OFFLINE")
 
+    # Serialize for inline <script> hydration; escape <, > and & so a crafted
+    # server name / MOTD cannot break out of the script block.
+    def _safe_json_embed(data: Any) -> str:
+        return json.dumps(data).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+
     return templates.TemplateResponse(
         request=request,
         name="index.html",
@@ -1607,7 +1612,7 @@ async def root(request: Request):
             "server_version": stats.get("server_version") or cfg.get("server_version", ""),
             "server_type": stats.get("server_type") or cfg.get("server_type", ""),
             "motd": stats.get("motd", ""),
-            "stats_json": json.dumps(stats),
-            "cfg_json": json.dumps(cfg)
+            "stats_json": _safe_json_embed(stats),
+            "cfg_json": _safe_json_embed(cfg)
         }
     )

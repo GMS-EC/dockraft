@@ -109,3 +109,33 @@ def test_ban_player_online_sends_command(client):
     finally:
         process_manager.get_status = orig_status
         process_manager.send_command = orig_send
+
+import re as _re
+
+def test_add_player_rejects_special_characters(client):
+    """Invalid player names (potential XSS / command injection) are rejected."""
+    res = client.post("/api/players/add", json={"player": "<script>alert(1)</script>"})
+    assert res.status_code == 200
+    assert res.json()["status"] == "error"
+
+def test_offline_ban_writes_uuid_and_offset_date(client):
+    """Offline bans store a real offline UUID and a date with UTC offset."""
+    orig_status = process_manager.get_status
+    try:
+        process_manager.get_status = lambda: "OFFLINE"
+        name = "BadActor_UUID"
+        ban_res = client.post("/api/players/ban", json={"player": name, "reason": "test"})
+        assert ban_res.status_code == 200
+        assert ban_res.json()["status"] == "success"
+
+        list_res = client.get("/api/players/list")
+        banned = list_res.json()["banned"]
+        entry = next((b for b in banned if b["name"].lower() == name.lower()), None)
+        assert entry is not None
+        assert entry["uuid"] and len(entry["uuid"]) == 36
+        assert _re.search(r"[+\-]\d{4}$", (entry["created"] or "").strip())
+
+        # Cleanup
+        client.post("/api/players/pardon", json={"player": name})
+    finally:
+        process_manager.get_status = orig_status

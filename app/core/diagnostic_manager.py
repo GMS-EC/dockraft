@@ -81,18 +81,26 @@ class DiagnosticManager:
         except Exception:
             return None
 
+    def _read_log_tail(self, path: Path, max_lines: int = 300, max_bytes: int = 512 * 1024) -> str:
+        """Efficiently reads the last `max_lines` lines without loading the whole file."""
+        if not path.exists():
+            return ""
+        try:
+            file_size = path.stat().st_size
+            with open(path, "rb") as f:
+                start = max(0, file_size - max_bytes)
+                f.seek(start)
+                data = f.read()
+            text = data.decode("utf-8", errors="replace")
+            lines = text.splitlines()
+            return "\n".join(lines[-max_lines:])
+        except Exception:
+            return ""
+
     def get_recent_log_tail(self, max_lines: int = 300) -> str:
         """Returns the last N lines of latest.log."""
         log_file = settings.data_dir / "logs" / "latest.log"
-        if not log_file.exists():
-            return ""
-
-        try:
-            with open(log_file, "r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
-                return "".join(lines[-max_lines:])
-        except Exception:
-            return ""
+        return self._read_log_tail(log_file, max_lines=max_lines)
 
     def analyze_diagnostics(
         self,
@@ -262,17 +270,20 @@ class DiagnosticManager:
             }
 
         # 9. Generic Exception / Warning in logs
-        m_err = re.search(r'((?:FATAL|ERROR).*?\n(?:.*?\tat .*?\n){1,5})', text_to_analyze)
+        m_err = re.search(
+            r'(?m)^.*\b(?:FATAL|ERROR|Exception|Error occurred|Caused by)\b.*$',
+            text_to_analyze
+        )
         if m_err:
             return {
                 "has_issue": True,
                 "severity": "warning",
                 "category": "general",
                 "title": "Advertencia o Error Detectado en Registros",
-                "cause": "Se detectó una excepción en los registros de ejecución del servidor.",
+                "cause": "Se detectó una excepción o error en los registros de ejecución del servidor.",
                 "recommendation": "Puedes usar el botón 'Compartir Registro Sanitizado' para obtener un enlace seguro y compartirlo en foros o Discord.",
                 "source": source_name,
-                "excerpt": m_err.group(1).strip()
+                "excerpt": self._extract_relevant_excerpt(text_to_analyze, r'\b(?:FATAL|ERROR|Exception|Error occurred|Caused by)\b')
             }
 
         return {
@@ -301,15 +312,12 @@ class DiagnosticManager:
         """
         content = custom_content
         if not content:
-            # Prefer full latest.log or tail of it (up to 25,000 lines or 8 MB)
+            # Prefer the tail of latest.log (up to 5,000 lines) without reading the whole file
             log_file = settings.data_dir / "logs" / "latest.log"
             if log_file.exists():
-                try:
-                    with open(log_file, "r", encoding="utf-8", errors="replace") as f:
-                        lines = f.readlines()
-                        content = "".join(lines[-5000:])
-                except Exception as e:
-                    return {"success": False, "error": f"No se pudo leer latest.log: {str(e)}"}
+                content = self._read_log_tail(log_file, max_lines=5000, max_bytes=8 * 1024 * 1024)
+                if not content:
+                    return {"success": False, "error": "No se pudo leer latest.log."}
             else:
                 crash = self.get_latest_crash_report()
                 if crash:
