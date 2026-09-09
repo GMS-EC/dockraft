@@ -139,3 +139,21 @@ def test_offline_ban_writes_uuid_and_offset_date(client):
         client.post("/api/players/pardon", json={"player": name})
     finally:
         process_manager.get_status = orig_status
+
+def test_player_history_flush_persists(tmp_path, monkeypatch):
+    """Verifies the debounced player-history writer persists entries on flush()."""
+    import json
+    from app.config import settings
+    from app.core.player_manager import PlayerManager
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    pm = PlayerManager()
+    try:
+        pm.record_connection("FlushPlayer")
+        pm.flush()
+        assert (tmp_path / "dockraft_players.json").exists()
+        hist = json.loads((tmp_path / "dockraft_players.json").read_text(encoding="utf-8"))
+        assert "FlushPlayer" in hist
+        assert hist["FlushPlayer"]["last_connection"]
+    finally:
+        pm.flush()

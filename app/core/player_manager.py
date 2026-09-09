@@ -11,7 +11,7 @@ from typing import Dict, Any, List, Optional, Set
 
 from app.config import settings
 from app.core.process_manager import process_manager
-from app.core.fs_utils import atomic_write_json
+from app.core.fs_utils import atomic_write_json, atomic_write_text
 
 logger = logging.getLogger("dockraft.players")
 

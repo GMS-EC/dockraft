@@ -1054,15 +1054,20 @@ class ProcessManager:
         return {"status": "success", "message": "Server forcibly killed"}
 
     async def _tps_poller_loop(self) -> None:
-        """Periodically requests 'tps' (Paper/Purpur/Spigot) and reconciles the online
-        player list via a silent 'list' command every ~3 minutes to avoid stale players."""
+        """Periodically requests 'tps' (Paper/Purpur/Spigot-like) and reconciles the
+        online player list via a silent 'list' command every ~3 minutes to avoid
+        stale players. 'tps' is only sent to engines that support it (Vanilla/Forge/
+        Fabric would log an 'unknown command' error every cycle)."""
         await asyncio.sleep(15)
         poll_tick = 0
+        tps_supported = ("paper", "purpur", "folia", "velocity", "spigot")
         while self.get_status() == "RUNNING":
             try:
                 cfg = settings.runtime_config
-                if cfg.get("server_type") != "bedrock":
-                    await self.send_command("tps", echo=False)
+                server_type = str(cfg.get("server_type", "paper")).lower()
+                if server_type != "bedrock":
+                    if server_type in tps_supported:
+                        await self.send_command("tps", echo=False)
                     poll_tick += 1
                     if poll_tick % 4 == 0:
                         await self.send_command("list", echo=False)
