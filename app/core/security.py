@@ -21,9 +21,9 @@ class LoginRateLimiter:
 
     def is_locked(self, ip: str) -> Tuple[bool, int]:
         now = time.time()
-        # Periodic cleanup every 100 calls to avoid memory leak
+        # Periodic cleanup every 50 calls to avoid memory leak
         self._cleanup_counter += 1
-        if self._cleanup_counter >= 100:
+        if self._cleanup_counter >= 50:
             self.cleanup_expired()
             self._cleanup_counter = 0
 
@@ -40,21 +40,43 @@ class LoginRateLimiter:
         if lockout_until > 0 and now >= lockout_until:
             del self.records[ip]
             return False, 0
+
+        # If attempts never triggered lockout but have gone stale (> cooldown_seconds), prune
+        stale_threshold = max(self.cooldown_seconds, 900)
+        if lockout_until == 0 and (now - record.get("last_attempt", 0)) > stale_threshold:
+            del self.records[ip]
+            return False, 0
         
         return False, 0
 
     def cleanup_expired(self) -> None:
-        """Removes all records whose lockout has expired, preventing memory leak."""
+        """Removes all records whose lockout has expired or whose attempts have gone stale, preventing memory leak."""
         now = time.time()
+        stale_threshold = max(self.cooldown_seconds, 900)
         expired = [
             ip for ip, rec in self.records.items()
-            if rec.get("lockout_until", 0) > 0 and now >= rec["lockout_until"]
+            if (rec.get("lockout_until", 0) > 0 and now >= rec["lockout_until"])
+            or (rec.get("lockout_until", 0) == 0 and (now - rec.get("last_attempt", 0)) > stale_threshold)
         ]
         for ip in expired:
             del self.records[ip]
 
+        # Safety cap: If records still exceed 2000 (e.g. massive distributed bot flood), drop oldest entries
+        if len(self.records) > 2000:
+            sorted_ips = sorted(self.records.items(), key=lambda item: item[1].get("last_attempt", 0))
+            to_remove = len(self.records) - 1500
+            for ip, _ in sorted_ips[:to_remove]:
+                del self.records[ip]
+
     def record_failure(self, ip: str) -> Tuple[int, int]:
         now = time.time()
+        # Periodic cleanup check
+        self._cleanup_counter += 1
+        if self._cleanup_counter >= 50:
+            self.cleanup_expired()
+            self._cleanup_counter = 0
+
+        stale_threshold = max(self.cooldown_seconds, 900)
         record = self.records.setdefault(ip, {
             "attempts": 0,
             "lockout_until": 0,
@@ -65,6 +87,8 @@ class LoginRateLimiter:
         if record["lockout_until"] > 0 and now >= record["lockout_until"]:
             record["attempts"] = 0
             record["lockout_until"] = 0
+        elif record["lockout_until"] == 0 and (now - record.get("last_attempt", 0)) > stale_threshold:
+            record["attempts"] = 0
 
         record["attempts"] += 1
         record["last_attempt"] = now

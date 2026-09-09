@@ -4,6 +4,7 @@ import sys
 import time
 import shutil
 import asyncio
+import threading
 import psutil
 from collections import deque
 from datetime import datetime
@@ -47,6 +48,12 @@ class ProcessManager:
         self._psutil_proc: Optional[psutil.Process] = None
         self._cached_disk_bytes: int = 0
         self._last_disk_check: float = 0.0
+        self._disk_check_running: bool = False
+        self._cached_server_properties: Dict[str, Any] = {
+            "mtime": 0.0,
+            "motd": "A Dockraft Minecraft Server",
+            "max_players": 20
+        }
         self.started_at: Optional[float] = None
         self.online_players: Set[str] = set()
         self._recent_crashes: List[float] = []
@@ -203,12 +210,8 @@ class ProcessManager:
         except Exception:
             return 2048.0
 
-    def get_data_dir_size_bytes(self) -> int:
-        """Calculates total size of files in settings.data_dir with 5s cache."""
-        now = time.time()
-        if (now - self._last_disk_check) < 5.0 and self._cached_disk_bytes > 0:
-            return self._cached_disk_bytes
-
+    def _compute_disk_size_worker(self) -> None:
+        """Background thread worker to compute directory size without blocking the asyncio event loop."""
         total = 0
         try:
             for root, _, files in os.walk(settings.data_dir):
@@ -220,10 +223,31 @@ class ProcessManager:
                         pass
         except Exception:
             pass
-
         self._cached_disk_bytes = total
-        self._last_disk_check = now
-        return total
+        self._last_disk_check = time.time()
+        self._disk_check_running = False
+
+    def get_data_dir_size_bytes(self) -> int:
+        """Calculates total size of files in settings.data_dir with 60s cache and background worker."""
+        now = time.time()
+        # If cache is valid (within 60s) or check is already running, return cached bytes
+        if (now - self._last_disk_check) < 60.0 and self._cached_disk_bytes > 0:
+            return self._cached_disk_bytes
+
+        # If already calculating in background thread, return current cached value
+        if self._disk_check_running:
+            return self._cached_disk_bytes
+
+        # On initial cold start when cached value is 0, do a single quick pass
+        if self._cached_disk_bytes == 0 and self._last_disk_check == 0.0:
+            self._compute_disk_size_worker()
+            return self._cached_disk_bytes
+
+        # Otherwise trigger non-blocking background thread update
+        self._disk_check_running = True
+        t = threading.Thread(target=self._compute_disk_size_worker, daemon=True)
+        t.start()
+        return self._cached_disk_bytes
 
     def get_stats(self) -> Dict[str, Any]:
         """Collects memory, CPU, and disk usage of the server process."""
@@ -315,24 +339,31 @@ class ProcessManager:
             uptime_clock = "00:00:00"
             started_at_str = "No iniciado"
 
-        # MOTD and max-players from server.properties
-        motd = "A Dockraft Minecraft Server"
-        max_players = 20
+        # MOTD and max-players from server.properties (cached by file mtime)
+        motd = self._cached_server_properties.get("motd", "A Dockraft Minecraft Server")
+        max_players = self._cached_server_properties.get("max_players", 20)
         prop_file = settings.data_dir / "server.properties"
-        if prop_file.exists():
-            try:
-                with open(prop_file, "r", encoding="utf-8", errors="ignore") as pf:
-                    for line in pf:
-                        line = line.strip()
-                        if line.startswith("motd="):
-                            motd = line.split("=", 1)[1]
-                        elif line.startswith("max-players="):
-                            try:
-                                max_players = int(line.split("=", 1)[1])
-                            except Exception:
-                                pass
-            except Exception:
-                pass
+        try:
+            if prop_file.exists():
+                mtime = prop_file.stat().st_mtime
+                if mtime != self._cached_server_properties.get("mtime", 0.0):
+                    with open(prop_file, "r", encoding="utf-8", errors="ignore") as pf:
+                        for line in pf:
+                            line = line.strip()
+                            if line.startswith("motd="):
+                                motd = line.split("=", 1)[1]
+                            elif line.startswith("max-players="):
+                                try:
+                                    max_players = int(line.split("=", 1)[1])
+                                except Exception:
+                                    pass
+                    self._cached_server_properties = {
+                        "mtime": mtime,
+                        "motd": motd,
+                        "max_players": max_players
+                    }
+        except Exception:
+            pass
 
         if not is_installed:
             server_name = "--"

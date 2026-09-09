@@ -88,6 +88,14 @@ def test_login_rate_limiter():
     limiter.record_success(test_ip)
     assert limiter.is_locked(test_ip)[0] is False
 
+    # Stale attempts without lockout are pruned by cleanup_expired
+    limiter.record_failure("10.0.0.1")  # 1 failure, lockout_until = 0
+    assert "10.0.0.1" in limiter.records
+    # Simulate time passing beyond stale threshold
+    limiter.records["10.0.0.1"]["last_attempt"] = time.time() - 1000
+    limiter.cleanup_expired()
+    assert "10.0.0.1" not in limiter.records
+
 def test_is_authenticated_helper():
     from app.core.security import is_authenticated
     from fastapi import Request
