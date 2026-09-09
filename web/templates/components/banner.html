@@ -58,7 +58,7 @@
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_players_label">Jugadores:</span>
-        <span class="overview-val highlight-players" id="top-server-players">{{ (stats.online_players_count ~ ' / ' ~ stats.max_players) if is_installed and stats.max_players is defined else '--' }}</span>
+        <span class="overview-val highlight-players" id="top-server-players">{{ (stats.online_players ~ ' / ' ~ stats.max_players) if is_installed and stats.max_players is defined else '--' }}</span>
       </div>
       <div class="overview-item">
         <span class="overview-label" data-i18n="banner_tps_label">Rendimiento (TPS):</span>

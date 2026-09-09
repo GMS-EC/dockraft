@@ -1,5 +1,5 @@
 // Dockraft Service Worker for PWA
-const CACHE_NAME = 'dockraft-v5';
+const CACHE_NAME = 'dockraft-v6';
 const STATIC_ASSETS = [
   '/static/css/style.css',
   '/static/img/logo.png',
@@ -44,10 +44,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for HTML navigation
+  // Network-first for HTML navigation, caching the page so the PWA works offline.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request.url, copy));
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request.url);
+          if (cached) return cached;
+          // Fallback to the cached app shell for the root/login pages.
+          const shell = await caches.match(url.origin + '/');
+          if (shell) return shell;
+          return caches.match(event.request);
+        })
     );
     return;
   }

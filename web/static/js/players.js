@@ -139,11 +139,11 @@ const Players = {
 
       // Action Buttons Cell
       const kickDisabled = !p.is_online ? 'opacity: 0.45; cursor: not-allowed;' : '';
-      const kickAttr = !p.is_online ? 'disabled' : `onclick="Players.promptKick('${safeName}')"`;
+      const kickAttr = !p.is_online ? 'disabled' : 'data-action="kick"';
 
-      const opBtn = p.is_op 
-        ? `<button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.74rem; min-height: 26px; border-color: #eab308; color: #fbbf24;" onclick="Players.setOp('${safeName}', false)" title="Revocar permisos de operador">De-OP</button>`
-        : `<button class="btn btn-warning" style="padding: 4px 8px; font-size: 0.74rem; min-height: 26px; background-color: #eab308; border-color: #ca8a04; color: #000; font-weight: 600;" onclick="Players.setOp('${safeName}', true)" title="Hacer Operador del servidor">OP</button>`;
+      const opBtn = p.is_op
+        ? `<button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.74rem; min-height: 26px; border-color: #eab308; color: #fbbf24;" data-action="deop" title="Revocar permisos de operador">De-OP</button>`
+        : `<button class="btn btn-warning" style="padding: 4px 8px; font-size: 0.74rem; min-height: 26px; background-color: #eab308; border-color: #ca8a04; color: #000; font-weight: 600;" data-action="op" title="Hacer Operador del servidor">OP</button>`;
 
       tr.innerHTML = `
         <td style="padding: 10px 12px;">
@@ -161,12 +161,24 @@ const Players = {
         </td>
         <td style="padding: 10px 12px; text-align: right;">
           <div style="display: inline-flex; gap: 6px; align-items: center;">
-            <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.78rem; min-height: 28px;" onclick="Players.promptBan('${safeName}')" title="Banear jugador">Ban</button>
+            <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.78rem; min-height: 28px;" data-action="ban" title="Banear jugador">Ban</button>
             <button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.78rem; min-height: 28px; border-color: #da3633; color: #f85149; ${kickDisabled}" ${kickAttr} title="Expulsar jugador">Kick</button>
             ${opBtn}
           </div>
         </td>
       `;
+      tr.querySelectorAll('[data-action]').forEach(btn => {
+        const act = btn.getAttribute('data-action');
+        const playerName = p.name;
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (act === 'ban') this.promptBan(playerName);
+          else if (act === 'kick') this.promptKick(playerName);
+          else if (act === 'op') this.setOp(playerName, true);
+          else if (act === 'deop') this.setOp(playerName, false);
+        });
+      });
       tbody.appendChild(tr);
     });
   },
@@ -208,12 +220,17 @@ const Players = {
           ${this.escapeHtml(b.reason || 'Baneado por un operador')}
         </td>
         <td style="padding: 10px 12px; text-align: right;">
-          <button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.78rem; min-height: 28px; border-color: #2ea043; color: #3fb950; display: inline-flex; align-items: center; gap: 4px;" onclick="Players.pardon('${safeName}')" title="Desbanear jugador">
+          <button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.78rem; min-height: 28px; border-color: #2ea043; color: #3fb950; display: inline-flex; align-items: center; gap: 4px;" data-action="pardon" title="Desbanear jugador">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
             Desbanear
           </button>
         </td>
       `;
+      tr.querySelector('[data-action="pardon"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.pardon(b.name);
+      });
       tbody.appendChild(tr);
     });
   },

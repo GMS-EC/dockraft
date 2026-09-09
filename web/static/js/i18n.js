@@ -799,3 +799,42 @@ if (document.readyState === 'loading') {
 } else {
   I18n.init();
 }
+
+/* =====================================================================
+ * Shared DOM escaping utilities (loaded before every other module via base.html).
+ * - escapeHtml(str): escapes a value for safe insertion as HTML *text* content.
+ * - escapeAttr(str): escapes a value for safe embedding inside a *single-quoted
+ *   JS string literal that lives inside a double-quoted HTML attribute*
+ *   (e.g. onclick="Module.fn('<VALUE>')"). HTML entity escaping alone is NOT
+ *   enough there, because the browser decodes entities BEFORE the JS engine
+ *   parses the attribute, so an apostrophe would break out of the JS string.
+ *   We therefore encode quotes as \u0027 / \n / \\ (JS escapes that survive
+ *   HTML decoding) and HTML-escape &<>" so the attribute cannot break either.
+ * ===================================================================== */
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeAttr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\u0027")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+window.escapeHtml = escapeHtml;
+window.escapeAttr = escapeAttr;
+

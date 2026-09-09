@@ -60,6 +60,9 @@ const Webhooks = {
     const evStop = document.getElementById('webhook-event-stop');
     const evCrash = document.getElementById('webhook-event-crash');
     const evBackup = document.getElementById('webhook-event-backup');
+    const evTask = document.getElementById('webhook-event-task');
+    const evPlayer = document.getElementById('webhook-event-player');
+    const evPlayerLeave = document.getElementById('webhook-event-player-leave');
     const evLowTps = document.getElementById('webhook-event-lowtps');
     const evPlugin = document.getElementById('webhook-event-plugin');
 
@@ -68,7 +71,8 @@ const Webhooks = {
     if (evCrash) evCrash.checked = ev.server_crash !== false;
     if (evBackup) evBackup.checked = ev.backup_created !== false;
     if (evTask) evTask.checked = ev.task_executed !== false;
-    if (evPlayer) evPlayer.checked = !!ev.player_join;
+    if (evPlayer) evPlayer.checked = ev.player_join !== false;
+    if (evPlayerLeave) evPlayerLeave.checked = ev.player_leave !== false;
     if (evLowTps) evLowTps.checked = ev.low_tps !== false;
     if (evPlugin) evPlugin.checked = ev.plugin_update !== false;
 
@@ -205,7 +209,7 @@ const Webhooks = {
         backup_created: document.getElementById('webhook-event-backup')?.checked || false,
         task_executed: document.getElementById('webhook-event-task')?.checked || false,
         player_join: document.getElementById('webhook-event-player')?.checked || false,
-        player_leave: document.getElementById('webhook-event-player')?.checked || false,
+        player_leave: document.getElementById('webhook-event-player-leave')?.checked || false,
         low_tps: document.getElementById('webhook-event-lowtps')?.checked || false,
         plugin_update: document.getElementById('webhook-event-plugin')?.checked || false
       }

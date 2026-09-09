@@ -20,7 +20,7 @@ const Logs = {
     this.isFetching = true;
 
     try {
-      const res = await fetch('/api/activity/logs?limit=1000');
+      const res = await fetch('/api/activity/logs?limit=500');
       if (!res.ok) throw new Error("Error al consultar registros de actividad");
       const data = await res.json();
       this.logs = data.logs || [];
@@ -197,7 +197,7 @@ const Logs = {
         <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, 0.35); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(163, 113, 247, 0.25);">
           <span style="color: #d2a8ff; font-family: var(--font-mono); font-size: 0.82rem;">&gt;</span>
           <code style="font-family: var(--font-mono); color: #79c0ff; font-size: 0.83rem; font-weight: 500;">${cmd}</code>
-          <button onclick="Logs.copyCommand('${cmd.replace(/'/g, "\\'")}')" title="Copiar comando" style="background: none; border: none; color: #8b949e; cursor: pointer; padding: 2px 4px; display: inline-flex; align-items: center; font-size: 0.75rem;">
+          <button data-cmd="${escapeHtml(cleanCmd)}" onclick="Logs.copyCommand(this.dataset.cmd)" title="Copiar comando" style="background: none; border: none; color: #8b949e; cursor: pointer; padding: 2px 4px; display: inline-flex; align-items: center; font-size: 0.75rem;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
         </div>

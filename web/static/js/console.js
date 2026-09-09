@@ -548,7 +548,11 @@ const Console = {
     const alertText = document.getElementById('console-crash-text');
     if (alertBox && alertText) {
       alertBox.style.display = 'flex';
-      alertText.innerHTML = `<strong>¡Alerta de Caída!</strong> ${diag.title || 'Error no controlado'}: ${diag.cause || ''}`;
+      alertText.textContent = '';
+      const strong = document.createElement('strong');
+      strong.textContent = '¡Alerta de Caída! ';
+      alertText.appendChild(strong);
+      alertText.appendChild(document.createTextNode(`${diag.title || 'Error no controlado'}: ${diag.cause || ''}`));
     }
     App.showToast(`El servidor se detuvo: ${diag.title || 'Caída inesperada'}`, 'danger');
   },

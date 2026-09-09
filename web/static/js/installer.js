@@ -922,12 +922,15 @@ const Installer = {
     let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
 
     updates.forEach(u => {
-      const isNamedNew = !u.version || u.version.toLowerCase() === 'nueva' || u.version.toLowerCase() === 'new';
-      const verText = isNamedNew ? 'Nueva versión' : (u.version.startsWith('v') ? u.version : `v${u.version}`);
-      const timeBadge = u.time_str ? `<span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">${u.time_str}</span>` : '';
+      const pluginEsc = escapeHtml(u.plugin);
+      const isNamedNew = !u.version || String(u.version).toLowerCase() === 'nueva' || String(u.version).toLowerCase() === 'new';
+      const verText = isNamedNew ? 'Nueva versión' : (String(u.version).startsWith('v') ? escapeHtml(u.version) : `v${escapeHtml(u.version)}`);
+      const timeBadge = u.time_str ? `<span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">${escapeHtml(u.time_str)}</span>` : '';
 
-      const downloadBtn = u.url ? `
-        <a href="${u.url}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="padding: 5px 12px; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;">
+      const rawUrl = String(u.url || '');
+      const isSafeUrl = /^https?:\/\//i.test(rawUrl);
+      const downloadBtn = isSafeUrl ? `
+        <a href="${escapeHtml(rawUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="padding: 5px 12px; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Descargar ↗
         </a>
@@ -935,9 +938,8 @@ const Installer = {
         <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted); font-size: 0.74rem;">Ver en consola</span>
       `;
 
-      const safePluginName = (u.plugin || '').replace(/'/g, "\\'");
       const dismissBtn = `
-        <button type="button" class="btn btn-outline" onclick="Installer.dismissConsoleUpdate('${safePluginName}')" style="padding: 5px 8px; font-size: 0.74rem; color: var(--text-muted); border-color: rgba(255,255,255,0.12);" title="Descartar este aviso">
+        <button type="button" class="btn btn-outline" data-dismiss-plugin="${escapeHtml(u.plugin)}" style="padding: 5px 8px; font-size: 0.74rem; color: var(--text-muted); border-color: rgba(255,255,255,0.12);" title="Descartar este aviso">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       `;
@@ -946,7 +948,7 @@ const Installer = {
         <div class="plugin-item-card has-update" style="padding: 10px 14px;">
           <div style="flex: 1; min-width: 0;">
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
-              <span style="font-weight: 600; font-size: 0.92rem; color: #f0f6fc;">${u.plugin}</span>
+              <span style="font-weight: 600; font-size: 0.92rem; color: #f0f6fc;">${pluginEsc}</span>
               <span class="badge" style="background: rgba(210, 153, 34, 0.18); border: 1px solid #d29922; color: #e3b341; font-weight: 600; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
                 ${verText} disponible
@@ -954,9 +956,9 @@ const Installer = {
               ${timeBadge}
             </div>
             <div style="font-size: 0.8rem; color: #c9d1d9; font-family: monospace; background: rgba(0,0,0,0.3); padding: 5px 8px; border-radius: 4px; word-break: break-word; line-height: 1.4;">
-              ${u.message}
+              ${escapeHtml(u.message)}
             </div>
-            ${u.url ? `<div style="font-size: 0.72rem; color: #58a6ff; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><span style="color: var(--text-dim);">URL:</span> ${u.url}</div>` : ''}
+            ${u.url ? `<div style="font-size: 0.72rem; color: #58a6ff; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><span style="color: var(--text-dim);">URL:</span> ${escapeHtml(u.url)}</div>` : ''}
           </div>
           <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: 8px;">
             ${downloadBtn}
@@ -968,6 +970,12 @@ const Installer = {
 
     html += '</div>';
     container.innerHTML = html;
+
+    container.querySelectorAll('[data-dismiss-plugin]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.dismissConsoleUpdate(btn.getAttribute('data-dismiss-plugin'));
+      });
+    });
 
     if (btnNotify) {
       btnNotify.style.display = 'inline-flex';

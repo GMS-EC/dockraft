@@ -120,7 +120,7 @@ const Settings = {
     // Containers
     const emptyState = document.getElementById('settings-empty-state');
     const bedrockContainer = document.getElementById('settings-bedrock-container');
-    const javaContainer = document.getElementById('settings-java-container');
+    const javaContainer = document.getElementById('settings-java');
 
     // Status pill
     if (statusEl) {
@@ -309,6 +309,8 @@ const Settings = {
         const diskEl = document.getElementById('bedrock-setting-disk-limit');
         const bServerName = document.getElementById('bedrock-setting-server-name')?.value.trim();
         const bAutostart = document.getElementById('bedrock-setting-autostart-server')?.checked ?? (this.runtimeConfig.autostart_server || false);
+        const bCrashEl = document.getElementById('bedrock-setting-crash-detection');
+        const bCrash = bCrashEl ? bCrashEl.checked : (this.runtimeConfig.crash_detection !== false);
         const bTimeoutEl = document.getElementById('bedrock-setting-session-timeout');
         const bSessionTimeout = bTimeoutEl ? (parseInt(bTimeoutEl.value, 10) || 60) : (this.runtimeConfig.session_timeout_minutes || 60);
 

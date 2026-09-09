@@ -208,26 +208,25 @@ const Files = {
     if (!menu) return;
 
     menu.innerHTML = '';
-    const safePath = this.escapeHtml(itemRelativePath);
-    const safeName = item ? this.escapeHtml(item.name) : '';
+    const actions = this._buildContextActions(item, itemRelativePath);
 
     if (!item) {
       // Background context menu
       menu.innerHTML = `
-        <button type="button" class="context-menu-item" onclick="Files.openCreateFileModal()">
+        <button type="button" class="context-menu-item" data-act="newFile">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
           <span>Nuevo Archivo</span>
         </button>
-        <button type="button" class="context-menu-item" onclick="Files.createNewFolder()">
+        <button type="button" class="context-menu-item" data-act="newFolder">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
           <span>Nueva Carpeta</span>
         </button>
-        <button type="button" class="context-menu-item" onclick="document.getElementById('file-upload-input').click(); Files.hideContextMenu();">
+        <button type="button" class="context-menu-item" data-act="upload">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           <span>Subir Archivo</span>
         </button>
         <div class="context-menu-divider"></div>
-        <button type="button" class="context-menu-item" onclick="Files.loadDirectory(Files.currentPath)">
+        <button type="button" class="context-menu-item" data-act="refresh">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           <span>Refrescar</span>
         </button>
@@ -235,28 +234,28 @@ const Files = {
     } else if (item.is_dir) {
       // Folder context menu
       menu.innerHTML = `
-        <button type="button" class="context-menu-item" onclick="Files.loadDirectory('${safePath}')">
+        <button type="button" class="context-menu-item" data-act="open">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
           <span>Abrir Carpeta</span>
         </button>
-        <button type="button" class="context-menu-item" onclick="Files.openRenameModal('${safePath}', '${safeName}')">
+        <button type="button" class="context-menu-item" data-act="rename">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           <span>Renombrar</span>
         </button>
-        <button type="button" class="context-menu-item" onclick="Files.compressItem('${safePath}', '${safeName}')">
+        <button type="button" class="context-menu-item" data-act="compress">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
           <span>Comprimir a .ZIP</span>
         </button>
-        <button type="button" class="context-menu-item" onclick="Files.duplicateItem('${safePath}', '${safeName}')">
+        <button type="button" class="context-menu-item" data-act="duplicate">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           <span>Duplicar</span>
         </button>
-        <button type="button" class="context-menu-item" onclick="Files.copyPath('${safePath}')">
+        <button type="button" class="context-menu-item" data-act="copy">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           <span>Copiar ruta</span>
         </button>
         <div class="context-menu-divider"></div>
-        <button type="button" class="context-menu-item danger" onclick="Files.deleteItem('${safePath}', '${safeName}')">
+        <button type="button" class="context-menu-item danger" data-act="delete">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           <span>Eliminar Carpeta</span>
         </button>
@@ -269,7 +268,7 @@ const Files = {
       let itemsHtml = '';
       if (canEdit) {
         itemsHtml += `
-          <button type="button" class="context-menu-item" onclick="Files.openEditor('${safePath}')">
+          <button type="button" class="context-menu-item" data-act="edit">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             <span>Editar Archivo</span>
           </button>
@@ -277,7 +276,7 @@ const Files = {
       }
       if (isZip) {
         itemsHtml += `
-          <button type="button" class="context-menu-item" onclick="Files.unzipFile('${safePath}')">
+          <button type="button" class="context-menu-item" data-act="unzip">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
             <span>Extraer aquí</span>
           </button>
@@ -285,34 +284,46 @@ const Files = {
       }
 
       itemsHtml += `
-        <button type="button" class="context-menu-item" onclick="Files.downloadFile('${safePath}')">
+        <button type="button" class="context-menu-item" data-act="download">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           <span>Descargar</span>
         </button>
-        <button type="button" class="context-menu-item" onclick="Files.openRenameModal('${safePath}', '${safeName}')">
+        <button type="button" class="context-menu-item" data-act="rename">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           <span>Renombrar</span>
         </button>
-        <button type="button" class="context-menu-item" onclick="Files.compressItem('${safePath}', '${safeName}')">
+        <button type="button" class="context-menu-item" data-act="compress">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
           <span>Comprimir a .ZIP</span>
         </button>
-        <button type="button" class="context-menu-item" onclick="Files.duplicateItem('${safePath}', '${safeName}')">
+        <button type="button" class="context-menu-item" data-act="duplicate">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           <span>Duplicar</span>
         </button>
-        <button type="button" class="context-menu-item" onclick="Files.copyPath('${safePath}')">
+        <button type="button" class="context-menu-item" data-act="copy">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           <span>Copiar ruta</span>
         </button>
         <div class="context-menu-divider"></div>
-        <button type="button" class="context-menu-item danger" onclick="Files.deleteItem('${safePath}', '${safeName}')">
+        <button type="button" class="context-menu-item danger" data-act="delete">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           <span>Eliminar</span>
         </button>
       `;
       menu.innerHTML = itemsHtml;
     }
+
+    // Bind actions via closures (no inline onclick with user-controlled data => XSS-safe)
+    menu.querySelectorAll('.context-menu-item[data-act]').forEach(btn => {
+      const handler = actions[btn.getAttribute('data-act')];
+      if (!handler) return;
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this.hideContextMenu();
+        handler();
+      });
+    });
 
     // Position context menu safely within viewport
     menu.style.display = 'flex';
@@ -722,6 +733,28 @@ const Files = {
     } catch (e) {
       if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
     }
+  },
+
+  _buildContextActions(item, itemRelativePath) {
+    const name = item ? item.name : '';
+    return {
+      newFile: () => this.openCreateFileModal(),
+      newFolder: () => this.createNewFolder(),
+      upload: () => {
+        const input = document.getElementById('file-upload-input');
+        if (input) input.click();
+      },
+      refresh: () => this.loadDirectory(this.currentPath),
+      open: () => this.loadDirectory(itemRelativePath),
+      edit: () => this.openEditor(itemRelativePath),
+      unzip: () => this.unzipFile(itemRelativePath),
+      download: () => this.downloadFile(itemRelativePath),
+      rename: () => this.openRenameModal(itemRelativePath, name),
+      compress: () => this.compressItem(itemRelativePath, name),
+      duplicate: () => this.duplicateItem(itemRelativePath, name),
+      copy: () => this.copyPath(itemRelativePath),
+      delete: () => this.deleteItem(itemRelativePath, name)
+    };
   },
 
   escapeHtml(str) {

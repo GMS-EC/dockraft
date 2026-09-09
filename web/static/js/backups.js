@@ -79,16 +79,26 @@ const Backups = {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Descargar
               </a>
-              <button class="btn btn-warning" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" onclick="Backups.restoreBackup('${this.escapeHtml(b.filename)}')" title="Restaurar copia de seguridad">
+              <button class="btn btn-warning" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" data-action="restore" title="Restaurar copia de seguridad">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                 Restaurar
               </button>
-              <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center;" onclick="Backups.deleteBackup('${this.escapeHtml(b.filename)}')" title="Eliminar copia">
+              <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center;" data-action="delete" title="Eliminar copia">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               </button>
             </div>
           </td>
         `;
+        tr.querySelector('[data-action="restore"]')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.restoreBackup(b.filename);
+        });
+        tr.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.deleteBackup(b.filename);
+        });
         tableBody.appendChild(tr);
       });
 
