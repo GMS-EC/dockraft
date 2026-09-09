@@ -1460,6 +1460,18 @@ async def notify_plugin_updates():
     """Checks for plugin updates and broadcasts a webhook notification if any are outdated."""
     return await plugin_manager.check_and_notify_updates()
 
+@app.delete("/api/plugins/console-updates/{plugin_name}", dependencies=[Depends(get_current_user)])
+async def dismiss_console_plugin_update(plugin_name: str):
+    """Dismisses/removes a specific plugin update notice."""
+    removed = plugin_manager.dismiss_update(plugin_name)
+    return {"status": "success", "removed": removed, "plugin": plugin_name}
+
+@app.delete("/api/plugins/console-updates", dependencies=[Depends(get_current_user)])
+async def clear_all_console_plugin_updates():
+    """Dismisses/clears all detected plugin update notices."""
+    count = plugin_manager.clear_detected_updates()
+    return {"status": "success", "cleared_count": count}
+
 # --- WebSocket Console & Stats Hub ---
 @app.websocket("/ws/console")
 async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(None)):

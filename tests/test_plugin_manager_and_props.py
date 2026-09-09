@@ -1,3 +1,4 @@
+import json
 import zipfile
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -284,3 +285,63 @@ async def test_low_tps_alert_logic():
             pm._consecutive_low_tps = 0
 
         assert pm._consecutive_low_tps == 0
+
+def test_dismiss_and_clear_console_updates(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    plugin_manager._detected_updates = {
+        "vault": {"plugin": "Vault", "version": "1.7.3", "message": "New update", "raw_line": ""},
+        "luckperms": {"plugin": "LuckPerms", "version": "5.4.131", "message": "New update", "raw_line": ""}
+    }
+    plugin_manager._save_cache()
+
+    # Dismiss single update
+    res_del = client.delete("/api/plugins/console-updates/Vault")
+    assert res_del.status_code == 200
+    assert res_del.json()["removed"] is True
+    assert "vault" not in plugin_manager._detected_updates
+    assert "luckperms" in plugin_manager._detected_updates
+
+    # Clear all updates
+    res_clear = client.delete("/api/plugins/console-updates")
+    assert res_clear.status_code == 200
+    assert res_clear.json()["cleared_count"] == 1
+    assert len(plugin_manager._detected_updates) == 0
+
+def test_cache_purging_of_negative_notices(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    # Write a cache file containing a false-positive entry
+    cache_file = tmp_path / "plugin_updates.json"
+    cache_data = {
+        "vault": {
+            "plugin": "Vault",
+            "version": "Nueva",
+            "url": None,
+            "message": "No new version available",
+            "raw_line": "[02:31:39 INFO]: [Vault] No new version available",
+            "timestamp": 1234567890,
+            "time_str": "02:31:39"
+        },
+        "luckperms": {
+            "plugin": "LuckPerms",
+            "version": "5.4.131",
+            "url": "https://luckperms.net",
+            "message": "Update available: 5.4.131",
+            "raw_line": "[LuckPerms] Update available",
+            "timestamp": 1234567890,
+            "time_str": "02:31:40"
+        }
+    }
+    with open(cache_file, "w", encoding="utf-8") as f:
+        json.dump(cache_data, f)
+
+    # Load cache and verify false positive is purged
+    plugin_manager._load_cache()
+    assert "vault" not in plugin_manager._detected_updates
+    assert "luckperms" in plugin_manager._detected_updates
+    assert len(plugin_manager._detected_updates) == 1
+
+    # Verify saved cache on disk was sanitized
+    with open(cache_file, "r", encoding="utf-8") as f:
+        on_disk = json.load(f)
+    assert "vault" not in on_disk
+    assert "luckperms" in on_disk

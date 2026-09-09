@@ -29,12 +29,33 @@ def is_newer_version(current: str, latest: str) -> bool:
     late_t = parse_version_tuple(latest)
     return late_t > curr_t
 
+NEGATIVE_UPDATE_PATTERN = re.compile(
+    r'\b(?:no\s+(?:new\s+)?(?:version|update)\b|'
+    r'no\s+update\s+(?:found|available|needed)|'
+    r'already\s+up[\s\-]to[\s\-]date|'
+    r'up[\s\-]to[\s\-]date|'
+    r'latest\s+version|'
+    r'running\s+the\s+latest|'
+    r'not\s+(?:outdated|found)|'
+    r'ninguna\s+actualizaci[oó]n|'
+    r'ya\s+(?:está|esta)\s+actualizado|'
+    r'sin\s+actualizaciones?)\b',
+    re.IGNORECASE
+)
+
 class PluginManager:
     def __init__(self):
         self.plugins_dir: Optional[Path] = None
         self.spiget_base_url: str = "https://api.spiget.org/v2"
         self._detected_updates: Dict[str, Dict[str, Any]] = {}
         self._load_cache()
+
+    @classmethod
+    def is_negative_notice(cls, text: str) -> bool:
+        """Returns True if the text indicates server is already up-to-date or has no update."""
+        if not text:
+            return False
+        return bool(NEGATIVE_UPDATE_PATTERN.search(str(text)))
 
     @property
     def cache_file(self) -> Path:
@@ -57,9 +78,35 @@ class PluginManager:
                 with open(self.cache_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     if isinstance(data, dict):
-                        self._detected_updates = data
+                        cleaned = {}
+                        for k, v in data.items():
+                            if isinstance(v, dict):
+                                msg = v.get("message", "")
+                                raw = v.get("raw_line", "")
+                                if self.is_negative_notice(msg) or self.is_negative_notice(raw):
+                                    continue
+                                cleaned[k] = v
+                        self._detected_updates = cleaned
+                        if len(cleaned) != len(data):
+                            self._save_cache()
         except Exception:
             pass
+
+    def dismiss_update(self, plugin_name: str) -> bool:
+        """Removes a specific plugin update from the detected list and persists cache."""
+        p_key = plugin_name.lower().strip()
+        if p_key in self._detected_updates:
+            del self._detected_updates[p_key]
+            self._save_cache()
+            return True
+        return False
+
+    def clear_detected_updates(self) -> int:
+        """Clears all detected plugin updates from memory and cache."""
+        count = len(self._detected_updates)
+        self._detected_updates.clear()
+        self._save_cache()
+        return count
 
     def get_plugins_dir(self) -> Path:
         p_dir = getattr(self, "plugins_dir", None) or (settings.data_dir / "plugins")
@@ -90,14 +137,7 @@ class PluginManager:
             return None
 
         # Reject negative phrases first (false positives: "No new version available", "already up to date", etc.)
-        negative_kw = re.search(
-            r'\b(?:no\s+new\s+version|no\s+update\s+(?:found|available|needed)|already\s+up.to.date|'
-            r'up\s+to\s+date|not\s+(?:outdated|found)|ninguna\s+actualizaci[oó]n|'
-            r'ya\s+(?:está|esta)\s+actualizado|sin\s+actualizaciones?)\b',
-            msg,
-            re.IGNORECASE
-        )
-        if negative_kw:
+        if self.is_negative_notice(msg) or self.is_negative_notice(clean):
             return None
 
         # Check for update keywords
@@ -230,6 +270,14 @@ class PluginManager:
         """Returns detected updates; if empty, scans buffer and latest.log first."""
         if not self._detected_updates:
             self.scan_console_logs()
+        # Clean any negative notices that might exist in memory
+        cleaned = {
+            k: v for k, v in self._detected_updates.items()
+            if not self.is_negative_notice(v.get("message", "")) and not self.is_negative_notice(v.get("raw_line", ""))
+        }
+        if len(cleaned) != len(self._detected_updates):
+            self._detected_updates = cleaned
+            self._save_cache()
         return list(self._detected_updates.values())
 
     def scan_installed_plugins(self) -> List[Dict[str, Any]]:

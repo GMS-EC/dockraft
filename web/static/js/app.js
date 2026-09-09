@@ -135,10 +135,20 @@ const App = {
       pane.classList.toggle('active', pane.id === `tab-${tabId}`);
     });
 
-    // Auto-scroll active tab into view in mobile nav rail
+    // Auto-scroll active tab into view inside .nav-tabs container ONLY (never scroll global window/page)
     const activeBtn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
-    if (activeBtn && activeBtn.scrollIntoView) {
-      activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    const navContainer = document.querySelector('.nav-tabs');
+    if (activeBtn && navContainer && navContainer.scrollWidth > navContainer.clientWidth) {
+      const scrollTarget = activeBtn.offsetLeft - (navContainer.clientWidth / 2) + (activeBtn.offsetWidth / 2);
+      navContainer.scrollTo({
+        left: Math.max(0, scrollTarget),
+        behavior: 'smooth'
+      });
+    }
+
+    // Safety guard: Ensure document/window is never horizontally displaced on compact screens
+    if (window.scrollX !== 0) {
+      window.scrollTo({ left: 0, top: window.scrollY });
     }
 
     // Refresh content for selected tab

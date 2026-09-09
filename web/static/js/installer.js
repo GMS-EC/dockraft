@@ -883,6 +883,7 @@ const Installer = {
     const container = document.getElementById('installer-plugins-list-container');
     const badge = document.getElementById('plugins-update-count-badge');
     const btnNotify = document.getElementById('btn-notify-console-updates');
+    const btnClear = document.getElementById('btn-clear-console-updates');
     if (!container) return;
 
     const count = updates ? updates.length : 0;
@@ -897,6 +898,10 @@ const Installer = {
         badge.style.borderColor = '#2ea043';
         badge.style.color = '#3fb950';
       }
+    }
+
+    if (btnClear) {
+      btnClear.style.display = count > 0 ? 'inline-flex' : 'none';
     }
 
     if (!updates || updates.length === 0) {
@@ -917,7 +922,8 @@ const Installer = {
     let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
 
     updates.forEach(u => {
-      const verText = u.version ? `v${u.version}` : 'Nueva versión';
+      const isNamedNew = !u.version || u.version.toLowerCase() === 'nueva' || u.version.toLowerCase() === 'new';
+      const verText = isNamedNew ? 'Nueva versión' : (u.version.startsWith('v') ? u.version : `v${u.version}`);
       const timeBadge = u.time_str ? `<span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">${u.time_str}</span>` : '';
 
       const downloadBtn = u.url ? `
@@ -927,6 +933,13 @@ const Installer = {
         </a>
       ` : `
         <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted); font-size: 0.74rem;">Ver en consola</span>
+      `;
+
+      const safePluginName = (u.plugin || '').replace(/'/g, "\\'");
+      const dismissBtn = `
+        <button type="button" class="btn btn-outline" onclick="Installer.dismissConsoleUpdate('${safePluginName}')" style="padding: 5px 8px; font-size: 0.74rem; color: var(--text-muted); border-color: rgba(255,255,255,0.12);" title="Descartar este aviso">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       `;
 
       html += `
@@ -945,8 +958,9 @@ const Installer = {
             </div>
             ${u.url ? `<div style="font-size: 0.72rem; color: #58a6ff; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><span style="color: var(--text-dim);">URL:</span> ${u.url}</div>` : ''}
           </div>
-          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 8px;">
+          <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: 8px;">
             ${downloadBtn}
+            ${dismissBtn}
           </div>
         </div>
       `;
@@ -957,6 +971,43 @@ const Installer = {
 
     if (btnNotify) {
       btnNotify.style.display = 'inline-flex';
+    }
+  },
+
+  async dismissConsoleUpdate(pluginName) {
+    try {
+      const res = await fetch(`/api/plugins/console-updates/${encodeURIComponent(pluginName)}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        this.consolePluginUpdates = this.consolePluginUpdates.filter(
+          u => u.plugin.toLowerCase() !== pluginName.toLowerCase()
+        );
+        this.renderConsolePluginUpdates(this.consolePluginUpdates);
+        if (window.App && App.showToast) {
+          App.showToast(`Aviso de ${pluginName} descartado`, 'info');
+        }
+      }
+    } catch (e) {
+      console.error("Error dismissing console update:", e);
+    }
+  },
+
+  async clearAllConsoleUpdates() {
+    if (!confirm('¿Deseas descartar todos los avisos de actualización de plugins detectados?')) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/plugins/console-updates', { method: 'DELETE' });
+      if (res.ok) {
+        this.consolePluginUpdates = [];
+        this.renderConsolePluginUpdates(this.consolePluginUpdates);
+        if (window.App && App.showToast) {
+          App.showToast('Todos los avisos de actualización fueron limpiados', 'success');
+        }
+      }
+    } catch (e) {
+      console.error("Error clearing console updates:", e);
     }
   },
 
