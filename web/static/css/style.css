@@ -2072,24 +2072,26 @@ input:checked + .slider:before {
 
 .footer-icon-link svg {
   display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0 auto;
 }
 
-/* Language switcher: keep the ES/EN code optically centered inside its pill */
-#btn-lang-toggle {
-  line-height: 1;
-  align-items: center;
-  justify-content: center;
-}
-
-#lang-current-label {
+/* Language switcher: consistent square icon-only button, glyph optically centered */
+#btn-lang-toggle.lang-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
-  min-width: 2ch;
-  text-align: center;
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+#btn-lang-toggle.lang-toggle:hover {
+  color: #58a6ff;
+  border-color: #58a6ff;
+  background-color: rgba(56, 139, 253, 0.12);
 }
 
 .footer-copyright {

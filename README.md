@@ -35,11 +35,11 @@ Los paneles tradicionales para Minecraft como **Crafty Controller** o **Pterodac
 Al enfocarse exclusivamente en mantener y optimizar **una única instancia de servidor por contenedor**:
 * **No requiere bases de datos externas**: Todas las opciones y configuraciones se gestionan limpiamente en archivos JSON locales.
 * **No tiene intermediarios pesados**: El panel corre en un único proceso asíncrono en Python con FastAPI y Uvicorn.
-* **Aprovechamiento máximo del hardware**: En un VPS o servidor con 2 GB, 4 GB u 8 GB de memoria, Dockraft apenas consume unos pocos megabytes. **Más del 98% de tu memoria RAM y CPU queda 100% disponible para el juego, tus mundos, mods y jugadores.**
+* **Aprovechamiento máximo del hardware**: En un VPS o servidor con 2 GB, 4 GB u 8 GB de memoria, Dockraft consume entre **~50 y 75 MB de RAM** (según el sistema operativo) y **~0 % de CPU en reposo**. En un 2 GB quedan libres más del 96 % de la RAM y en un 8 GB más del 99 %, **todo ese resto disponible para el juego, tus mundos, mods y jugadores.**
 
 > 🏆 **¿Servidor pequeño o gigantesco? No importa.** 
 > Dockraft tiene todo lo que necesitas para administrar tu servidor Minecraft de forma profesional — sin consumir los recursos que tu mundo, jugadores y plugins necesitan.
-> Desde un servidor de amigos con 2 GB hasta una instancia de alto rendimiento con 64 GB, el panel siempre consume menos del 1% de tus recursos y deja el resto libre para el juego.
+> Desde un servidor de amigos con 2 GB hasta una instancia de alto rendimiento con 64 GB, el panel consume una fracción mínima (50–75 MB, ~0 % CPU en reposo): menos del 4 % en un 2 GB y por debajo del 1 % desde 8 GB en adelante, dejando el resto libre para el juego.
 
 ---
 
@@ -47,7 +47,7 @@ Al enfocarse exclusivamente en mantener y optimizar **una única instancia de se
 
 | Panel de Control | Consumo en Reposo (Idle) | Tiempo de Arranque | Enfoque de Servidores |
 | :--- | :---: | :---: | :--- |
-| **Dockraft** | **~4.5 MB a 45 MB** | **~1 segundo** | **Instancia única dedicada (ultra-ligero y optimizado)** |
+| **Dockraft** | **~50–75 MB** (~0 % CPU) | **~1 segundo** | **Instancia única dedicada (ultra-ligero y optimizado)** |
 | Crafty Controller v4 | ~350 MB a 700 MB | ~20 a 30 segundos | Multi-servidor pesado (Tornado, Flask, SQLite/Postgres) |
 | Pterodactyl Panel | ~800 MB a 1.2 GB | Múltiples servicios | Infraestructura distribuida (PHP, Nginx, DB, Redis, Wings) |
 
@@ -212,11 +212,11 @@ Traditional Minecraft control panels like **Crafty Controller** or **Pterodactyl
 By focusing strictly on managing and optimizing **a single server instance per container**:
 * **No external databases required**: All settings and state are stored cleanly in lightweight local JSON files.
 * **No bloated middleware**: Runs as a single asynchronous Python process powered by FastAPI and Uvicorn.
-* **Maximum hardware efficiency**: On a 2 GB, 4 GB, or 8 GB VPS, Dockraft uses almost zero resources. **More than 98% of your CPU and RAM is 100% dedicated to Minecraft, your worlds, mods, and players.**
+* **Maximum hardware efficiency**: On a 2 GB, 4 GB, or 8 GB VPS, Dockraft consumes about **50–75 MB of RAM** (OS-dependent) and **~0% CPU at idle**. That leaves over 96% free on a 2 GB box and over 99% on 8 GB, **all of it available to Minecraft, your worlds, mods, and players.**
 
 > 🏆 **Small server or massive one? Doesn't matter.**
 > Dockraft gives you everything you need to manage a Minecraft server professionally — without eating into the resources your world, players and plugins actually need.
-> From a 2 GB friends server to a high-performance 64 GB dedicated machine, the panel always consumes less than 1% of your resources, leaving the rest entirely free for the game.
+> From a 2 GB friends server to a high-performance 64 GB dedicated machine, the panel uses a minimal footprint (50–75 MB, ~0% CPU at idle): under 4% of a 2 GB box and below 1% on 8 GB and up, leaving the rest entirely free for the game.
 
 ---
 
@@ -224,7 +224,7 @@ By focusing strictly on managing and optimizing **a single server instance per c
 
 | Panel | Idle RAM Usage | Startup Time | Multi-server Model |
 | :--- | :---: | :---: | :--- |
-| **Dockraft** | **~4.5 MB to 45 MB** | **~1 second** | **Single dedicated instance (ultra-lightweight & focused)** |
+| **Dockraft** | **~50–75 MB** (~0% CPU) | **~1 second** | **Single dedicated instance (ultra-lightweight & focused)** |
 | Crafty Controller v4 | ~350 MB to 700 MB | ~20 to 30 seconds | Heavy multi-instance stack (Tornado, Flask, SQLite/Postgres) |
 | Pterodactyl Panel | ~800 MB to 1.2 GB | Multiple services | Distributed infrastructure (PHP, Nginx, DB, Redis, Wings) |
 
