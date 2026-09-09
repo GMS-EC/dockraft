@@ -429,6 +429,7 @@ const App = {
   },
 
   showToast(message, type = 'info') {
+    const key = String(message);
     let container = document.getElementById('toast-container');
     if (!container) {
       // Fallback: create the container if somehow missing
@@ -438,9 +439,12 @@ const App = {
       document.body.appendChild(container);
     }
 
-    // Do not spam identical messages
-    const existing = Array.from(container.children).find(el => el.textContent === message);
-    if (existing) return;
+    // Do not spam identical messages: refresh the existing toast instead.
+    const existing = Array.from(container.children).find(el => el.dataset.msg === key);
+    if (existing) {
+      this._armToastTimer(existing);
+      return;
+    }
 
     // Limit maximum toasts to 3
     while (container.children.length >= 3) {
@@ -456,11 +460,17 @@ const App = {
     const style = typeStyles[type] || typeStyles.info;
 
     const toast = document.createElement('div');
+    toast.dataset.msg = key;
+    toast.className = 'dockraft-toast';
     toast.style.cssText = `
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
       background: ${style.bg};
       border: 1px solid ${style.border};
       color: white;
-      padding: 10px 16px;
+      padding: 10px 12px 10px 16px;
       border-radius: 6px;
       font-size: 0.85rem;
       font-weight: 500;
@@ -469,14 +479,49 @@ const App = {
       max-width: 320px;
       word-break: break-word;
     `;
-    toast.textContent = message;
+
+    const text = document.createElement('span');
+    text.style.cssText = 'flex: 1; min-width: 0; word-break: break-word;';
+    text.textContent = message;
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'toast-close';
+    close.setAttribute('aria-label', 'Cerrar notificación');
+    close.title = 'Cerrar';
+    close.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    close.addEventListener('click', () => this.dismissToast(toast));
+
+    toast.appendChild(text);
+    toast.appendChild(close);
     container.appendChild(toast);
 
+    // Pause the auto-dismiss timer while the mouse is over the toast.
+    toast.addEventListener('mouseenter', () => this._clearToastTimer(toast));
+    toast.addEventListener('mouseleave', () => this._armToastTimer(toast));
+    this._armToastTimer(toast);
+  },
+
+  _clearToastTimer(toast) {
+    if (toast.__autoCloseTimer) {
+      clearTimeout(toast.__autoCloseTimer);
+      toast.__autoCloseTimer = null;
+    }
+  },
+
+  _armToastTimer(toast, ms = 4000) {
+    this._clearToastTimer(toast);
+    toast.__autoCloseTimer = setTimeout(() => this.dismissToast(toast), ms);
+  },
+
+  dismissToast(toast) {
+    if (!toast || !toast.isConnected) return;
+    this._clearToastTimer(toast);
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.25s ease';
     setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transition = 'opacity 0.25s ease';
-      setTimeout(() => toast.remove(), 250);
-    }, 3500);
+      if (toast.isConnected) toast.remove();
+    }, 250);
   },
 
   ensureConfirmModal() {
