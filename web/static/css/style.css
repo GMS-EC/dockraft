@@ -2074,6 +2074,24 @@ input:checked + .slider:before {
   display: block;
 }
 
+/* Language switcher: keep the ES/EN code optically centered inside its pill */
+#btn-lang-toggle {
+  line-height: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+#lang-current-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  min-width: 2ch;
+  text-align: center;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
 .footer-copyright {
   color: #484f58;
   font-size: 0.74rem;

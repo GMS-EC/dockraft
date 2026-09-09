@@ -569,18 +569,20 @@ const Files = {
   },
 
   isEditable(ext) {
-    // Block known binary / non-text formats. Everything else is treated as editable text.
+    // Block only real binary / non-text formats. Everything else (including any
+    // unknown or text format: .yml, .json, .txt, .log, .md, .sh, .datapack text,
+    // .svg/.xml, .pem, etc.) is treated as editable text.
     const BINARY_EXTENSIONS = new Set([
       // Archives & packages
       'jar', 'zip', 'gz', 'tar', 'rar', '7z', 'bz2', 'xz', 'zst', 'lz4',
-      // Images
-      'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'ico', 'svg', 'tiff', 'tif',
+      // Images (bitmap; SVG is text/XML and stays editable)
+      'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'ico', 'tiff', 'tif',
       // Audio / Video
       'mp3', 'wav', 'ogg', 'flac', 'mp4', 'avi', 'mkv', 'mov', 'webm',
       // Binaries / executables
       'exe', 'dll', 'so', 'dylib', 'bin', 'elf', 'o', 'a', 'lib', 'class',
-      // Databases
-      'db', 'sqlite', 'sqlite3', 'mca', 'mcworld', 'ldb',
+      // Databases / binary world data
+      'db', 'sqlite', 'sqlite3', 'dat', 'nbt', 'mca', 'mcworld', 'ldb',
       // Documents (binary)
       'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
       // Fonts
