@@ -9,6 +9,8 @@ const Metrics = {
   ctx: null,
 
   init() {
+    if (this._initialized) return;
+    this._initialized = true;
     this.canvas = document.getElementById('metrics-chart-canvas');
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
@@ -23,6 +25,42 @@ const Metrics = {
       ro.observe(this.canvas.parentElement);
     } else {
       window.addEventListener('resize', () => this.redraw());
+    }
+
+    // Refresh dynamic KPI/toggle strings when the panel language changes (no toasts)
+    window.addEventListener('dockraft:language_changed', () => this.refreshLanguage());
+  },
+
+  _t(key, fallback) {
+    if (typeof I18n !== 'undefined' && I18n.t) return I18n.t(key, fallback);
+    return (fallback !== undefined ? fallback : key);
+  },
+
+  _tf(key, args, fallback) {
+    if (typeof I18n !== 'undefined' && I18n.fmt) return I18n.fmt(key, args || [], fallback);
+    let text = (fallback !== undefined ? fallback : key);
+    (args || []).forEach((value, i) => {
+      text = String(text).split(`{${i}}`).join(value);
+    });
+    return text;
+  },
+
+  refreshLanguage() {
+    this.updateLiveLabel();
+    this.updateKPIs();
+  },
+
+  updateLiveLabel() {
+    const dot = document.getElementById('metrics-live-dot');
+    const label = document.getElementById('metrics-live-label');
+    if (this.isLive) {
+      if (dot) dot.style.backgroundColor = '#34d399';
+      if (dot) dot.style.boxShadow = '0 0 6px #34d399';
+      if (label) label.textContent = this._t('t_metric_live_active', 'En Vivo (10s)');
+    } else {
+      if (dot) dot.style.backgroundColor = '#8b949e';
+      if (dot) dot.style.boxShadow = 'none';
+      if (label) label.textContent = this._t('t_metric_live_paused', 'Pausado');
     }
   },
 
@@ -51,18 +89,11 @@ const Metrics = {
 
   toggleLivePolling() {
     this.isLive = !this.isLive;
-    const dot = document.getElementById('metrics-live-dot');
-    const label = document.getElementById('metrics-live-label');
+    this.updateLiveLabel();
     if (this.isLive) {
-      if (dot) dot.style.backgroundColor = '#34d399';
-      if (dot) dot.style.boxShadow = '0 0 6px #34d399';
-      if (label) label.textContent = 'En Vivo (10s)';
       this.startLivePolling();
       this.fetchData();
     } else {
-      if (dot) dot.style.backgroundColor = '#8b949e';
-      if (dot) dot.style.boxShadow = 'none';
-      if (label) label.textContent = 'Pausado';
       this.stopLivePolling();
     }
   },
@@ -83,9 +114,9 @@ const Metrics = {
 
   async resetMetrics() {
     const ok = await App.confirm({
-      title: 'Vaciar Historial de Métricas',
-      message: '¿Deseas vaciar el historial de métricas y reiniciar los contadores de picos?',
-      confirmText: 'Vaciar Historial',
+      title: this._t('t_metric_confirm_reset_title', 'Vaciar Historial de Métricas'),
+      message: this._t('t_metric_confirm_reset_msg', '¿Deseas vaciar el historial de métricas y reiniciar los contadores de picos?'),
+      confirmText: this._t('t_metric_btn_reset', 'Vaciar Historial'),
       danger: true
     });
     if (!ok) return;
@@ -95,7 +126,7 @@ const Metrics = {
         this.history = [];
         await this.fetchData();
         if (typeof App !== 'undefined' && App.showToast) {
-          App.showToast("Historial de métricas reiniciado correctamente", "success");
+          App.showToast(this._t('t_metric_toast_reset_ok', 'Historial de métricas reiniciado correctamente'), 'success');
         }
       }
     } catch (e) {
@@ -104,6 +135,18 @@ const Metrics = {
   },
 
   updateKPIs() {
+    const countEl = document.getElementById('metrics-sample-count');
+    const sampleCount = this.history ? this.history.length : 0;
+    if (countEl) {
+      countEl.textContent = this._tf('t_metric_samples', [sampleCount], '{0} muestras');
+      countEl.title = this._tf('t_metric_samples_title', [sampleCount], '{0} muestras en el búfer de memoria');
+    }
+
+    const overlay = document.getElementById('metrics-empty-overlay');
+    if (overlay) {
+      overlay.style.display = (sampleCount === 0) ? 'flex' : 'none';
+    }
+
     if (!this.summary) return;
     const s = this.summary;
 
@@ -126,7 +169,7 @@ const Metrics = {
     const plVal = document.getElementById('metric-kpi-players-val');
     const plPeak = document.getElementById('metric-kpi-players-peak');
     if (plVal) plVal.textContent = s.current_players || 0;
-    if (plPeak) plPeak.textContent = `${s.peak_players || 0} jugadores`;
+    if (plPeak) plPeak.textContent = this._tf('t_metric_players_count', [s.peak_players || 0], '{0} jugadores');
 
     const upVal = document.getElementById('metric-kpi-uptime-val');
     const stBadge = document.getElementById('metric-kpi-status-badge');
@@ -155,14 +198,6 @@ const Metrics = {
       stBadge.textContent = s.current_status || 'OFFLINE';
       stBadge.style.background = isOnline ? 'rgba(46, 160, 67, 0.15)' : 'rgba(218, 54, 51, 0.15)';
       stBadge.style.color = isOnline ? '#3fb950' : '#f85149';
-    }
-
-    const countEl = document.getElementById('metrics-sample-count');
-    if (countEl) countEl.textContent = `${this.history.length} muestras`;
-
-    const overlay = document.getElementById('metrics-empty-overlay');
-    if (overlay) {
-      overlay.style.display = (this.history.length === 0) ? 'flex' : 'none';
     }
   },
 
@@ -336,15 +371,15 @@ const Metrics = {
     tTime.textContent = sample.time_str || '--:--:--';
     tBody.innerHTML = `
       <div style="display: flex; justify-content: space-between; gap: 14px; color: #cbd5e1;">
-        <span style="color: #f59e0b; font-weight: 600;">CPU:</span>
+        <span style="color: #f59e0b; font-weight: 600;">${this._t('t_metric_tt_cpu', 'CPU:')}</span>
         <span style="font-family: var(--font-mono);">${sample.cpu_percent || 0.0}%</span>
       </div>
       <div style="display: flex; justify-content: space-between; gap: 14px; color: #cbd5e1;">
-        <span style="color: #38bdf8; font-weight: 600;">RAM:</span>
+        <span style="color: #38bdf8; font-weight: 600;">${this._t('t_metric_tt_ram', 'RAM:')}</span>
         <span style="font-family: var(--font-mono);">${Math.round(sample.memory_mb || 0)} MB (${sample.memory_percent || 0}%)</span>
       </div>
       <div style="display: flex; justify-content: space-between; gap: 14px; color: #cbd5e1;">
-        <span style="color: #a855f7; font-weight: 600;">Jugadores:</span>
+        <span style="color: #a855f7; font-weight: 600;">${this._t('t_metric_tt_players', 'Jugadores:')}</span>
         <span style="font-family: var(--font-mono);">${sample.players_online || 0}</span>
       </div>
     `;

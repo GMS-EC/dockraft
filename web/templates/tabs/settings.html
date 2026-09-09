@@ -12,7 +12,7 @@
           <span class="badge" id="settings-badge-version" style="background-color: var(--bg-subtle);">v26.2</span>
           <span class="badge" id="settings-badge-edition" style="background-color: rgba(56, 139, 253, 0.15); color: #58a6ff;">Java Edition</span>
         </div>
-        <div class="settings-server-sub" id="settings-badge-sub">Configuración de opciones de juego y rendimiento adaptadas a tu servidor.</div>
+        <div class="settings-server-sub" id="settings-badge-sub" data-i18n="t_setting_header_sub">Configuración de opciones de juego y rendimiento adaptadas a tu servidor.</div>
       </div>
     </div>
     <div id="settings-badge-status"></div>
@@ -23,13 +23,13 @@
     <div style="margin-bottom: 12px; display: flex; justify-content: center;">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     </div>
-    <h3 style="margin-bottom: 8px;">No se ha detectado ningún servidor instalado</h3>
-    <p style="color: var(--text-muted); max-width: 540px; margin: 0 auto 20px auto; font-size: 0.9rem;">
+    <h3 style="margin-bottom: 8px;" data-i18n="t_setting_empty_title">No se ha detectado ningún servidor instalado</h3>
+    <p style="color: var(--text-muted); max-width: 540px; margin: 0 auto 20px auto; font-size: 0.9rem;" data-i18n="t_setting_empty_desc">
       Para personalizar las opciones de juego y el rendimiento, primero debes instalar un software de servidor (Paper, Purpur, Vanilla, Fabric o Bedrock) desde la pestaña "Versiones & Software".
     </p>
     <button class="btn btn-primary" onclick="App.switchTab('installer')" style="display: inline-flex; align-items: center; gap: 6px;">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-      Ir a Versiones & Software
+      <span data-i18n="t_setting_empty_btn">Ir a Versiones & Software</span>
     </button>
   </div>
 
@@ -40,85 +40,85 @@
       <div class="card">
         <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1"/><circle cx="18" cy="13" r="1"/></svg>
-          Opciones de Partida Bedrock (server.properties)
+          <span data-i18n="t_setting_bedrock_game_title">Opciones de Partida Bedrock (server.properties)</span>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Nombre del Servidor (MOTD en Bedrock)</label>
+          <label class="form-label" data-i18n="t_setting_label_name_motd">Nombre del Servidor (MOTD en Bedrock)</label>
           <input type="text" class="form-input" id="bedrock-prop-server-name" placeholder="Dedicated Server">
-          <div class="field-hint">Aparece en la lista de amigos y en el explorador LAN de Minecraft Bedrock.</div>
+          <div class="field-hint" data-i18n="t_setting_hint_motd">Aparece en la lista de amigos y en el explorador LAN de Minecraft Bedrock.</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Nombre del Servidor (Dockraft Panel)</label>
+          <label class="form-label" data-i18n="t_setting_label_name_panel">Nombre del Servidor (Dockraft Panel)</label>
           <input type="text" class="form-input" id="bedrock-setting-server-name" placeholder="Mi Servidor Dockraft" value="{{ server_name or 'Mi Servidor Dockraft' }}">
-          <div class="field-hint">Identificador para la barra superior de métricas y alertas Webhooks.</div>
+          <div class="field-hint" data-i18n="t_setting_hint_name_panel">Identificador para la barra superior de métricas y alertas Webhooks.</div>
         </div>
 
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label">Puerto IPv4</label>
+            <label class="form-label" data-i18n="t_setting_label_port_ipv4">Puerto IPv4</label>
             <input type="number" class="form-input" id="bedrock-prop-port" value="19132">
           </div>
           <div class="form-group">
-            <label class="form-label">Puerto IPv6</label>
+            <label class="form-label" data-i18n="t_setting_label_port_ipv6">Puerto IPv6</label>
             <input type="number" class="form-input" id="bedrock-prop-portv6" value="19133">
           </div>
         </div>
 
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label">Modo de Juego</label>
+            <label class="form-label" data-i18n="t_setting_label_gamemode">Modo de Juego</label>
             <select class="form-select" id="bedrock-prop-gamemode">
-              <option value="survival">Supervivencia (Survival)</option>
-              <option value="creative">Creativo (Creative)</option>
-              <option value="adventure">Aventura (Adventure)</option>
+              <option value="survival" data-i18n="t_setting_gm_survival">Supervivencia (Survival)</option>
+              <option value="creative" data-i18n="t_setting_gm_creative">Creativo (Creative)</option>
+              <option value="adventure" data-i18n="t_setting_gm_adventure">Aventura (Adventure)</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Dificultad</label>
+            <label class="form-label" data-i18n="t_setting_label_difficulty">Dificultad</label>
             <select class="form-select" id="bedrock-prop-difficulty">
-              <option value="peaceful">Pacífico (Peaceful)</option>
-              <option value="easy">Fácil (Easy)</option>
-              <option value="normal">Normal</option>
-              <option value="hard">Difícil (Hard)</option>
+              <option value="peaceful" data-i18n="t_setting_df_peaceful">Pacífico (Peaceful)</option>
+              <option value="easy" data-i18n="t_setting_df_easy">Fácil (Easy)</option>
+              <option value="normal" data-i18n="t_setting_df_normal">Normal</option>
+              <option value="hard" data-i18n="t_setting_df_hard">Difícil (Hard)</option>
             </select>
           </div>
         </div>
 
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label">Permiso por Defecto</label>
+            <label class="form-label" data-i18n="t_setting_label_default_permission">Permiso por Defecto</label>
             <select class="form-select" id="bedrock-prop-permission-level">
-              <option value="visitor">Visitante (Solo mirar)</option>
-              <option value="member">Miembro (Juego normal)</option>
-              <option value="operator">Operador (Permisos de comando)</option>
+              <option value="visitor" data-i18n="t_setting_perm_visitor">Visitante (Solo mirar)</option>
+              <option value="member" data-i18n="t_setting_perm_member">Miembro (Juego normal)</option>
+              <option value="operator" data-i18n="t_setting_perm_operator">Operador (Permisos de comando)</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Máximo de Jugadores</label>
+            <label class="form-label" data-i18n="t_setting_label_max_players">Máximo de Jugadores</label>
             <input type="number" class="form-input" id="bedrock-prop-max-players" value="10">
           </div>
         </div>
 
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label">Distancia de Renderizado (Chunks)</label>
+            <label class="form-label" data-i18n="t_setting_label_view_distance">Distancia de Renderizado (Chunks)</label>
             <input type="number" class="form-input" id="bedrock-prop-view-distance" value="32">
           </div>
 
           <div class="form-group">
-            <label class="form-label">Distancia de Ticks (4 - 12 Chunks)</label>
+            <label class="form-label" data-i18n="t_setting_label_tick_distance">Distancia de Ticks (4 - 12 Chunks)</label>
             <input type="number" class="form-input" id="bedrock-prop-tick-distance" min="4" max="12" value="4">
           </div>
         </div>
 
         <div class="toggle-wrapper">
           <div>
-            <div style="font-weight:600; font-size:0.9rem;">Autenticación Online (Xbox Live / Microsoft)</div>
-            <div style="font-size:0.75rem; color:var(--text-dim);">Desactivar permite cuentas sin inicio de sesión Xbox.</div>
+            <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_online_mode">Autenticación Online (Xbox Live / Microsoft)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);" data-i18n="t_setting_toggle_online_mode_desc">Desactivar permite cuentas sin inicio de sesión Xbox.</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="bedrock-prop-online-mode" checked>
@@ -128,8 +128,8 @@
 
         <div class="toggle-wrapper">
           <div>
-            <div style="font-weight:600; font-size:0.9rem;">Permitir Trucos (Allow Cheats)</div>
-            <div style="font-size:0.75rem; color:var(--text-dim);">Permite comandos como /teleport, /give o cambios de modo de juego.</div>
+            <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_allow_cheats">Permitir Trucos (Allow Cheats)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);" data-i18n="t_setting_toggle_allow_cheats_desc">Permite comandos como /teleport, /give o cambios de modo de juego.</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="bedrock-prop-allow-cheats">
@@ -139,8 +139,8 @@
 
         <div class="toggle-wrapper">
           <div>
-            <div style="font-weight:600; font-size:0.9rem;">Lista Blanca (Allowlist / Whitelist)</div>
-            <div style="font-size:0.75rem; color:var(--text-dim);">Solo permite ingresar a jugadores listados en allowlist.json.</div>
+            <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_whitelist">Lista Blanca (Allowlist / Whitelist)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);" data-i18n="t_setting_toggle_whitelist_desc">Solo permite ingresar a jugadores listados en allowlist.json.</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="bedrock-prop-white-list">
@@ -150,8 +150,8 @@
 
         <div class="toggle-wrapper">
           <div>
-            <div style="font-weight:600; font-size:0.9rem;">Exigir Paquete de Recursos (Texturepack Required)</div>
-            <div style="font-size:0.75rem; color:var(--text-dim);">Obliga a los jugadores a aceptar y descargar los paquetes del servidor.</div>
+            <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_texturepack">Exigir Paquete de Recursos (Texturepack Required)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);" data-i18n="t_setting_toggle_texturepack_desc">Obliga a los jugadores a aceptar y descargar los paquetes del servidor.</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="bedrock-prop-texturepack-required">
@@ -162,7 +162,7 @@
         <div style="margin-top: 14px;">
           <button class="btn btn-primary" onclick="Settings.saveBedrockProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            Guardar Opciones de Bedrock
+            <span data-i18n="t_setting_btn_save_bedrock">Guardar Opciones de Bedrock</span>
           </button>
         </div>
       </div>
@@ -171,44 +171,44 @@
       <div class="card">
         <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          Rendimiento y Red de Bedrock (C++ Nativo)
+          <span data-i18n="t_setting_bedrock_perf_title">Rendimiento y Red de Bedrock (C++ Nativo)</span>
         </div>
 
         <div class="info-banner info">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           <div>
-            <strong>Ejecución Nativa en C++:</strong> Bedrock Dedicated Server corre directamente sobre Linux sin Máquina Virtual Java (JVM). No utiliza flags Java ni asignación de memoria heap (-Xmx).
+            <strong data-i18n="t_setting_native_strong">Ejecución Nativa en C++:</strong> <span data-i18n="t_setting_native_text">Bedrock Dedicated Server corre directamente sobre Linux sin Máquina Virtual Java (JVM). No utiliza flags Java ni asignación de memoria heap (-Xmx).</span>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Hilos Máximos de CPU (max-threads)</label>
+          <label class="form-label" data-i18n="t_setting_label_max_threads">Hilos Máximos de CPU (max-threads)</label>
           <input type="number" class="form-input" id="bedrock-prop-max-threads" placeholder="8 (0 = Automático)">
-          <div class="field-hint">Número de hilos de procesamiento para el servidor. Establece 0 para que Bedrock aproveche todos los núcleos disponibles.</div>
+          <div class="field-hint" data-i18n="t_setting_hint_max_threads">Número de hilos de procesamiento para el servidor. Establece 0 para que Bedrock aproveche todos los núcleos disponibles.</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Tiempo de Inactividad (player-idle-timeout)</label>
+          <label class="form-label" data-i18n="t_setting_label_idle_timeout">Tiempo de Inactividad (player-idle-timeout)</label>
           <input type="number" class="form-input" id="bedrock-prop-idle-timeout" value="30">
-          <div class="field-hint">Minutos de inactividad antes de desconectar automáticamente a jugadores ausentes (0 = desactivar).</div>
+          <div class="field-hint" data-i18n="t_setting_hint_idle_timeout">Minutos de inactividad antes de desconectar automáticamente a jugadores ausentes (0 = desactivar).</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Umbral de Compresión de Red (compression-threshold)</label>
+          <label class="form-label" data-i18n="t_setting_label_compression_threshold">Umbral de Compresión de Red (compression-threshold)</label>
           <input type="number" class="form-input" id="bedrock-prop-compression" value="1">
-          <div class="field-hint">Tamaño mínimo de paquete en bytes para comprimir el tráfico de red (1 = recomendado por Mojang).</div>
+          <div class="field-hint" data-i18n="t_setting_hint_compression">Tamaño mínimo de paquete en bytes para comprimir el tráfico de red (1 = recomendado por Mojang).</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Límite de Espacio en Disco (GB)</label>
-          <input type="number" class="form-input" id="bedrock-setting-disk-limit" placeholder="10 (0 = sin límite / capacidad total)" min="0" step="0.5" value="10">
-          <div class="field-hint">Espacio máximo en GB para los datos del servidor (/server_data) antes de bloquear nuevas subidas.</div>
+          <label class="form-label" data-i18n="t_setting_label_disk_limit">Límite de Espacio en Disco (GB)</label>
+          <input type="number" class="form-input" id="bedrock-setting-disk-limit" data-i18n-placeholder="t_setting_ph_disk_limit" placeholder="10 (0 = sin límite / capacidad total)" min="0" step="0.5" value="10">
+          <div class="field-hint" data-i18n="t_setting_hint_disk_limit_bedrock">Espacio máximo en GB para los datos del servidor (/server_data) antes de bloquear nuevas subidas.</div>
         </div>
 
         <div class="toggle-wrapper">
           <div>
-            <div style="font-weight:600; font-size:0.9rem;">Registro de Contenido (content-log-file-enabled)</div>
-            <div style="font-size:0.75rem; color:var(--text-dim);">Registra advertencias y errores de scripts o packs en un archivo log separado.</div>
+            <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_content_log">Registro de Contenido (content-log-file-enabled)</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);" data-i18n="t_setting_toggle_content_log_desc">Registra advertencias y errores de scripts o packs en un archivo log separado.</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="bedrock-prop-content-log">
@@ -268,7 +268,7 @@
         <div style="margin-top: 14px;">
           <button class="btn btn-primary" onclick="Settings.saveBedrockProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            Guardar Ajustes de Rendimiento
+            <span data-i18n="t_setting_btn_save_perf">Guardar Ajustes de Rendimiento</span>
           </button>
         </div>
       </div>
@@ -283,18 +283,18 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
           <div class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            Editor de server.properties
+            <span data-i18n="t_setting_editor_title">Editor de server.properties</span>
           </div>
 
           <!-- Dual Mode Toggle Pills -->
           <div style="display: flex; background: rgba(0, 0, 0, 0.3); padding: 3px; border-radius: 8px; border: 1px solid #30363d;">
             <button type="button" class="btn-mode active" id="btn-mode-props-visual" onclick="Settings.setPropertiesMode('visual')" style="padding: 4px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: #238636; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 4px;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-              Vista Guiada
+              <span data-i18n="t_setting_mode_visual">Vista Guiada</span>
             </button>
             <button type="button" class="btn-mode" id="btn-mode-props-raw" onclick="Settings.setPropertiesMode('raw')" style="padding: 4px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: transparent; color: #8b949e; cursor: pointer; display: flex; align-items: center; gap: 4px;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-              Editor Directo (Raw)
+              <span data-i18n="t_setting_mode_raw">Editor Directo (Raw)</span>
             </button>
           </div>
         </div>
@@ -304,16 +304,16 @@
           <!-- Search & Category Filters -->
           <div style="margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px;">
             <div style="position: relative;">
-              <input type="search" class="form-input" id="props-search-input" placeholder="Buscar propiedad (seed, pvp, flight, port, world, nether)..." oninput="Settings.filterProperties(this.value)" style="padding-left: 32px; font-size: 0.84rem;">
+              <input type="search" class="form-input" id="props-search-input" placeholder="Buscar propiedad (seed, pvp, flight, port, world, nether)..." data-i18n-placeholder="t_setting_ph_search" oninput="Settings.filterProperties(this.value)" style="padding-left: 32px; font-size: 0.84rem;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b949e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </div>
             
             <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;">
-              <button type="button" class="prop-cat-btn active" data-cat="all" onclick="Settings.setPropertiesCategory('all')">Todas</button>
-              <button type="button" class="prop-cat-btn" data-cat="game" onclick="Settings.setPropertiesCategory('game')">🎮 Partida</button>
-              <button type="button" class="prop-cat-btn" data-cat="world" onclick="Settings.setPropertiesCategory('world')">🌍 Mundo</button>
-              <button type="button" class="prop-cat-btn" data-cat="performance" onclick="Settings.setPropertiesCategory('performance')">⚡ Rendimiento</button>
-              <button type="button" class="prop-cat-btn" data-cat="security" onclick="Settings.setPropertiesCategory('security')">🛡️ Seguridad</button>
+              <button type="button" class="prop-cat-btn active" data-cat="all" onclick="Settings.setPropertiesCategory('all')" data-i18n="t_setting_cat_all">Todas</button>
+              <button type="button" class="prop-cat-btn" data-cat="game" onclick="Settings.setPropertiesCategory('game')" data-i18n="t_setting_cat_game">🎮 Partida</button>
+              <button type="button" class="prop-cat-btn" data-cat="world" onclick="Settings.setPropertiesCategory('world')" data-i18n="t_setting_cat_world">🌍 Mundo</button>
+              <button type="button" class="prop-cat-btn" data-cat="performance" onclick="Settings.setPropertiesCategory('performance')" data-i18n="t_setting_cat_performance">⚡ Rendimiento</button>
+              <button type="button" class="prop-cat-btn" data-cat="security" onclick="Settings.setPropertiesCategory('security')" data-i18n="t_setting_cat_security">🛡️ Seguridad</button>
             </div>
           </div>
 
@@ -322,7 +322,7 @@
             <!-- CATEGORY: GAME -->
             <div class="prop-item" data-cat="game" data-key="motd">
               <div class="form-group">
-                <label class="form-label">Mensaje del Servidor (MOTD)</label>
+                <label class="form-label" data-i18n="t_setting_label_motd">Mensaje del Servidor (MOTD)</label>
                 <input type="text" class="form-input" id="prop-motd" placeholder="A Minecraft Server">
               </div>
             </div>
@@ -330,24 +330,24 @@
             <div class="grid-2">
               <div class="prop-item" data-cat="game" data-key="gamemode">
                 <div class="form-group">
-                  <label class="form-label">Modo de Juego</label>
+                  <label class="form-label" data-i18n="t_setting_label_gamemode">Modo de Juego</label>
                   <select class="form-select" id="prop-gamemode">
-                    <option value="survival">Supervivencia (Survival)</option>
-                    <option value="creative">Creativo (Creative)</option>
-                    <option value="adventure">Aventura (Adventure)</option>
-                    <option value="spectator">Espectador (Spectator)</option>
+                    <option value="survival" data-i18n="t_setting_gm_survival">Supervivencia (Survival)</option>
+                    <option value="creative" data-i18n="t_setting_gm_creative">Creativo (Creative)</option>
+                    <option value="adventure" data-i18n="t_setting_gm_adventure">Aventura (Adventure)</option>
+                    <option value="spectator" data-i18n="t_setting_gm_spectator">Espectador (Spectator)</option>
                   </select>
                 </div>
               </div>
 
               <div class="prop-item" data-cat="game" data-key="difficulty">
                 <div class="form-group">
-                  <label class="form-label">Dificultad</label>
+                  <label class="form-label" data-i18n="t_setting_label_difficulty">Dificultad</label>
                   <select class="form-select" id="prop-difficulty">
-                    <option value="peaceful">Pacífico (Peaceful)</option>
-                    <option value="easy">Fácil (Easy)</option>
-                    <option value="normal">Normal</option>
-                    <option value="hard">Difícil (Hard)</option>
+                    <option value="peaceful" data-i18n="t_setting_df_peaceful">Pacífico (Peaceful)</option>
+                    <option value="easy" data-i18n="t_setting_df_easy">Fácil (Easy)</option>
+                    <option value="normal" data-i18n="t_setting_df_normal">Normal</option>
+                    <option value="hard" data-i18n="t_setting_df_hard">Difícil (Hard)</option>
                   </select>
                 </div>
               </div>
@@ -357,15 +357,15 @@
             <div class="grid-2">
               <div class="prop-item" data-cat="world" data-key="level-name">
                 <div class="form-group">
-                  <label class="form-label">Nombre del Mundo (Carpeta)</label>
+                  <label class="form-label" data-i18n="t_setting_label_world_name">Nombre del Mundo (Carpeta)</label>
                   <input type="text" class="form-input" id="prop-level-name" placeholder="world">
                 </div>
               </div>
 
               <div class="prop-item" data-cat="world" data-key="level-seed">
                 <div class="form-group">
-                  <label class="form-label">Semilla del Mundo (Seed)</label>
-                  <input type="text" class="form-input" id="prop-level-seed" placeholder="Dejar vacío para aleatoria">
+                  <label class="form-label" data-i18n="t_setting_label_seed">Semilla del Mundo (Seed)</label>
+                  <input type="text" class="form-input" id="prop-level-seed" placeholder="Dejar vacío para aleatoria" data-i18n-placeholder="t_setting_ph_seed">
                 </div>
               </div>
             </div>
@@ -373,19 +373,19 @@
             <div class="grid-2">
               <div class="prop-item" data-cat="world" data-key="level-type">
                 <div class="form-group">
-                  <label class="form-label">Tipo de Mundo</label>
+                  <label class="form-label" data-i18n="t_setting_label_world_type">Tipo de Mundo</label>
                   <select class="form-select" id="prop-level-type">
-                    <option value="minecraft:normal">Normal</option>
-                    <option value="minecraft:flat">Superplano (Flat)</option>
-                    <option value="minecraft:large_biomes">Biomas Grandes</option>
-                    <option value="minecraft:amplified">Amplificado</option>
+                    <option value="minecraft:normal" data-i18n="t_setting_wt_normal">Normal</option>
+                    <option value="minecraft:flat" data-i18n="t_setting_wt_flat">Superplano (Flat)</option>
+                    <option value="minecraft:large_biomes" data-i18n="t_setting_wt_large_biomes">Biomas Grandes</option>
+                    <option value="minecraft:amplified" data-i18n="t_setting_wt_amplified">Amplificado</option>
                   </select>
                 </div>
               </div>
 
               <div class="prop-item" data-cat="world" data-key="spawn-protection">
                 <div class="form-group">
-                  <label class="form-label">Radio de Protección de Spawn</label>
+                  <label class="form-label" data-i18n="t_setting_label_spawn_protection">Radio de Protección de Spawn</label>
                   <input type="number" class="form-input" id="prop-spawn-protection" value="16" min="0">
                 </div>
               </div>
@@ -395,14 +395,14 @@
             <div class="grid-2">
               <div class="prop-item" data-cat="performance" data-key="server-port">
                 <div class="form-group">
-                  <label class="form-label">Puerto del Servidor</label>
+                  <label class="form-label" data-i18n="t_setting_label_server_port">Puerto del Servidor</label>
                   <input type="number" class="form-input" id="prop-server-port" value="25565">
                 </div>
               </div>
 
               <div class="prop-item" data-cat="performance" data-key="max-players">
                 <div class="form-group">
-                  <label class="form-label">Máximo de Jugadores</label>
+                  <label class="form-label" data-i18n="t_setting_label_max_players">Máximo de Jugadores</label>
                   <input type="number" class="form-input" id="prop-max-players" value="20">
                 </div>
               </div>
@@ -411,14 +411,14 @@
             <div class="grid-2">
               <div class="prop-item" data-cat="performance" data-key="view-distance">
                 <div class="form-group">
-                  <label class="form-label">Distancia de Renderizado (Chunks)</label>
+                  <label class="form-label" data-i18n="t_setting_label_view_distance">Distancia de Renderizado (Chunks)</label>
                   <input type="number" class="form-input" id="prop-view-distance" value="10">
                 </div>
               </div>
 
               <div class="prop-item" data-cat="performance" data-key="simulation-distance">
                 <div class="form-group">
-                  <label class="form-label">Distancia de Simulación (Chunks)</label>
+                  <label class="form-label" data-i18n="t_setting_label_sim_distance">Distancia de Simulación (Chunks)</label>
                   <input type="number" class="form-input" id="prop-simulation-distance" value="8">
                 </div>
               </div>
@@ -427,14 +427,14 @@
             <div class="grid-2">
               <div class="prop-item" data-cat="performance" data-key="network-compression-threshold">
                 <div class="form-group">
-                  <label class="form-label">Umbral Compresión de Red (bytes)</label>
+                  <label class="form-label" data-i18n="t_setting_label_compression_bytes">Umbral Compresión de Red (bytes)</label>
                   <input type="number" class="form-input" id="prop-compression-threshold" value="256">
                 </div>
               </div>
 
               <div class="prop-item" data-cat="performance" data-key="rate-limit">
                 <div class="form-group">
-                  <label class="form-label">Límite de Paquetes (Rate Limit)</label>
+                  <label class="form-label" data-i18n="t_setting_label_rate_limit">Límite de Paquetes (Rate Limit)</label>
                   <input type="number" class="form-input" id="prop-rate-limit" value="0">
                 </div>
               </div>
@@ -444,8 +444,8 @@
             <div class="prop-item" data-cat="security" data-key="online-mode">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">Modo Online (Autenticación Mojang / Microsoft)</div>
-                  <div style="font-size:0.75rem; color:var(--text-dim);">Desactivar permite cuentas No-Premium / Offline.</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_online_mode_java">Modo Online (Autenticación Mojang / Microsoft)</div>
+                  <div style="font-size:0.75rem; color:var(--text-dim);" data-i18n="t_setting_toggle_online_mode_java_desc">Desactivar permite cuentas No-Premium / Offline.</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-online-mode" checked>
@@ -457,7 +457,7 @@
             <div class="prop-item" data-cat="security" data-key="white-list">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">Lista Blanca (Whitelist)</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_whitelist_java">Lista Blanca (Whitelist)</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-white-list">
@@ -469,8 +469,8 @@
             <div class="prop-item" data-cat="security" data-key="enforce-whitelist">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">Forzar Lista Blanca (Enforce Whitelist)</div>
-                  <div style="font-size:0.75rem; color:var(--text-dim);">Expulsa a jugadores si se activó la lista después de su entrada.</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_enforce_whitelist">Forzar Lista Blanca (Enforce Whitelist)</div>
+                  <div style="font-size:0.75rem; color:var(--text-dim);" data-i18n="t_setting_toggle_enforce_whitelist_desc">Expulsa a jugadores si se activó la lista después de su entrada.</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-enforce-whitelist">
@@ -482,7 +482,7 @@
             <div class="prop-item" data-cat="game" data-key="pvp">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">PVP (Combate entre jugadores)</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_pvp">PVP (Combate entre jugadores)</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-pvp" checked>
@@ -494,7 +494,7 @@
             <div class="prop-item" data-cat="game" data-key="allow-flight">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">Permitir Volar (Allow Flight)</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_allow_flight">Permitir Volar (Allow Flight)</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-allow-flight">
@@ -506,7 +506,7 @@
             <div class="prop-item" data-cat="world" data-key="allow-nether">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">Habilitar Dimensión del Nether</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_allow_nether">Habilitar Dimensión del Nether</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-allow-nether" checked>
@@ -518,7 +518,7 @@
             <div class="prop-item" data-cat="world" data-key="generate-structures">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">Generar Estructuras (Aldeas, Templos, etc.)</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_generate_structures">Generar Estructuras (Aldeas, Templos, etc.)</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-generate-structures" checked>
@@ -530,7 +530,7 @@
             <div class="prop-item" data-cat="game" data-key="spawn-monsters">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">Spawn de Monstruos</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_spawn_monsters">Spawn de Monstruos</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-spawn-monsters" checked>
@@ -542,7 +542,7 @@
             <div class="prop-item" data-cat="game" data-key="spawn-animals">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">Spawn de Animales</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_spawn_animals">Spawn de Animales</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-spawn-animals" checked>
@@ -554,7 +554,7 @@
             <div class="prop-item" data-cat="game" data-key="enable-command-block">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">Bloques de Comandos</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_command_blocks">Bloques de Comandos</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-enable-command-block">
@@ -566,8 +566,8 @@
             <div class="prop-item" data-cat="game" data-key="hardcore">
               <div class="toggle-wrapper">
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">Modo Hardcore</div>
-                  <div style="font-size:0.75rem; color:var(--text-dim);">Los jugadores pasan a modo espectador al morir.</div>
+                  <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_hardcore">Modo Hardcore</div>
+                  <div style="font-size:0.75rem; color:var(--text-dim);" data-i18n="t_setting_toggle_hardcore_desc">Los jugadores pasan a modo espectador al morir.</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="prop-hardcore">
@@ -580,7 +580,7 @@
           <div style="margin-top: 16px;">
             <button class="btn btn-primary" onclick="Settings.saveProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              Guardar Opciones Visuales
+              <span data-i18n="t_setting_btn_save_visual">Guardar Opciones Visuales</span>
             </button>
           </div>
         </div>
@@ -588,7 +588,7 @@
         <!-- RAW CODE EDITOR MODE -->
         <div id="props-view-raw" style="display: none;">
           <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
-            Edita directamente el archivo <code>server.properties</code>. Puedes añadir cualquier propiedad avanzada o comentario (#).
+            <span data-i18n="t_setting_raw_intro_1">Edita directamente el archivo</span> <code>server.properties</code><span data-i18n="t_setting_raw_intro_2">. Puedes añadir cualquier propiedad avanzada o comentario (#).</span>
           </p>
           <textarea id="props-raw-textarea" class="form-input" spellcheck="false" wrap="off" style="
             width: 100%;
@@ -611,11 +611,11 @@
           <div style="margin-top: 14px; display: flex; gap: 8px;">
             <button class="btn btn-primary" onclick="Settings.saveRawProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              Guardar Archivo Directo
+              <span data-i18n="t_setting_btn_save_raw">Guardar Archivo Directo</span>
             </button>
             <button class="btn btn-outline" onclick="Settings.loadRawProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-              Recargar desde Disco
+              <span data-i18n="t_setting_btn_reload_disk">Recargar desde Disco</span>
             </button>
           </div>
         </div>
@@ -629,42 +629,42 @@
       <div class="card">
         <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
-          Opciones de Rendimiento y Memoria JVM
+          <span data-i18n="t_setting_jvm_title">Opciones de Rendimiento y Memoria JVM</span>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Nombre del Servidor (Dockraft Panel)</label>
+          <label class="form-label" data-i18n="t_setting_label_name_panel">Nombre del Servidor (Dockraft Panel)</label>
           <input type="text" class="form-input" id="setting-server-name" placeholder="Mi Servidor Dockraft" value="{{ server_name or 'Mi Servidor Dockraft' }}">
-          <div class="field-hint">Identificador para la barra superior de métricas y alertas Webhooks.</div>
+          <div class="field-hint" data-i18n="t_setting_hint_name_panel">Identificador para la barra superior de métricas y alertas Webhooks.</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Entorno de Ejecución Java (Runtime)</label>
+          <label class="form-label" data-i18n="t_setting_label_java_runtime">Entorno de Ejecución Java (Runtime)</label>
           <select class="form-select" id="setting-java-select" onchange="Settings.onJavaSelectChange()">
-            <option value="java">Java Predeterminado del Sistema (PATH)</option>
+            <option value="java" data-i18n="t_setting_opt_java_default">Java Predeterminado del Sistema (PATH)</option>
           </select>
         </div>
 
         <div class="form-group" id="setting-java-custom-group" style="display: none;">
-          <label class="form-label">Ruta personalizada al binario Java</label>
+          <label class="form-label" data-i18n="t_setting_label_java_custom_path">Ruta personalizada al binario Java</label>
           <input type="text" class="form-input" id="setting-java-path" value="java">
         </div>
 
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label">RAM Mínima (-Xms)</label>
+            <label class="form-label" data-i18n="t_setting_label_min_ram">RAM Mínima (-Xms)</label>
             <input type="text" class="form-input" id="setting-min-ram" value="1G">
           </div>
 
           <div class="form-group">
-            <label class="form-label">RAM Máxima (-Xmx)</label>
+            <label class="form-label" data-i18n="t_setting_label_max_ram">RAM Máxima (-Xmx)</label>
             <input type="text" class="form-input" id="setting-max-ram" value="2G">
           </div>
         </div>
 
         <div class="toggle-wrapper">
           <div>
-            <div style="font-weight:600; font-size:0.9rem;">Flags de Rendimiento Aikar</div>
+            <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_setting_toggle_aikar">Flags de Rendimiento Aikar</div>
             <div style="font-size:0.75rem; color:var(--text-dim);" id="setting-aikar-desc">Optimización avanzada del recolector G1GC (Recomendado para Paper y Purpur).</div>
           </div>
           <label class="toggle-switch">
@@ -675,21 +675,21 @@
 
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label">Núcleos de CPU Asignados (-XX:ActiveProcessorCount)</label>
+            <label class="form-label" data-i18n="t_setting_label_cpu_cores">Núcleos de CPU Asignados (-XX:ActiveProcessorCount)</label>
             <input type="number" class="form-input" id="setting-cpu-cores" min="1" max="64" value="2">
-            <div class="field-hint">Hilos para garbage collector, compilar y runtime JVM.</div>
+            <div class="field-hint" data-i18n="t_setting_hint_cpu_cores">Hilos para garbage collector, compilar y runtime JVM.</div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Límite de Espacio en Disco (GB)</label>
-            <input type="number" class="form-input" id="setting-disk-limit" placeholder="10 (0 = sin límite / capacidad total)" min="0" step="0.5" value="10">
-            <div class="field-hint">Espacio máximo en GB para los datos del servidor.</div>
+            <label class="form-label" data-i18n="t_setting_label_disk_limit">Límite de Espacio en Disco (GB)</label>
+            <input type="number" class="form-input" id="setting-disk-limit" placeholder="10 (0 = sin límite / capacidad total)" min="0" step="0.5" value="10" data-i18n-placeholder="t_setting_ph_disk_limit">
+            <div class="field-hint" data-i18n="t_setting_hint_disk_limit_java">Espacio máximo en GB para los datos del servidor.</div>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Flags JVM Personalizados Adicionales</label>
-          <input type="text" class="form-input" id="setting-custom-flags" placeholder="ej: -Dterminal.jline=false">
+          <label class="form-label" data-i18n="t_setting_label_custom_flags">Flags JVM Personalizados Adicionales</label>
+          <input type="text" class="form-input" id="setting-custom-flags" placeholder="ej: -Dterminal.jline=false" data-i18n-placeholder="t_setting_ph_custom_flags">
         </div>
 
         <!-- Comportamiento del Servidor: Autostart & Crash Detection -->
@@ -744,7 +744,7 @@
         <div style="margin-top: 14px;">
           <button class="btn btn-primary" onclick="Settings.saveRuntimeConfig()" style="display: inline-flex; align-items: center; gap: 6px;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            Guardar Ajustes de Memoria JVM
+            <span data-i18n="t_setting_btn_save_jvm">Guardar Ajustes de Memoria JVM</span>
           </button>
         </div>
 

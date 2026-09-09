@@ -4,15 +4,15 @@
     <div>
       <h2 style="font-size: 1.3rem; font-weight: 700; color: #f1f5f9; margin: 0; display: flex; align-items: center; gap: 8px;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        Centro de Notificaciones & Webhooks
+        <span data-i18n="t_webhook_heading">Centro de Notificaciones &amp; Webhooks</span>
       </h2>
-      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; margin-bottom: 0;">
+      <p data-i18n="t_webhook_subtitle" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; margin-bottom: 0;">
         Configura alertas automáticas en tiempo real para Discord, Telegram o Correo Electrónico.
       </p>
     </div>
     <button class="btn btn-primary" id="btn-save-webhooks" onclick="Webhooks.saveConfig()" style="display: flex; align-items: center; gap: 6px;">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-      Guardar Configuración
+      <span data-i18n="t_webhook_btn_save">Guardar Configuración</span>
     </button>
   </div>
 
@@ -34,23 +34,23 @@
           </label>
         </div>
 
-        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 14px;">
+        <p data-i18n="t_webhook_desc_discord" style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 14px;">
           Envía alertas enriquecidas con colores dinámicos a través de un Webhook de canal de texto de Discord.
         </p>
 
         <div class="webhook-status-badge" id="webhook-discord-status">
-          <span class="status-dot"></span> <span id="webhook-discord-status-text">Sin configurar</span>
+          <span class="status-dot"></span> <span id="webhook-discord-status-text" data-i18n="t_webhook_status_unconfigured">Sin configurar</span>
         </div>
       </div>
 
       <div style="display: flex; gap: 8px; margin-top: 18px;">
         <button type="button" class="btn btn-primary" onclick="Webhooks.openModal('discord')" style="flex: 1; font-size: 0.82rem; padding: 7px 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Configurar
+          <span data-i18n="t_webhook_btn_configure">Configurar</span>
         </button>
-        <button type="button" class="btn btn-outline" id="btn-test-discord" onclick="Webhooks.testChannel('discord')" style="font-size: 0.82rem; padding: 7px 14px; border-color: rgba(88, 101, 242, 0.4); color: #7289da; display: inline-flex; align-items: center; gap: 6px;" title="Enviar notificación de prueba">
+        <button type="button" class="btn btn-outline" id="btn-test-discord" onclick="Webhooks.testChannel('discord')" style="font-size: 0.82rem; padding: 7px 14px; border-color: rgba(88, 101, 242, 0.4); color: #7289da; display: inline-flex; align-items: center; gap: 6px;" title="Enviar notificación de prueba" data-i18n-title="t_webhook_btn_test_title">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Probar
+          <span data-i18n="t_webhook_btn_test">Probar</span>
         </button>
       </div>
     </div>
@@ -70,23 +70,23 @@
           </label>
         </div>
 
-        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 14px;">
+        <p data-i18n="t_webhook_desc_telegram" style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 14px;">
           Avisos instantáneos en tu chat privado o grupo de Telegram mediante bot oficial con formato HTML.
         </p>
 
         <div class="webhook-status-badge" id="webhook-telegram-status">
-          <span class="status-dot"></span> <span id="webhook-telegram-status-text">Sin configurar</span>
+          <span class="status-dot"></span> <span id="webhook-telegram-status-text" data-i18n="t_webhook_status_unconfigured">Sin configurar</span>
         </div>
       </div>
 
       <div style="display: flex; gap: 8px; margin-top: 18px;">
         <button type="button" class="btn btn-primary" onclick="Webhooks.openModal('telegram')" style="flex: 1; font-size: 0.82rem; padding: 7px 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Configurar
+          <span data-i18n="t_webhook_btn_configure">Configurar</span>
         </button>
-        <button type="button" class="btn btn-outline" id="btn-test-telegram" onclick="Webhooks.testChannel('telegram')" style="font-size: 0.82rem; padding: 7px 14px; border-color: rgba(34, 158, 217, 0.4); color: #38bdf8; display: inline-flex; align-items: center; gap: 6px;" title="Enviar notificación de prueba">
+        <button type="button" class="btn btn-outline" id="btn-test-telegram" onclick="Webhooks.testChannel('telegram')" style="font-size: 0.82rem; padding: 7px 14px; border-color: rgba(34, 158, 217, 0.4); color: #38bdf8; display: inline-flex; align-items: center; gap: 6px;" title="Enviar notificación de prueba" data-i18n-title="t_webhook_btn_test_title">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Probar
+          <span data-i18n="t_webhook_btn_test">Probar</span>
         </button>
       </div>
     </div>
@@ -97,7 +97,7 @@
         <div class="webhook-channel-header" style="margin-bottom: 12px; padding-bottom: 10px;">
           <div class="webhook-channel-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            Correo Electrónico
+            <span data-i18n="t_webhook_channel_email">Correo Electrónico</span>
             <span class="webhook-channel-badge badge-email">SMTP</span>
           </div>
           <label class="toggle-switch">
@@ -106,23 +106,23 @@
           </label>
         </div>
 
-        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 14px;">
+        <p data-i18n="t_webhook_desc_email" style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 14px;">
           Envío de correos electrónicos HTML estilizados con registro de incidencias del servidor (Gmail, Outlook, etc.).
         </p>
 
         <div class="webhook-status-badge" id="webhook-email-status">
-          <span class="status-dot"></span> <span id="webhook-email-status-text">Sin configurar</span>
+          <span class="status-dot"></span> <span id="webhook-email-status-text" data-i18n="t_webhook_status_unconfigured">Sin configurar</span>
         </div>
       </div>
 
       <div style="display: flex; gap: 8px; margin-top: 18px;">
         <button type="button" class="btn btn-primary" onclick="Webhooks.openModal('email')" style="flex: 1; font-size: 0.82rem; padding: 7px 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Configurar
+          <span data-i18n="t_webhook_btn_configure">Configurar</span>
         </button>
-        <button type="button" class="btn btn-outline" id="btn-test-email" onclick="Webhooks.testChannel('email')" style="font-size: 0.82rem; padding: 7px 14px; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; display: inline-flex; align-items: center; gap: 6px;" title="Enviar notificación de prueba">
+        <button type="button" class="btn btn-outline" id="btn-test-email" onclick="Webhooks.testChannel('email')" style="font-size: 0.82rem; padding: 7px 14px; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; display: inline-flex; align-items: center; gap: 6px;" title="Enviar notificación de prueba" data-i18n-title="t_webhook_btn_test_title">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Probar
+          <span data-i18n="t_webhook_btn_test">Probar</span>
         </button>
       </div>
     </div>
@@ -133,9 +133,9 @@
   <div class="card">
     <div class="card-title" style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e3b341" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-      Eventos Desencadenantes de Notificación
+      <span data-i18n="t_webhook_events_title">Eventos Desencadenantes de Notificación</span>
     </div>
-    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 18px;">
+    <p data-i18n="t_webhook_events_subtitle" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 18px;">
       Selecciona qué sucesos dispararán una notificación a los canales que tengas habilitados arriba.
     </p>
 
@@ -146,9 +146,9 @@
         <div>
           <div class="event-label-title" style="display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="#3fb950"><circle cx="12" cy="12" r="10"/></svg>
-            Inicio del Servidor
+            <span data-i18n="t_webhook_ev_start_title">Inicio del Servidor</span>
           </div>
-          <div class="event-label-desc">Alerta cuando el servidor de Minecraft arranca y está listo para recibir conexiones.</div>
+          <div class="event-label-desc" data-i18n="t_webhook_ev_start_desc">Alerta cuando el servidor de Minecraft arranca y está listo para recibir conexiones.</div>
         </div>
       </label>
 
@@ -157,9 +157,9 @@
         <div>
           <div class="event-label-title" style="display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="#8b949e"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-            Detención Normal
+            <span data-i18n="t_webhook_ev_stop_title">Detención Normal</span>
           </div>
-          <div class="event-label-desc">Alerta cuando el servidor es apagado o detenido de forma controlada.</div>
+          <div class="event-label-desc" data-i18n="t_webhook_ev_stop_desc">Alerta cuando el servidor es apagado o detenido de forma controlada.</div>
         </div>
       </label>
 
@@ -168,9 +168,9 @@
         <div>
           <div class="event-label-title" style="display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f85149" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Caída Inesperada (Crash)
+            <span data-i18n="t_webhook_ev_crash_title">Caída Inesperada (Crash)</span>
           </div>
-          <div class="event-label-desc">Alerta urgente si el servidor se apaga con código de error o se cierra inesperadamente.</div>
+          <div class="event-label-desc" data-i18n="t_webhook_ev_crash_desc">Alerta urgente si el servidor se apaga con código de error o se cierra inesperadamente.</div>
         </div>
       </label>
 
@@ -179,9 +179,9 @@
         <div>
           <div class="event-label-title" style="display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-            Respaldo Creado
+            <span data-i18n="t_webhook_ev_backup_title">Respaldo Creado</span>
           </div>
-          <div class="event-label-desc">Alerta al crearse una copia de seguridad manual o automática con su tamaño.</div>
+          <div class="event-label-desc" data-i18n="t_webhook_ev_backup_desc">Alerta al crearse una copia de seguridad manual o automática con su tamaño.</div>
         </div>
       </label>
 
@@ -190,9 +190,9 @@
         <div>
           <div class="event-label-title" style="display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a371f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Tarea Programada
+            <span data-i18n="t_webhook_ev_task_title">Tarea Programada</span>
           </div>
-          <div class="event-label-desc">Alerta con el resultado de ejecución de tareas (reinicios, comandos, chequeos).</div>
+          <div class="event-label-desc" data-i18n="t_webhook_ev_task_desc">Alerta con el resultado de ejecución de tareas (reinicios, comandos, chequeos).</div>
         </div>
       </label>
 
@@ -201,9 +201,9 @@
         <div>
           <div class="event-label-title" style="display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            Jugador se Conecta
+            <span data-i18n="t_webhook_ev_player_title">Jugador se Conecta</span>
           </div>
-          <div class="event-label-desc">Alerta opcional cada vez que un jugador entra al mundo de Minecraft.</div>
+          <div class="event-label-desc" data-i18n="t_webhook_ev_player_desc">Alerta opcional cada vez que un jugador entra al mundo de Minecraft.</div>
         </div>
       </label>
 
@@ -212,9 +212,9 @@
         <div>
           <div class="event-label-title" style="display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            Jugador se Desconecta
+            <span data-i18n="t_webhook_ev_player_leave_title">Jugador se Desconecta</span>
           </div>
-          <div class="event-label-desc">Alerta opcional cada vez que un jugador sale del mundo de Minecraft.</div>
+          <div class="event-label-desc" data-i18n="t_webhook_ev_player_leave_desc">Alerta opcional cada vez que un jugador sale del mundo de Minecraft.</div>
         </div>
       </label>
 
@@ -223,9 +223,9 @@
         <div>
           <div class="event-label-title" style="display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-            TPS Bajos / Lag Sostenido
+            <span data-i18n="t_webhook_ev_lowtps_title">TPS Bajos / Lag Sostenido</span>
           </div>
-          <div class="event-label-desc">Alerta proactiva si el rendimiento cae por debajo de 15.0 TPS de forma prolongada.</div>
+          <div class="event-label-desc" data-i18n="t_webhook_ev_lowtps_desc">Alerta proactiva si el rendimiento cae por debajo de 15.0 TPS de forma prolongada.</div>
         </div>
       </label>
 
@@ -234,9 +234,9 @@
         <div>
           <div class="event-label-title" style="display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-            Actualización de Plugins
+            <span data-i18n="t_webhook_ev_plugin_title">Actualización de Plugins</span>
           </div>
-          <div class="event-label-desc">Alerta cuando se detectan nuevas versiones disponibles de tus plugins en SpigotMC.</div>
+          <div class="event-label-desc" data-i18n="t_webhook_ev_plugin_desc">Alerta cuando se detectan nuevas versiones disponibles de tus plugins en SpigotMC.</div>
         </div>
       </label>
 

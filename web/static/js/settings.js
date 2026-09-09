@@ -7,6 +7,20 @@ const Settings = {
 
   eventsSetup: false,
 
+  _t(key, fallback) {
+    if (typeof I18n !== 'undefined' && I18n.t) return I18n.t(key, fallback);
+    return (fallback !== undefined ? fallback : key);
+  },
+
+  _tf(key, args, fallback) {
+    if (typeof I18n !== 'undefined' && I18n.fmt) return I18n.fmt(key, args || [], fallback);
+    let text = (fallback !== undefined ? fallback : key);
+    (args || []).forEach((value, i) => {
+      text = String(text).split(`{${i}}`).join(value);
+    });
+    return text;
+  },
+
   async loadSettings() {
     this.setupEvents();
     if (window.__INITIAL_STATS__) {
@@ -57,6 +71,103 @@ const Settings = {
         this.setPropertiesCategory(cat);
       };
     });
+
+    window.addEventListener('dockraft:language_changed', () => {
+      if (typeof App === 'undefined' || App.activeTab === 'settings') {
+        this.refreshLanguageUI();
+      }
+    });
+  },
+
+  javaServerName(serverType, fallbackName) {
+    const keys = {
+      paper: 't_setting_name_paper',
+      purpur: 't_setting_name_purpur',
+      fabric: 't_setting_name_fabric',
+      vanilla: 't_setting_name_vanilla'
+    };
+    const key = keys[serverType];
+    if (key) return this._t(key, fallbackName);
+    return this._tf('t_setting_name_generic', [serverType.toUpperCase()], fallbackName);
+  },
+
+  javaServerTip(serverType, fallbackTip) {
+    if (serverType === 'paper') return this._tf('t_setting_tip_paper', ['paper-global.yml', 'paper-world-defaults.yml'], fallbackTip);
+    if (serverType === 'purpur') return this._tf('t_setting_tip_purpur', ['purpur.yml'], fallbackTip);
+    if (serverType === 'fabric') return this._tf('t_setting_tip_fabric', ['mods/'], fallbackTip);
+    if (serverType === 'vanilla') return this._t('t_setting_tip_vanilla', fallbackTip);
+    return this._t('t_setting_tip_generic', fallbackTip);
+  },
+
+  refreshJavaRuntimeSelect() {
+    const select = document.getElementById('setting-java-select');
+    if (!select) return;
+    const previous = select.value;
+    const customGroup = document.getElementById('setting-java-custom-group');
+    const inputPath = document.getElementById('setting-java-path');
+    const wasCustomVisible = customGroup ? (customGroup.style.display !== 'none') : false;
+    const previousPath = inputPath ? inputPath.value : '';
+
+    this.populateJavaRuntimesUI();
+
+    const hasOption = Array.prototype.some.call(select.options, o => o.value === previous);
+    select.value = hasOption ? previous : 'custom';
+
+    const isCustom = select.value === 'custom';
+    if (customGroup) customGroup.style.display = isCustom ? 'block' : 'none';
+    if (inputPath) {
+      if (isCustom && wasCustomVisible && previousPath) {
+        inputPath.value = previousPath;
+      } else if (!isCustom) {
+        inputPath.value = select.value;
+      }
+    }
+  },
+
+  refreshLanguageUI() {
+    const isInstalled = this.serverStatus.is_installed;
+    const serverType = (this.serverStatus.server_type || this.runtimeConfig.server_type || 'vanilla').toLowerCase();
+    const status = this.serverStatus.status || 'OFFLINE';
+    const titleEl = document.getElementById('settings-badge-title');
+    const editionEl = document.getElementById('settings-badge-edition');
+    const statusEl = document.getElementById('settings-badge-status');
+
+    if (statusEl) {
+      const isRunning = status === 'RUNNING';
+      const isStarting = status === 'STARTING';
+      const color = isRunning ? '#3fb950' : (isStarting ? '#d29922' : '#8b949e');
+      const text = isRunning
+        ? this._t('t_setting_status_online', 'En Línea')
+        : (isStarting ? this._t('t_setting_status_starting', 'Iniciando') : this._t('t_setting_status_stopped', 'Detenido'));
+      statusEl.innerHTML = `<span class="badge" style="display:inline-flex; align-items:center; background-color: rgba(255,255,255,0.06); border: 1px solid ${color}; color: ${color};"><span style="display:inline-block; width:7px; height:7px; border-radius:50%; background-color:${color}; margin-right:6px;"></span>${text}</span>`;
+    }
+
+    if (!isInstalled) {
+      if (titleEl) titleEl.textContent = this._t('t_setting_no_server', 'Sin Servidor Instalado');
+      if (editionEl) editionEl.textContent = this._t('t_setting_not_detected', 'No Detectado');
+      return;
+    }
+
+    if (serverType === 'bedrock') {
+      if (titleEl) titleEl.textContent = this._t('t_setting_name_bedrock', 'Bedrock Dedicated Server');
+      if (editionEl) editionEl.textContent = this._t('t_setting_edition_bedrock', 'Bedrock C++ Nativo');
+      return;
+    }
+
+    if (titleEl) titleEl.textContent = this.javaServerName(serverType, 'Servidor Minecraft Java Edition');
+    if (editionEl) editionEl.textContent = 'Java Edition';
+
+    const tipText = document.getElementById('settings-software-tip-text');
+    if (tipText) tipText.innerHTML = this.javaServerTip(serverType, 'Servidor Minecraft Java Edition.');
+
+    const aikarDesc = document.getElementById('setting-aikar-desc');
+    if (aikarDesc) {
+      aikarDesc.textContent = (serverType === 'paper' || serverType === 'purpur')
+        ? this._t('t_setting_aikar_paper', 'Optimización avanzada del recolector G1GC (Altamente recomendado para Paper y Purpur).')
+        : this._t('t_setting_aikar_other', 'Flags de optimización de memoria G1GC desarrollados por la comunidad de Minecraft.');
+    }
+
+    this.refreshJavaRuntimeSelect();
   },
 
   async fetchServerStatus() {
@@ -127,16 +238,18 @@ const Settings = {
       const isRunning = status === 'RUNNING';
       const isStarting = status === 'STARTING';
       const color = isRunning ? '#3fb950' : (isStarting ? '#d29922' : '#8b949e');
-      const text = isRunning ? 'En Línea' : (isStarting ? 'Iniciando' : 'Detenido');
+      const text = isRunning
+        ? this._t('t_setting_status_online', 'En Línea')
+        : (isStarting ? this._t('t_setting_status_starting', 'Iniciando') : this._t('t_setting_status_stopped', 'Detenido'));
       statusEl.innerHTML = `<span class="badge" style="display:inline-flex; align-items:center; background-color: rgba(255,255,255,0.06); border: 1px solid ${color}; color: ${color};"><span style="display:inline-block; width:7px; height:7px; border-radius:50%; background-color:${color}; margin-right:6px;"></span>${text}</span>`;
     }
 
     if (!isInstalled) {
       if (iconEl) iconEl.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-      if (titleEl) titleEl.textContent = 'Sin Servidor Instalado';
+      if (titleEl) titleEl.textContent = this._t('t_setting_no_server', 'Sin Servidor Instalado');
       if (verEl) verEl.style.display = 'none';
       if (editionEl) {
-        editionEl.textContent = 'No Detectado';
+        editionEl.textContent = this._t('t_setting_not_detected', 'No Detectado');
         editionEl.style.color = 'var(--text-muted)';
         editionEl.style.backgroundColor = 'var(--bg-subtle)';
       }
@@ -155,9 +268,9 @@ const Settings = {
     // Configure according to server type
     if (serverType === 'bedrock') {
       if (iconEl) iconEl.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1"/><circle cx="18" cy="13" r="1"/></svg>`;
-      if (titleEl) titleEl.textContent = 'Bedrock Dedicated Server';
+      if (titleEl) titleEl.textContent = this._t('t_setting_name_bedrock', 'Bedrock Dedicated Server');
       if (editionEl) {
-        editionEl.textContent = 'Bedrock C++ Nativo';
+        editionEl.textContent = this._t('t_setting_edition_bedrock', 'Bedrock C++ Nativo');
         editionEl.style.color = '#79c0ff';
         editionEl.style.backgroundColor = 'rgba(56, 139, 253, 0.15)';
       }
@@ -195,7 +308,7 @@ const Settings = {
       const info = titles[serverType] || { icon: defaultIcon, name: `Servidor ${serverType.toUpperCase()}`, tip: 'Servidor Minecraft Java Edition.' };
 
       if (iconEl) iconEl.innerHTML = info.icon;
-      if (titleEl) titleEl.textContent = info.name;
+      if (titleEl) titleEl.textContent = this.javaServerName(serverType, info.name);
       if (editionEl) {
         editionEl.textContent = 'Java Edition';
         editionEl.style.color = '#58a6ff';
@@ -203,14 +316,14 @@ const Settings = {
       }
 
       const tipText = document.getElementById('settings-software-tip-text');
-      if (tipText) tipText.innerHTML = info.tip;
+      if (tipText) tipText.innerHTML = this.javaServerTip(serverType, info.tip);
 
       const aikarDesc = document.getElementById('setting-aikar-desc');
       if (aikarDesc) {
         if (serverType === 'paper' || serverType === 'purpur') {
-          aikarDesc.textContent = 'Optimización avanzada del recolector G1GC (Altamente recomendado para Paper y Purpur).';
+          aikarDesc.textContent = this._t('t_setting_aikar_paper', 'Optimización avanzada del recolector G1GC (Altamente recomendado para Paper y Purpur).');
         } else {
-          aikarDesc.textContent = 'Flags de optimización de memoria G1GC desarrollados por la comunidad de Minecraft.';
+          aikarDesc.textContent = this._t('t_setting_aikar_other', 'Flags de optimización de memoria G1GC desarrollados por la comunidad de Minecraft.');
         }
       }
 
@@ -333,10 +446,10 @@ const Settings = {
           App.setupSessionMonitoring(bSessionTimeout);
         }
 
-        App.showToast("Configuración de Bedrock guardada exitosamente", 'success');
+        App.showToast(this._t('t_setting_toast_bedrock_saved', 'Configuración de Bedrock guardada exitosamente'), 'success');
         this.properties = newProps;
       } else {
-        App.showToast("Error al guardar la configuración de Bedrock", 'danger');
+        App.showToast(this._t('t_setting_toast_bedrock_error', 'Error al guardar la configuración de Bedrock'), 'danger');
       }
     } catch (e) {
       App.showToast(e.message, 'danger');
@@ -355,7 +468,7 @@ const Settings = {
     // Default system java option
     const optDefault = document.createElement('option');
     optDefault.value = 'java';
-    optDefault.textContent = 'Java Predeterminado del Sistema (PATH)';
+    optDefault.textContent = this._t('t_setting_opt_java_default', 'Java Predeterminado del Sistema (PATH)');
     select.appendChild(optDefault);
 
     let matched = (currentPath === 'java' || currentPath === '');
@@ -366,7 +479,7 @@ const Settings = {
         if (!rt.path || rt.path === 'java') return;
         const opt = document.createElement('option');
         opt.value = rt.path;
-        const isRec = rt.version === 21 ? ' (Recomendado)' : '';
+        const isRec = rt.version === 21 ? this._t('t_setting_rec_suffix', ' (Recomendado)') : '';
         opt.textContent = `${rt.name || ('Java ' + rt.version)} (${rt.path})${isRec}`;
         if (rt.path === currentPath) {
           opt.selected = true;
@@ -379,7 +492,7 @@ const Settings = {
     // Custom path option
     const optCustom = document.createElement('option');
     optCustom.value = 'custom';
-    optCustom.textContent = 'Otra ruta personalizada...';
+    optCustom.textContent = this._t('t_setting_opt_custom_path', 'Otra ruta personalizada...');
     select.appendChild(optCustom);
 
     if (matched) {
@@ -459,7 +572,7 @@ const Settings = {
       }
     } catch (e) {
       console.warn("Could not load raw properties:", e);
-      App.showToast("Error al cargar server.properties en modo texto", 'danger');
+      App.showToast(this._t('t_setting_toast_raw_load_error', 'Error al cargar server.properties en modo texto'), 'danger');
     }
   },
 
@@ -473,11 +586,11 @@ const Settings = {
         body: JSON.stringify({ content: textarea.value })
       });
       if (res.ok) {
-        App.showToast("server.properties guardado exitosamente", 'success');
+        App.showToast(this._t('t_setting_toast_props_saved', 'server.properties guardado exitosamente'), 'success');
         await this.fetchProperties();
         this.populateJavaPropertiesUI();
       } else {
-        App.showToast("Error al guardar server.properties", 'danger');
+        App.showToast(this._t('t_setting_toast_props_error', 'Error al guardar server.properties'), 'danger');
       }
     } catch (e) {
       App.showToast(e.message, 'danger');
@@ -606,10 +719,10 @@ const Settings = {
         body: JSON.stringify(newProps)
       });
       if (res.ok) {
-        App.showToast("server.properties guardado exitosamente", 'success');
+        App.showToast(this._t('t_setting_toast_props_saved', 'server.properties guardado exitosamente'), 'success');
         this.properties = newProps;
       } else {
-        App.showToast("Error al guardar server.properties", 'danger');
+        App.showToast(this._t('t_setting_toast_props_error', 'Error al guardar server.properties'), 'danger');
       }
     } catch (e) {
       App.showToast(e.message, 'danger');
@@ -710,13 +823,13 @@ const Settings = {
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        App.showToast("Ajustes de memoria y runtime guardados correctamente", 'success');
+        App.showToast(this._t('t_setting_toast_runtime_saved', 'Ajustes de memoria y runtime guardados correctamente'), 'success');
         this.runtimeConfig = payload;
         if (typeof App !== 'undefined' && App.setupSessionMonitoring) {
           App.setupSessionMonitoring(sessionTimeout);
         }
       } else {
-        App.showToast("Error al guardar los ajustes de memoria", 'danger');
+        App.showToast(this._t('t_setting_toast_runtime_error', 'Error al guardar los ajustes de memoria'), 'danger');
       }
     } catch (e) {
       App.showToast(e.message, 'danger');

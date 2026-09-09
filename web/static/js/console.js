@@ -8,7 +8,23 @@ const Console = {
   followEnabled: true,
   userScrolledAway: false,
 
+  _t(key, fallback) {
+    if (typeof I18n !== 'undefined' && I18n.t) return I18n.t(key, fallback);
+    return (fallback !== undefined ? fallback : key);
+  },
+
+  _fmt(key, args, fallback) {
+    if (typeof I18n !== 'undefined' && I18n.fmt) return I18n.fmt(key, args || [], fallback);
+    let text = (fallback !== undefined ? fallback : key);
+    (args || []).forEach((value, i) => {
+      text = String(text).split(`{${i}}`).join(value);
+    });
+    return text;
+  },
+
   init() {
+    if (this._initialized) return;
+    this._initialized = true;
     // Consume pre-hydrated state immediately to prevent any flash or delay
     if (window.__INITIAL_STATS__) {
       this.updateStatusUI(window.__INITIAL_STATS__.status);
@@ -22,7 +38,13 @@ const Console = {
     this.pollStatus();
 
     window.addEventListener('dockraft:language_changed', () => {
-      if (this.lastStats) this.updateStats(this.lastStats);
+      if (this.lastStats) this.updateStatsUI(this.lastStats);
+      if (this.lastTps !== undefined && this.lastTps !== null) {
+        this.updateTpsUI(this.lastTps);
+      } else {
+        this.updateTpsUI(null);
+      }
+      this.refreshCrashAlert();
       this.updateAutoScrollToggle();
     });
   },
@@ -87,7 +109,7 @@ const Console = {
 
     this.socket.onopen = () => {
       this.reconnectDelay = 3000;
-      this.appendTerminalLine("[Dockraft] Connected to live server console stream.");
+      this.appendTerminalLine(this._t('t_console_ws_connected', '[Dockraft] Connected to live server console stream.'));
     };
 
     this.socket.onmessage = (event) => {
@@ -132,9 +154,7 @@ const Console = {
         }
         return;
       }
-      const lostMsg = (typeof I18n !== 'undefined' && I18n.t)
-        ? I18n.t('console_reconnecting')
-        : '[Dockraft] Connection to console lost. Reconnecting...';
+      const lostMsg = this._t('console_reconnecting', '[Dockraft] Connection to console lost. Reconnecting...');
       this.appendTerminalLine(lostMsg);
       // Exponential backoff (3s -> 60s) so a long outage doesn't hammer the server.
       const delay = this.reconnectDelay;
@@ -182,9 +202,9 @@ const Console = {
     if (btnRestart) btnRestart.addEventListener('click', () => this.serverAction('restart'));
     if (btnKill) btnKill.addEventListener('click', async () => {
       const ok = await App.confirm({
-        title: 'Forzar Apagado Inmediato (Kill)',
-        message: '¿Confirmas forzar el apagado inmediato (Kill) del servidor?\n\nSe terminará cualquier proceso de Minecraft activo inmediatamente y se liberarán los bloqueos de disco.',
-        confirmText: 'Forzar Apagado',
+        title: this._t('t_console_kill_confirm_title', 'Forzar Apagado Inmediato (Kill)'),
+        message: this._t('t_console_kill_confirm_msg', '¿Confirmas forzar el apagado inmediato (Kill) del servidor?\n\nSe terminará cualquier proceso de Minecraft activo inmediatamente y se liberarán los bloqueos de disco.'),
+        confirmText: this._t('t_console_kill_confirm_btn', 'Forzar Apagado'),
         danger: true
       });
       if (ok) {
@@ -250,15 +270,15 @@ const Console = {
         App.showToast(data.message, 'danger');
       } else {
         const labels = {
-          start: typeof I18n !== 'undefined' ? I18n.t('toast_server_started') : 'Servidor iniciado',
-          stop: typeof I18n !== 'undefined' ? I18n.t('toast_server_stopped') : 'Detención solicitada',
-          restart: typeof I18n !== 'undefined' ? I18n.t('toast_server_restarted') : 'Reinicio solicitado',
-          kill: typeof I18n !== 'undefined' ? I18n.t('toast_server_killed') : 'Servidor finalizado forzadamente (Kill)'
+          start: this._t('toast_server_started', 'Servidor iniciado'),
+          stop: this._t('toast_server_stopped', 'Detención solicitada'),
+          restart: this._t('toast_server_restarted', 'Reinicio solicitado'),
+          kill: this._t('toast_server_killed', 'Servidor finalizado forzadamente (Kill)')
         };
-        App.showToast(labels[action] || `Acción ${action} ejecutada`, 'success');
+        App.showToast(labels[action] || this._fmt('t_console_action_success', [action], `Acción ${action} ejecutada`), 'success');
       }
     } catch (e) {
-      App.showToast(`Error al ejecutar acción ${action}`, 'danger');
+      App.showToast(this._fmt('t_console_action_error', [action], `Error al ejecutar acción ${action}`), 'danger');
     }
   },
 
@@ -274,7 +294,7 @@ const Console = {
         // Automatically switch to installer tab on first load if no server is installed
         setTimeout(() => {
           App.switchTab('installer');
-          App.showToast("Bienvenido: Selecciona una versión para instalar tu servidor", 'info');
+          App.showToast(this._t('t_console_welcome_toast', 'Bienvenido: Selecciona una versión para instalar tu servidor'), 'info');
         }, 300);
       }
     } else {
@@ -407,7 +427,7 @@ const Console = {
 
     if (!stats.is_installed) {
       if (topStatus) {
-        topStatus.textContent = typeof I18n !== 'undefined' ? I18n.t('banner_none_installed', 'Sin instalar') : 'Sin instalar';
+        topStatus.textContent = this._t('banner_none_installed', 'Ningún servidor instalado');
         topStatus.className = 'overview-val status-text-inline offline';
       }
       if (topName) topName.textContent = '--';
@@ -416,29 +436,29 @@ const Console = {
       if (topCpu) topCpu.textContent = '0 %';
       if (topMem) topMem.textContent = '0 MB / --';
       if (topPlayers) topPlayers.textContent = '--';
-      if (topVersion) topVersion.textContent = typeof I18n !== 'undefined' ? I18n.t('banner_none_installed', 'Sin instalar') : 'Sin instalar';
-      if (topMotd) topMotd.textContent = typeof I18n !== 'undefined' ? I18n.t('banner_none_installed', 'Ningún servidor instalado') : 'Ningún servidor instalado';
+      if (topVersion) topVersion.textContent = this._t('t_console_banner_no_install', 'No instalado');
+      if (topMotd) topMotd.textContent = this._t('t_console_banner_no_install', 'No instalado');
       if (topType) topType.textContent = '--';
     } else {
+      const isOnline = stats.status === 'RUNNING';
+      const isStarting = stats.status === 'STARTING';
+      const isStopping = stats.status === 'STOPPING';
       if (topStatus) {
-        const isOnline = stats.status === 'RUNNING';
-        const isStarting = stats.status === 'STARTING';
-        const isStopping = stats.status === 'STOPPING';
         let label = 'Apagado';
-        if (isOnline) label = typeof I18n !== 'undefined' ? I18n.t('banner_status_running') : 'En línea';
-        else if (isStarting) label = typeof I18n !== 'undefined' ? I18n.t('banner_status_starting') : 'Iniciando...';
-        else if (isStopping) label = typeof I18n !== 'undefined' ? I18n.t('banner_status_stopping') : 'Deteniendo...';
-        else label = typeof I18n !== 'undefined' ? I18n.t('banner_status_offline') : 'Apagado';
+        if (isOnline) label = this._t('banner_status_running', 'En línea');
+        else if (isStarting) label = this._t('banner_status_starting', 'Iniciando...');
+        else if (isStopping) label = this._t('banner_status_stopping', 'Deteniendo...');
+        else label = this._t('banner_status_offline', 'Apagado');
         topStatus.textContent = label;
         topStatus.className = `overview-val status-text-inline ${stats.status ? stats.status.toLowerCase() : 'offline'}`;
       }
       if (topName) topName.textContent = stats.server_name || 'Mi Servidor Dockraft';
-      if (topStarted) topStarted.textContent = stats.started_at_str || (typeof I18n !== 'undefined' ? I18n.t('banner_status_offline') : 'No iniciado');
+      if (topStarted) topStarted.textContent = stats.started_at_str || this._t('t_console_not_started', 'No iniciado');
       if (topUptime) {
-        if (typeof I18n !== 'undefined' && stats.uptime_seconds !== undefined && stats.uptime_seconds !== null && Number(stats.uptime_seconds) > 0) {
+        if (typeof I18n !== 'undefined' && I18n.formatUptime && stats.uptime_seconds !== undefined && stats.uptime_seconds !== null && Number(stats.uptime_seconds) > 0) {
           topUptime.textContent = I18n.formatUptime(Number(stats.uptime_seconds));
         } else {
-          topUptime.textContent = stats.uptime_formatted || (typeof I18n !== 'undefined' ? I18n.t('banner_status_offline') : 'Fuera de línea');
+          topUptime.textContent = stats.uptime_formatted || this._t('t_console_not_started', 'No iniciado');
         }
       }
       if (topCpu) topCpu.textContent = `${cpuPct.toFixed(1)} %`;
@@ -451,10 +471,10 @@ const Console = {
         topPlayers.textContent = `${stats.online_players || 0}/${stats.max_players || 20}`;
       }
       if (topVersion) {
-        const typeLabel = stats.server_type ? (stats.server_type.charAt(0).toUpperCase() + stats.server_type.slice(1)) : 'Servidor';
+        const typeLabel = stats.server_type ? (stats.server_type.charAt(0).toUpperCase() + stats.server_type.slice(1)) : this._t('t_console_type_server', 'Servidor');
         topVersion.textContent = `${typeLabel} ${stats.server_version || ''}`;
       }
-      if (topMotd) topMotd.textContent = stats.motd || 'A Dockraft Minecraft Server';
+      if (topMotd) topMotd.textContent = stats.motd || this._t('t_console_motd_default', 'A Dockraft Minecraft Server');
       if (stats.tps) this.updateTpsUI(stats.tps);
     }
 
@@ -516,6 +536,7 @@ const Console = {
   },
 
   updateTpsUI(tps) {
+    this.lastTps = tps;
     const topTps = document.getElementById('top-server-tps');
     const mobTps = document.getElementById('banner-mob-tps');
     const kpiVal = document.getElementById('metric-kpi-tps-val');
@@ -551,7 +572,7 @@ const Console = {
       }
       if (kpiVal) kpiVal.textContent = '--';
       if (kpiBadge) {
-        kpiBadge.textContent = 'Fuera de línea';
+        kpiBadge.textContent = this._t('t_console_tps_offline', 'Fuera de línea');
         kpiBadge.style.color = '#8b949e';
         kpiBadge.style.background = 'rgba(139, 148, 158, 0.15)';
       }
@@ -563,18 +584,18 @@ const Console = {
     const val15m = Number(raw15m !== null && raw15m !== undefined ? raw15m : val1m);
 
     let color = '#3fb950'; // green
-    let label = 'Óptimo';
+    let label = this._t('t_console_tps_optimal', 'Óptimo');
     let bg = 'rgba(46, 160, 67, 0.15)';
     let border = 'rgba(63, 185, 80, 0.35)';
 
     if (val1m < 16.0) {
       color = '#f85149'; // red lag
-      label = 'Lag Severo';
+      label = this._t('t_console_tps_lag', 'Lag Severo');
       bg = 'rgba(248, 81, 73, 0.15)';
       border = 'rgba(248, 81, 73, 0.35)';
     } else if (val1m < 19.5) {
       color = '#d29922'; // amber moderate
-      label = 'Carga Moderada';
+      label = this._t('t_console_tps_moderate', 'Carga Moderada');
       bg = 'rgba(210, 153, 34, 0.15)';
       border = 'rgba(210, 153, 34, 0.35)';
     }
@@ -613,17 +634,28 @@ const Console = {
   },
 
   showCrashAlert(diag) {
+    this.lastCrashDiag = diag || null;
     const alertBox = document.getElementById('console-crash-alert');
     const alertText = document.getElementById('console-crash-text');
-    if (alertBox && alertText) {
-      alertBox.style.display = 'flex';
-      alertText.textContent = '';
-      const strong = document.createElement('strong');
-      strong.textContent = '¡Alerta de Caída! ';
-      alertText.appendChild(strong);
-      alertText.appendChild(document.createTextNode(`${diag.title || 'Error no controlado'}: ${diag.cause || ''}`));
-    }
-    App.showToast(`El servidor se detuvo: ${diag.title || 'Caída inesperada'}`, 'danger');
+    if (alertBox) alertBox.style.display = 'flex';
+    this.renderCrashAlertText(alertText);
+    App.showToast(this._fmt('t_console_crash_toast', [diag.title || this._t('t_console_crash_title_default', 'Caída inesperada')], `El servidor se detuvo: ${diag.title || 'Caída inesperada'}`), 'danger');
+  },
+
+  refreshCrashAlert() {
+    const alertBox = document.getElementById('console-crash-alert');
+    if (!alertBox || alertBox.style.display === 'none') return;
+    this.renderCrashAlertText(document.getElementById('console-crash-text'));
+  },
+
+  renderCrashAlertText(alertText) {
+    if (!alertText) return;
+    alertText.textContent = '';
+    const strong = document.createElement('strong');
+    strong.textContent = this._t('t_console_crash_alert', '¡Alerta de Caída! ');
+    alertText.appendChild(strong);
+    const diag = this.lastCrashDiag || {};
+    alertText.appendChild(document.createTextNode(`${diag.title || this._t('t_console_crash_unknown', 'Error no controlado')}: ${diag.cause || ''}`));
   },
 
   hideCrashAlert() {
@@ -712,18 +744,18 @@ const Console = {
           alertBox.style.background = 'rgba(46, 160, 67, 0.1)';
         }
         if (title) {
-          title.textContent = data.title || 'Sin problemas detectados';
+          title.textContent = data.title || this._t('t_console_diag_no_issue', 'Sin problemas detectados');
           title.style.color = '#3fb950';
         }
-        if (cause) cause.textContent = data.message || 'El servidor opera con normalidad.';
-        if (reco) reco.textContent = data.recommendation || 'Todo en orden.';
+        if (cause) cause.textContent = data.message || this._t('t_console_diag_ok_message', 'El servidor opera con normalidad.');
+        if (reco) reco.textContent = data.recommendation || this._t('t_console_diag_ok_reco', 'Todo en orden.');
         if (excerptContainer) excerptContainer.style.display = 'none';
       }
     } catch (err) {
       if (loading) loading.style.display = 'none';
       if (results) results.style.display = 'block';
-      if (title) title.textContent = "Error al ejecutar análisis";
-      if (cause) cause.textContent = err.message || "No se pudo consultar el endpoint de diagnósticos.";
+      if (title) title.textContent = this._t('t_console_diag_err_analysis', 'Error al ejecutar análisis');
+      if (cause) cause.textContent = err.message || this._t('t_console_diag_err_query', 'No se pudo consultar el endpoint de diagnósticos.');
     }
   },
 
@@ -735,7 +767,7 @@ const Console = {
 
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="spin-icon" style="display:inline-block;">↻</span> Subiendo y anonimizando registro...';
+      btn.innerHTML = '<span class="spin-icon" style="display:inline-block;">↻</span> ' + this._t('t_console_share_uploading', 'Subiendo y anonimizando registro...');
     }
 
     try {
@@ -743,20 +775,20 @@ const Console = {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.detail || "Error al subir log a mclo.gs");
+        throw new Error(data.detail || this._t('t_console_share_err_upload', 'Error al subir log a mclo.gs'));
       }
 
       if (resultBox) resultBox.style.display = 'block';
       if (urlInput) urlInput.value = data.url;
       if (linkBtn) linkBtn.href = data.url;
 
-      App.showToast("Log subido a mclo.gs con éxito", 'success');
+      App.showToast(this._t('t_console_share_ok', 'Log subido a mclo.gs con éxito'), 'success');
     } catch (err) {
-      App.showToast(err.message || "Error al compartir log", 'danger');
+      App.showToast(err.message || this._t('t_console_share_err', 'Error al compartir log'), 'danger');
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Subir y Generar Enlace Seguro (mclo.gs)';
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> ' + this._t('t_console_share_btn', 'Subir y Generar Enlace Seguro (mclo.gs)');
       }
     }
   },
@@ -765,11 +797,11 @@ const Console = {
     const input = document.getElementById('diag-share-url');
     if (input && input.value) {
       navigator.clipboard.writeText(input.value).then(() => {
-        App.showToast("Enlace de mclo.gs copiado al portapapeles", 'success');
+        App.showToast(this._t('t_console_share_copied_mclogs', 'Enlace de mclo.gs copiado al portapapeles'), 'success');
       }).catch(() => {
         input.select();
         document.execCommand('copy');
-        App.showToast("Enlace copiado", 'success');
+        App.showToast(this._t('t_console_share_copied', 'Enlace copiado'), 'success');
       });
     }
   }

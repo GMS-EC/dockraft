@@ -609,6 +609,22 @@ const I18n = {
     return dict[key] || fallback || key;
   },
 
+  // Tokenized helper: I18n.fmt('key', [v0, v1]) replaces {0}/{1} inside the text.
+  fmt(key, args = [], fallback = '') {
+    let text = this.t(key, fallback);
+    args.forEach((value, i) => {
+      text = String(text).split(`{${i}}`).join(value);
+    });
+    return text;
+  },
+
+  // Register extra ES/EN dictionaries contributed by per-module files (i18n-ext/*.js).
+  // Must run before I18n.init() (files are loaded before DOMContentLoaded).
+  registerModule(esDict, enDict) {
+    if (esDict) Object.assign(this.translations.es, esDict);
+    if (enDict) Object.assign(this.translations.en, enDict);
+  },
+
   toggleLanguage() {
     const nextLang = this.currentLang === 'es' ? 'en' : 'es';
     this.setLanguage(nextLang);

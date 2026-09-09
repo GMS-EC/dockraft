@@ -7,7 +7,22 @@ const Tasks = {
   searchQuery: '',
 
   init() {
+    if (this._initialized) return;
+    this._initialized = true;
     this.loadTasks();
+    window.addEventListener('dockraft:language_changed', () => {
+      if ((typeof App === 'undefined' || App.activeTab === 'tasks') && document.getElementById('tasks-table-body')) {
+        this.applyFilter();
+      }
+    });
+  },
+
+  tr(key, fallback) {
+    return (typeof I18n !== 'undefined' && I18n.t) ? I18n.t(key, fallback) : fallback;
+  },
+
+  trf(key, args, fallback) {
+    return (typeof I18n !== 'undefined' && I18n.fmt) ? I18n.fmt(key, args, fallback) : fallback;
   },
 
   async loadTasks() {
@@ -61,17 +76,20 @@ const Tasks = {
     if (!tbody) return;
 
     if (this.filteredList.length === 0) {
+      const emptyMsg = this.searchQuery
+        ? this.tr('t_tasks_empty_search', 'No se encontraron tareas con esa búsqueda.')
+        : this.tr('t_tasks_empty_no_data', 'No hay tareas programadas. ¡Crea una nueva con el botón superior!');
       tbody.innerHTML = `
         <tr>
           <td colspan="7" style="text-align:center; padding: 36px; color: var(--text-dim);">
             <div style="margin-bottom: 8px; display:flex; justify-content:center;">
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
-            ${this.searchQuery ? 'No se encontraron tareas con esa búsqueda.' : 'No hay tareas programadas. ¡Crea una nueva con el botón superior!'}
+            ${emptyMsg}
           </td>
         </tr>
       `;
-      if (info) info.textContent = 'Mostrando 0 hasta 0 de 0 entradas';
+      if (info) info.textContent = this.trf('t_tasks_pagination', [0, 0, 0], 'Mostrando 0 hasta 0 de 0 entradas');
       if (controls) controls.innerHTML = '';
       return;
     }
@@ -90,7 +108,11 @@ const Tasks = {
       const actionBadge = this.getActionBadge(t.action);
       const commandDisplay = this.getCommandDisplay(t);
       const intervalDisplay = this.getIntervalDisplay(t);
-      const nextRunDisplay = isEnabled && t.next_run ? t.next_run : '<span style="color:var(--text-dim);">Deshabilitada</span>';
+      const nameDisplay = t.name || this.tr('t_tasks_unnamed', 'Sin nombre');
+      const nextRunDisplay = isEnabled && t.next_run ? t.next_run : '<span style="color:var(--text-dim);">' + this.tr('t_tasks_disabled', 'Deshabilitada') + '</span>';
+      const editTitle = this.tr('t_tasks_action_edit', 'Editar tarea');
+      const runTitle = this.tr('t_tasks_action_run', 'Ejecutar ahora');
+      const deleteTitle = this.tr('t_tasks_action_delete', 'Eliminar tarea');
 
       return `
         <tr class="task-row">
@@ -101,7 +123,7 @@ const Tasks = {
             </label>
           </td>
           <td style="font-weight: 600; color: #f0f6fc;">
-            ${this.escapeHtml(t.name || 'Sin nombre')}
+            ${this.escapeHtml(nameDisplay)}
           </td>
           <td>${actionBadge}</td>
           <td>
@@ -115,13 +137,13 @@ const Tasks = {
           </td>
           <td style="text-align: center;">
             <div style="display: inline-flex; gap: 6px; align-items: center;">
-              <button class="btn-action-task edit" title="Editar tarea" onclick="Tasks.openEditModal('${t.id}')">
+              <button class="btn-action-task edit" title="${this.escapeHtml(editTitle)}" data-i18n-title="t_tasks_action_edit" onclick="Tasks.openEditModal('${t.id}')">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
-              <button class="btn-action-task run" title="Ejecutar ahora" onclick="Tasks.runTaskNow('${t.id}')">
+              <button class="btn-action-task run" title="${this.escapeHtml(runTitle)}" data-i18n-title="t_tasks_action_run" onclick="Tasks.runTaskNow('${t.id}')">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               </button>
-              <button class="btn-action-task delete" title="Eliminar tarea" onclick="Tasks.deleteTask('${t.id}')">
+              <button class="btn-action-task delete" title="${this.escapeHtml(deleteTitle)}" data-i18n-title="t_tasks_action_delete" onclick="Tasks.deleteTask('${t.id}')">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               </button>
             </div>
@@ -131,14 +153,14 @@ const Tasks = {
     }).join('');
 
     if (info) {
-      info.textContent = `Mostrando ${startIdx + 1} hasta ${endIdx} de ${total} entradas`;
+      info.textContent = this.trf('t_tasks_pagination', [startIdx + 1, endIdx, total], `Mostrando ${startIdx + 1} hasta ${endIdx} de ${total} entradas`);
     }
 
     if (controls) {
       let btns = `
         <button class="pagination-btn ${this.currentPage === 1 ? 'disabled' : ''}" 
                 onclick="Tasks.goToPage(${this.currentPage - 1})" ${this.currentPage === 1 ? 'disabled' : ''}>
-          Anterior
+          ${this.tr('t_tasks_pagination_prev', 'Anterior')}
         </button>
       `;
 
@@ -154,7 +176,7 @@ const Tasks = {
       btns += `
         <button class="pagination-btn ${this.currentPage === totalPages ? 'disabled' : ''}" 
                 onclick="Tasks.goToPage(${this.currentPage + 1})" ${this.currentPage === totalPages ? 'disabled' : ''}>
-          Siguiente
+          ${this.tr('t_tasks_pagination_next', 'Siguiente')}
         </button>
       `;
       controls.innerHTML = btns;
@@ -201,12 +223,24 @@ const Tasks = {
 
   getIntervalDisplay(t) {
     if (t.schedule_type === 'cron') {
-      return `Cron: ${t.cron_expression || '0 4 * * *'}`;
+      const expr = t.cron_expression || '0 4 * * *';
+      return this.trf('t_tasks_interval_cron', [expr], `Cron: ${expr}`);
     }
     const val = t.interval_value || 1;
     const unit = t.interval_unit || 'days';
-    const unitEs = unit === 'minutes' ? 'minutos' : (unit === 'hours' ? 'horas' : 'días');
-    return `Cada ${val} ${unitEs}`;
+    const single = val === 1;
+    let unitKey;
+    if (unit === 'minutes') {
+      unitKey = single ? 't_tasks_unit_minute' : 't_tasks_unit_minutes';
+    } else if (unit === 'hours') {
+      unitKey = single ? 't_tasks_unit_hour' : 't_tasks_unit_hours';
+    } else {
+      unitKey = single ? 't_tasks_unit_day' : 't_tasks_unit_days';
+    }
+    const unitText = this.tr(unitKey, single
+      ? (unit === 'minutes' ? 'minuto' : unit === 'hours' ? 'hora' : 'día')
+      : (unit === 'minutes' ? 'minutos' : unit === 'hours' ? 'horas' : 'días'));
+    return this.trf('t_tasks_interval_every', [val, unitText], `Cada ${val} ${unitText}`);
   },
 
   async toggleTask(taskId, enabled) {
@@ -224,7 +258,10 @@ const Tasks = {
           this.applyFilter();
         }
         if (typeof App !== 'undefined') {
-          App.showToast(`Tarea ${enabled ? 'habilitada' : 'deshabilitada'} correctamente`, 'success');
+          App.showToast(this.tr(
+            enabled ? 't_tasks_toast_enabled' : 't_tasks_toast_disabled',
+            enabled ? 'Tarea habilitada correctamente' : 'Tarea deshabilitada correctamente'
+          ), 'success');
         }
       } else {
         this.loadTasks();
@@ -240,33 +277,33 @@ const Tasks = {
     const taskName = task ? task.name : taskId;
 
     const ok = await App.confirm({
-      title: 'Ejecutar Tarea Inmediatamente',
-      message: `¿Deseas ejecutar inmediatamente la tarea '${taskName}'?`,
-      confirmText: 'Ejecutar Tarea',
+      title: this.tr('t_tasks_confirm_run_title', 'Ejecutar Tarea Inmediatamente'),
+      message: this.trf('t_tasks_confirm_run_msg', [taskName], `¿Deseas ejecutar inmediatamente la tarea '${taskName}'?`),
+      confirmText: this.tr('t_tasks_confirm_run_btn', 'Ejecutar Tarea'),
       type: 'info'
     });
     if (!ok) return;
 
     try {
       if (typeof App !== 'undefined') {
-        App.showToast(`Ejecutando '${taskName}'...`, 'info');
+        App.showToast(this.trf('t_tasks_toast_running', [taskName], `Ejecutando '${taskName}'...`), 'info');
       }
       const res = await fetch(`/api/tasks/${taskId}/run`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         if (typeof App !== 'undefined') {
-          App.showToast(data.message || 'Tarea ejecutada con éxito', 'success');
+          App.showToast(data.message || this.tr('t_tasks_toast_run_success', 'Tarea ejecutada con éxito'), 'success');
         }
         this.loadTasks();
       } else {
         const err = await res.json();
         if (typeof App !== 'undefined') {
-          App.showToast(err.detail || 'Error al ejecutar tarea', 'danger');
+          App.showToast(err.detail || this.tr('t_tasks_toast_run_error', 'Error al ejecutar tarea'), 'danger');
         }
       }
     } catch (e) {
       if (typeof App !== 'undefined') {
-        App.showToast('Error de conexión al ejecutar tarea', 'danger');
+        App.showToast(this.tr('t_tasks_toast_conn_error', 'Error de conexión al ejecutar tarea'), 'danger');
       }
     }
   },
@@ -276,9 +313,9 @@ const Tasks = {
     const taskName = task ? task.name : taskId;
 
     const ok = await App.confirm({
-      title: 'Eliminar Tarea Programada',
-      message: `¿Estás seguro de que deseas eliminar la tarea programada '${taskName}'?`,
-      confirmText: 'Eliminar Tarea',
+      title: this.tr('t_tasks_confirm_delete_title', 'Eliminar Tarea Programada'),
+      message: this.trf('t_tasks_confirm_delete_msg', [taskName], `¿Estás seguro de que deseas eliminar la tarea programada '${taskName}'?`),
+      confirmText: this.tr('t_tasks_confirm_delete_btn', 'Eliminar Tarea'),
       danger: true
     });
     if (!ok) return;
@@ -287,7 +324,7 @@ const Tasks = {
       const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
       if (res.ok) {
         if (typeof App !== 'undefined') {
-          App.showToast(`Tarea '${taskName}' eliminada`, 'success');
+          App.showToast(this.trf('t_tasks_toast_deleted', [taskName], `Tarea '${taskName}' eliminada`), 'success');
         }
         this.tasksList = this.tasksList.filter(t => t.id !== taskId);
         this.applyFilter();
@@ -298,7 +335,7 @@ const Tasks = {
   },
 
   openCreateModal() {
-    document.getElementById('task-modal-title').textContent = 'Crear Nueva Tarea Programada';
+    document.getElementById('task-modal-title').textContent = this.tr('t_tasks_modal_create_title', 'Crear Nueva Tarea Programada');
     document.getElementById('task-edit-id').value = '';
     document.getElementById('task-name-input').value = '';
     document.getElementById('task-action-select').value = 'restart';
@@ -323,7 +360,7 @@ const Tasks = {
     const task = this.tasksList.find(t => t.id === taskId);
     if (!task) return;
 
-    document.getElementById('task-modal-title').textContent = 'Editar Tarea Programada';
+    document.getElementById('task-modal-title').textContent = this.tr('t_tasks_modal_edit_title', 'Editar Tarea Programada');
     document.getElementById('task-edit-id').value = task.id;
     document.getElementById('task-name-input').value = task.name || '';
     document.getElementById('task-action-select').value = task.action || 'restart';
@@ -389,7 +426,7 @@ const Tasks = {
     const enabled = document.getElementById('task-enabled-input').checked;
 
     if (!name) {
-      if (typeof App !== 'undefined') App.showToast('Ingresa un nombre para la tarea', 'warning');
+      if (typeof App !== 'undefined') App.showToast(this.tr('t_tasks_toast_need_name', 'Ingresa un nombre para la tarea'), 'warning');
       return;
     }
 
@@ -423,13 +460,17 @@ const Tasks = {
       if (res.ok) {
         this.closeModal();
         if (typeof App !== 'undefined') {
-          App.showToast(`Tarea '${name}' ${editId ? 'actualizada' : 'creada'} con éxito`, 'success');
+          App.showToast(this.trf(
+            editId ? 't_tasks_toast_saved_updated' : 't_tasks_toast_saved_created',
+            [name],
+            editId ? `Tarea '${name}' actualizada con éxito` : `Tarea '${name}' creada con éxito`
+          ), 'success');
         }
         this.loadTasks();
       } else {
         const err = await res.json();
         if (typeof App !== 'undefined') {
-          App.showToast(err.detail || 'Error al guardar tarea', 'danger');
+          App.showToast(err.detail || this.tr('t_tasks_toast_save_error', 'Error al guardar tarea'), 'danger');
         }
       }
     } catch (e) {

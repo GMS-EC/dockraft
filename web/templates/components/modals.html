@@ -4,13 +4,13 @@
     <div class="modal-header">
       <h3 style="display: flex; align-items: center; gap: 8px;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        Crear Copia de Seguridad
+        <span data-i18n="t_modal_backup_title">Crear Copia de Seguridad</span>
       </h3>
       <button class="action-icon-btn" onclick="Backups.closeCreateModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <p style="font-size: 0.86rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
-        Selecciona qué contenido deseas incluir en el archivo <code>.zip</code> para optimizar el almacenamiento o respaldar carpetas específicas.
+        <span data-i18n="t_modal_backup_intro_a">Selecciona qué contenido deseas incluir en el archivo </span><code>.zip</code><span data-i18n="t_modal_backup_intro_b"> para optimizar el almacenamiento o respaldar carpetas específicas.</span>
       </p>
 
       <!-- Scope Option Cards -->
@@ -20,9 +20,9 @@
             <span class="backup-scope-icon" style="display:inline-flex; align-items:center;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
             </span>
-            <span class="backup-scope-title">Servidor Completo</span>
+            <span class="backup-scope-title" data-i18n="t_modal_backup_scope_full">Servidor Completo</span>
           </div>
-          <div class="backup-scope-desc">
+          <div class="backup-scope-desc" data-i18n="t_modal_backup_scope_full_desc">
             Respalda todos los archivos, mundos, plugins/mods y configuraciones.
           </div>
         </div>
@@ -32,9 +32,9 @@
             <span class="backup-scope-icon" style="display:inline-flex; align-items:center;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </span>
-            <span class="backup-scope-title">Personalizado</span>
+            <span class="backup-scope-title" data-i18n="t_modal_backup_scope_custom">Personalizado</span>
           </div>
-          <div class="backup-scope-desc">
+          <div class="backup-scope-desc" data-i18n="t_modal_backup_scope_custom_desc">
             Elige exactamente qué carpetas o archivos específicos respaldar.
           </div>
         </div>
@@ -43,11 +43,11 @@
       <!-- Custom Targets Checkbox Container -->
       <div id="backup-custom-targets-box" style="display: none; margin-top: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <span style="font-size: 0.85rem; font-weight: 600; color: #c9d1d9;">Selecciona carpetas y archivos a incluir:</span>
+          <span style="font-size: 0.85rem; font-weight: 600; color: #c9d1d9;" data-i18n="t_modal_backup_targets_title">Selecciona carpetas y archivos a incluir:</span>
           <div style="display: flex; gap: 10px; font-size: 0.78rem;">
-            <a href="javascript:void(0)" onclick="Backups.toggleAllTargets(true)" style="color: #58a6ff; text-decoration: underline;">Todos</a>
+            <a href="javascript:void(0)" onclick="Backups.toggleAllTargets(true)" style="color: #58a6ff; text-decoration: underline;" data-i18n="t_modal_backup_targets_all">Todos</a>
             <span style="color: var(--border-color);">|</span>
-            <a href="javascript:void(0)" onclick="Backups.toggleAllTargets(false)" style="color: var(--text-dim); text-decoration: underline;">Ninguno</a>
+            <a href="javascript:void(0)" onclick="Backups.toggleAllTargets(false)" style="color: var(--text-dim); text-decoration: underline;" data-i18n="t_modal_backup_targets_none">Ninguno</a>
           </div>
         </div>
         <div id="backup-targets-list" class="backup-targets-list">
@@ -57,25 +57,25 @@
 
       <!-- Optional Tag / Note -->
       <div class="form-group" style="margin-top: 16px;">
-        <label class="form-label" for="backup-modal-tag">Etiqueta o Nota (Opcional)</label>
-        <input type="text" class="form-input" id="backup-modal-tag" placeholder="ej: antes-del-evento, pre-update" value="manual">
-        <div class="field-hint">Identificador descriptivo en el nombre del archivo generado.</div>
+        <label class="form-label" for="backup-modal-tag" data-i18n="t_modal_backup_tag_label">Etiqueta o Nota (Opcional)</label>
+        <input type="text" class="form-input" id="backup-modal-tag" data-i18n-placeholder="t_modal_backup_tag_placeholder" placeholder="ej: antes-del-evento, pre-update" value="manual">
+        <div class="field-hint" data-i18n="t_modal_backup_tag_hint">Identificador descriptivo en el nombre del archivo generado.</div>
       </div>
 
       <!-- Execution Parameters: Compression, Stop Server, Pre-Command -->
       <div style="padding: 12px; background: rgba(22, 27, 34, 0.6); border: 1px solid #30363d; border-radius: 8px; margin-top: 16px;">
         <div style="font-size: 0.84rem; font-weight: 600; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Parámetros de Ejecución
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/>          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span data-i18n="t_modal_backup_params_title">Parámetros de Ejecución</span>
         </div>
 
         <!-- 1. Comprimir la copia -->
         <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <div>
-            <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-modal-compression">
+            <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-modal-compression" data-i18n="t_modal_backup_compression_label">
               Comprimir la copia (.zip)
             </label>
-            <div class="field-hint">Aplica compresión DEFLATED. Desactivado (STORE) es ultra-rápido sin uso de CPU.</div>
+            <div class="field-hint" data-i18n="t_modal_backup_compression_hint">Aplica compresión DEFLATED. Desactivado (STORE) es ultra-rápido sin uso de CPU.</div>
           </div>
           <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
             <input type="checkbox" id="backup-modal-compression" checked>
@@ -86,10 +86,10 @@
         <!-- 2. Apagar el servidor durante el backup -->
         <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <div>
-            <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-modal-stop">
+            <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-modal-stop" data-i18n="t_modal_backup_stop_label">
               Apagar el servidor durante el backup
             </label>
-            <div class="field-hint">Detiene el servidor para liberar session.lock e integridad total, y lo reinicia al finalizar.</div>
+            <div class="field-hint" data-i18n="t_modal_backup_stop_hint">Detiene el servidor para liberar session.lock e integridad total, y lo reinicia al finalizar.</div>
           </div>
           <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
             <input type="checkbox" id="backup-modal-stop">
@@ -99,19 +99,19 @@
 
         <!-- 3. Ejecutar comando antes del respaldo -->
         <div class="form-group" style="margin-bottom: 0;">
-          <label class="form-label" for="backup-modal-pre-cmd" style="color: #f0f6fc;">
+          <label class="form-label" for="backup-modal-pre-cmd" style="color: #f0f6fc;" data-i18n="t_modal_backup_precmd_label">
             Ejecutar comando antes del respaldo
           </label>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="color: var(--text-dim); font-family: var(--font-mono); font-weight: bold;">></span>
             <input type="text" class="form-input" id="backup-modal-pre-cmd" placeholder="save-all" value="save-all">
           </div>
-          <div class="field-hint">Comando enviado a la consola del servidor antes de iniciar el respaldo (ej: <code>save-all</code>).</div>
+          <div class="field-hint"><span data-i18n="t_modal_backup_precmd_hint_a">Comando enviado a la consola del servidor antes de iniciar el respaldo (ej: </span><code>save-all</code><span data-i18n="t_modal_backup_precmd_hint_b">).</span></div>
         </div>
       </div>
     </div>
     <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
-      <button class="btn btn-outline" onclick="Backups.closeCreateModal()">Cancelar</button>
+      <button class="btn btn-outline" onclick="Backups.closeCreateModal()" data-i18n="t_modal_cancel">Cancelar</button>
       <button class="btn btn-primary" id="btn-modal-submit-backup" onclick="Backups.submitCreateBackup()" style="display: inline-flex; align-items: center; gap: 6px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         Crear Copia de Seguridad
@@ -134,70 +134,70 @@
       
       <!-- Discord Configuration Section -->
       <div id="modal-section-discord" style="display: none;">
-        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;" data-i18n="t_modal_webhook_discord_intro">
           Pega el webhook generado en tu servidor de Discord. Dockraft enviará embeds con colores temáticos según cada tipo de suceso.
         </p>
         <div class="form-group">
-          <label class="form-label" for="webhook-discord-url">Webhook URL</label>
+          <label class="form-label" for="webhook-discord-url" data-i18n="t_modal_webhook_discord_label">Webhook URL</label>
           <input type="url" class="form-input" id="webhook-discord-url" placeholder="https://discord.com/api/webhooks/...">
-          <div class="field-hint">En Discord: Ajustes de canal > Integraciones > Webhooks > Nuevo Webhook > Copiar URL.</div>
+          <div class="field-hint" data-i18n="t_modal_webhook_discord_hint">En Discord: Ajustes de canal > Integraciones > Webhooks > Nuevo Webhook > Copiar URL.</div>
         </div>
       </div>
 
       <!-- Telegram Configuration Section -->
       <div id="modal-section-telegram" style="display: none;">
-        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;" data-i18n="t_modal_webhook_telegram_intro">
           Ingresa el token de tu bot y el Chat ID de tu cuenta o grupo para recibir alertas oficiales en Telegram.
         </p>
         <div class="form-group">
-          <label class="form-label" for="webhook-telegram-token">Bot Token</label>
+          <label class="form-label" for="webhook-telegram-token" data-i18n="t_modal_webhook_tg_token_label">Bot Token</label>
           <input type="password" class="form-input" id="webhook-telegram-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
-          <div class="field-hint">Genera o consulta tu bot hablando con <strong>@BotFather</strong> en Telegram.</div>
+          <div class="field-hint"><span data-i18n="t_modal_webhook_tg_token_hint_a">Genera o consulta tu bot hablando con </span><strong>@BotFather</strong><span data-i18n="t_modal_webhook_tg_token_hint_b"> en Telegram.</span></div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="webhook-telegram-chatid">Chat ID</label>
-          <input type="text" class="form-input" id="webhook-telegram-chatid" placeholder="Ej: 12345678 o -100123456789">
-          <div class="field-hint">Consulta tu Chat ID personal o de tu grupo con <strong>@userinfobot</strong> en Telegram.</div>
+          <label class="form-label" for="webhook-telegram-chatid" data-i18n="t_modal_webhook_tg_chat_label">Chat ID</label>
+          <input type="text" class="form-input" id="webhook-telegram-chatid" data-i18n-placeholder="t_modal_webhook_tg_chat_placeholder" placeholder="Ej: 12345678 o -100123456789">
+          <div class="field-hint"><span data-i18n="t_modal_webhook_tg_chat_hint_a">Consulta tu Chat ID personal o de tu grupo con </span><strong>@userinfobot</strong><span data-i18n="t_modal_webhook_tg_chat_hint_b"> en Telegram.</span></div>
         </div>
       </div>
 
       <!-- Email Configuration Section -->
       <div id="modal-section-email" style="display: none;">
-        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;" data-i18n="t_modal_webhook_email_intro">
           Configura los parámetros SMTP de tu proveedor de correo (Gmail, Outlook, servidor privado) para el envío de alertas.
         </p>
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label" for="webhook-email-host">Servidor SMTP</label>
+            <label class="form-label" for="webhook-email-host" data-i18n="t_modal_webhook_email_host_label">Servidor SMTP</label>
             <input type="text" class="form-input" id="webhook-email-host" placeholder="smtp.gmail.com">
           </div>
           <div class="form-group">
-            <label class="form-label" for="webhook-email-port">Puerto SMTP</label>
+            <label class="form-label" for="webhook-email-port" data-i18n="t_modal_webhook_email_port_label">Puerto SMTP</label>
             <input type="number" class="form-input" id="webhook-email-port" value="587">
           </div>
         </div>
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label" for="webhook-email-user">Usuario / Cuenta</label>
+            <label class="form-label" for="webhook-email-user" data-i18n="t_modal_webhook_email_user_label">Usuario / Cuenta</label>
             <input type="text" class="form-input" id="webhook-email-user" placeholder="tu_cuenta@gmail.com">
           </div>
           <div class="form-group">
-            <label class="form-label" for="webhook-email-pass">Contraseña / App Password</label>
+            <label class="form-label" for="webhook-email-pass" data-i18n="t_modal_webhook_email_pass_label">Contraseña / App Password</label>
             <input type="password" class="form-input" id="webhook-email-pass" placeholder="••••••••••••••••">
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="webhook-email-from">Remitente (From)</label>
+          <label class="form-label" for="webhook-email-from" data-i18n="t_modal_webhook_email_from_label">Remitente (From)</label>
           <input type="text" class="form-input" id="webhook-email-from" placeholder="Dockraft Alerts <tu_cuenta@gmail.com>">
         </div>
         <div class="form-group">
-          <label class="form-label" for="webhook-email-to">Destinatarios (separados por coma)</label>
-          <input type="text" class="form-input" id="webhook-email-to" placeholder="admin@ejemplo.com, alertas@ejemplo.com">
+          <label class="form-label" for="webhook-email-to" data-i18n="t_modal_webhook_email_to_label">Destinatarios (separados por coma)</label>
+          <input type="text" class="form-input" id="webhook-email-to" data-i18n-placeholder="t_modal_webhook_email_to_placeholder" placeholder="admin@ejemplo.com, alertas@ejemplo.com">
         </div>
         <div class="toggle-wrapper" style="margin-top: 10px;">
           <div>
-            <div style="font-weight: 600; font-size: 0.85rem;">Usar STARTTLS / TLS</div>
-            <div style="font-size: 0.72rem; color: var(--text-dim);">Requerido por la mayoría de proveedores de correo modernos.</div>
+            <div style="font-weight: 600; font-size: 0.85rem;" data-i18n="t_modal_webhook_email_tls_label">Usar STARTTLS / TLS</div>
+            <div style="font-size: 0.72rem; color: var(--text-dim);" data-i18n="t_modal_webhook_email_tls_hint">Requerido por la mayoría de proveedores de correo modernos.</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="webhook-email-tls" checked>
@@ -213,10 +213,10 @@
         Probar Canal
       </button>
       <div style="display: flex; gap: 8px;">
-        <button class="btn btn-outline" onclick="Webhooks.closeModal()">Cancelar</button>
+        <button class="btn btn-outline" onclick="Webhooks.closeModal()" data-i18n="t_modal_cancel">Cancelar</button>
         <button class="btn btn-primary" onclick="Webhooks.saveFromModal()" style="display: inline-flex; align-items: center; gap: 6px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          Guardar Ajustes
+          <span data-i18n="t_modal_webhook_save">Guardar Ajustes</span>
         </button>
       </div>
     </div>
@@ -234,10 +234,10 @@
       <textarea class="code-editor-area" id="editor-textarea" spellcheck="false"></textarea>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="Files.closeEditor()">Cancelar</button>
+      <button class="btn btn-outline" onclick="Files.closeEditor()" data-i18n="t_modal_cancel">Cancelar</button>
       <button id="btn-editor-save" class="btn btn-primary" onclick="Files.saveCurrentFile()" style="display: inline-flex; align-items: center; gap: 6px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        Guardar (Ctrl+S)
+        <span data-i18n="t_modal_editor_save">Guardar (Ctrl+S)</span>
       </button>
     </div>
   </div>
@@ -248,28 +248,28 @@
   <div class="modal-box" style="max-width: 540px;">
     <div class="modal-header">
       <h3 style="display:flex; align-items:center; gap:8px;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        Acuerdo de Licencia de Minecraft (EULA)
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>        <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span data-i18n="t_modal_eula_title">Acuerdo de Licencia de Minecraft (EULA)</span>
       </h3>
       <button class="action-icon-btn" onclick="App.closeEulaModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <p style="font-size:0.9rem; margin-bottom:12px; line-height:1.5;">
-        Para poder iniciar un servidor de Minecraft, <strong>Mojang Studios</strong> exige que aceptes su Acuerdo de Licencia de Usuario Final (EULA).
+        <span data-i18n="t_modal_eula_intro_a">Para poder iniciar un servidor de Minecraft, </span><strong>Mojang Studios</strong><span data-i18n="t_modal_eula_intro_b"> exige que aceptes su Acuerdo de Licencia de Usuario Final (EULA).</span>
       </p>
       <div style="background-color:var(--bg-main); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:14px; font-size:0.85rem; color:var(--text-muted); line-height:1.6; margin-bottom:14px;">
-        Al hacer clic en <strong>Aceptar EULA</strong>, declaras tu conformidad con las directrices de monetización, directrices de marca y términos legales oficiales de Mojang.
+        <span data-i18n="t_modal_eula_body_a">Al hacer clic en </span><strong data-i18n="t_modal_eula_body_strong">Aceptar EULA</strong><span data-i18n="t_modal_eula_body_b">, declaras tu conformidad con las directrices de monetización, directrices de marca y términos legales oficiales de Mojang.</span>
         <br><br>
-        <a href="https://account.mojang.com/documents/minecraft_eula" target="_blank" style="color:#58a6ff; text-decoration:underline; font-weight:500;">
+        <a href="https://account.mojang.com/documents/minecraft_eula" target="_blank" style="color:#58a6ff; text-decoration:underline; font-weight:500;" data-i18n="t_modal_eula_link">
           Leer los términos oficiales del EULA de Minecraft ↗
         </a>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="App.rejectEula()">Rechazar</button>
+      <button class="btn btn-outline" onclick="App.rejectEula()" data-i18n="t_modal_eula_reject">Rechazar</button>
       <button class="btn btn-success" onclick="App.acceptEula()" style="display: inline-flex; align-items: center; gap: 6px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        Aceptar EULA y Continuar
+        <span data-i18n="t_modal_eula_accept_btn">Aceptar EULA y Continuar</span>
       </button>
     </div>
   </div>
@@ -280,26 +280,26 @@
   <div class="modal-box" style="max-width: 520px;">
     <div class="modal-header">
       <h3 style="display: flex; align-items: center; gap: 8px;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-        Importar Servidor Existente (.zip)
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">        <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        <span data-i18n="t_modal_import_title">Importar Servidor Existente (.zip)</span>
       </h3>
       <button class="action-icon-btn" onclick="Installer.closeImportModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
-        Sube un archivo comprimido <code>.zip</code> con la raíz de tu servidor (Forge, Paper, Fabric, Vanilla o Bedrock).
-        Dockraft detectará automáticamente el tipo de servidor y configurará el arranque.
+        <span data-i18n="t_modal_import_desc_a">Sube un archivo comprimido </span><code>.zip</code><span data-i18n="t_modal_import_desc_b"> con la raíz de tu servidor (Forge, Paper, Fabric, Vanilla o Bedrock).
+        Dockraft detectará automáticamente el tipo de servidor y configurará el arranque.</span>
       </p>
 
       <div class="form-group">
-        <label class="form-label" for="import-server-file">Archivo del Servidor (.zip)</label>
+        <label class="form-label" for="import-server-file" data-i18n="t_modal_import_file_label">Archivo del Servidor (.zip)</label>
         <input type="file" id="import-server-file" accept=".zip" class="form-input" style="padding: 8px;">
       </div>
 
       <div class="toggle-wrapper" style="margin-top: 14px;">
         <div>
-          <div style="font-weight: 600; font-size: 0.88rem;">Aceptar EULA Automáticamente</div>
-          <div style="font-size: 0.75rem; color: var(--text-dim);">Establece eula=true para servidores Java.</div>
+          <div style="font-weight: 600; font-size: 0.88rem;" data-i18n="t_modal_import_eula_label">Aceptar EULA Automáticamente</div>
+          <div style="font-size: 0.75rem; color: var(--text-dim);" data-i18n="t_modal_import_eula_hint">Establece eula=true para servidores Java.</div>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="import-accept-eula" checked>
@@ -317,10 +317,10 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="Installer.closeImportModal()">Cancelar</button>
+      <button class="btn btn-outline" onclick="Installer.closeImportModal()" data-i18n="t_modal_cancel">Cancelar</button>
       <button class="btn btn-primary" id="btn-start-import" onclick="Installer.uploadServerZip()" style="display: inline-flex; align-items: center; gap: 6px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        Subir e Importar
+        <span data-i18n="t_modal_import_submit">Subir e Importar</span>
       </button>
     </div>
   </div>
@@ -337,43 +337,43 @@
       <input type="hidden" id="task-edit-id">
 
       <div class="form-group">
-        <label class="form-label" for="task-name-input">Nombre de la Tarea</label>
-        <input type="text" id="task-name-input" class="form-input" placeholder="Ej: Reinicio Diario de Madrugada">
+        <label class="form-label" for="task-name-input" data-i18n="t_modal_task_name_label">Nombre de la Tarea</label>
+        <input type="text" id="task-name-input" class="form-input" data-i18n-placeholder="t_modal_task_name_placeholder" placeholder="Ej: Reinicio Diario de Madrugada">
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="task-action-select">Acción a Ejecutar</label>
+        <label class="form-label" for="task-action-select" data-i18n="t_modal_task_action_label">Acción a Ejecutar</label>
         <select id="task-action-select" class="form-input" onchange="Tasks.onActionChange(this.value)">
-          <option value="restart">Reiniciar Servidor (restart)</option>
-          <option value="start">Iniciar Servidor (start)</option>
-          <option value="stop">Detener Servidor (stop)</option>
-          <option value="backup">Crear Copia de Seguridad (backup)</option>
-          <option value="check_updates">Verificar Nuevas Versiones (check_updates)</option>
-          <option value="command">Ejecutar Comando en Consola (command)</option>
+          <option value="restart" data-i18n="t_modal_task_action_restart">Reiniciar Servidor (restart)</option>
+          <option value="start" data-i18n="t_modal_task_action_start">Iniciar Servidor (start)</option>
+          <option value="stop" data-i18n="t_modal_task_action_stop">Detener Servidor (stop)</option>
+          <option value="backup" data-i18n="t_modal_task_action_backup">Crear Copia de Seguridad (backup)</option>
+          <option value="check_updates" data-i18n="t_modal_task_action_check">Verificar Nuevas Versiones (check_updates)</option>
+          <option value="command" data-i18n="t_modal_task_action_command">Ejecutar Comando en Consola (command)</option>
         </select>
       </div>
 
       <div class="form-group" id="task-command-group" style="display: none;">
-        <label class="form-label" for="task-command-input">Comando de Minecraft a Enviar</label>
-        <input type="text" id="task-command-input" class="form-input" placeholder="Ej: say ¡El servidor se reiniciará en 5 minutos!">
-        <div class="field-hint">Comando que se enviará directamente a la consola del servidor.</div>
+        <label class="form-label" for="task-command-input" data-i18n="t_modal_task_command_label">Comando de Minecraft a Enviar</label>
+        <input type="text" id="task-command-input" class="form-input" data-i18n-placeholder="t_modal_task_command_placeholder" placeholder="Ej: say ¡El servidor se reiniciará en 5 minutos!">
+        <div class="field-hint" data-i18n="t_modal_task_command_hint">Comando que se enviará directamente a la consola del servidor.</div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Tipo de Programación Temporal</label>
+        <label class="form-label" data-i18n="t_modal_task_sched_label">Tipo de Programación Temporal</label>
         <div style="display: flex; gap: 16px; margin-top: 6px;">
           <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
             <input type="radio" name="task-schedule-type" value="interval" checked onchange="Tasks.onScheduleTypeChange(this.value)">
             <span style="display: inline-flex; align-items: center; gap: 4px;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              Por Intervalo
+              <span data-i18n="t_modal_task_sched_interval">Por Intervalo</span>
             </span>
           </label>
           <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
             <input type="radio" name="task-schedule-type" value="cron" onchange="Tasks.onScheduleTypeChange(this.value)">
             <span style="display: inline-flex; align-items: center; gap: 4px;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              Por Expresión Cron
+              <span data-i18n="t_modal_task_sched_cron">Por Expresión Cron</span>
             </span>
           </label>
         </div>
@@ -382,15 +382,15 @@
       <!-- Interval Inputs -->
       <div id="task-interval-group" style="display: flex; gap: 12px; align-items: flex-end;">
         <div class="form-group" style="flex: 1; margin-bottom: 0;">
-          <label class="form-label" for="task-interval-val">Cada cuánto tiempo</label>
+          <label class="form-label" for="task-interval-val" data-i18n="t_modal_task_interval_label">Cada cuánto tiempo</label>
           <input type="number" min="1" value="1" id="task-interval-val" class="form-input">
         </div>
         <div class="form-group" style="flex: 1; margin-bottom: 0;">
-          <label class="form-label" for="task-interval-unit">Unidad</label>
+          <label class="form-label" for="task-interval-unit" data-i18n="t_modal_task_unit_label">Unidad</label>
           <select id="task-interval-unit" class="form-input">
-            <option value="minutes">Minutos</option>
-            <option value="hours">Horas</option>
-            <option value="days" selected>Días</option>
+            <option value="minutes" data-i18n="t_modal_task_unit_minutes">Minutos</option>
+            <option value="hours" data-i18n="t_modal_task_unit_hours">Horas</option>
+            <option value="days" selected data-i18n="t_modal_task_unit_days">Días</option>
           </select>
         </div>
       </div>
@@ -398,25 +398,25 @@
       <!-- Cron Input & Presets -->
       <div id="task-cron-group" style="display: none;">
         <div class="form-group">
-          <label class="form-label" for="task-cron-input">Expresión Cron (5 campos: min hora día-mes mes día-sem)</label>
+          <label class="form-label" for="task-cron-input" data-i18n="t_modal_task_cron_label">Expresión Cron (5 campos: min hora día-mes mes día-sem)</label>
           <input type="text" id="task-cron-input" class="form-input" placeholder="0 4 * * *" value="0 4 * * *">
-          <div class="field-hint">Calculado en la zona horaria del servidor (<span id="task-modal-tz">America/Guayaquil</span>).</div>
+          <div class="field-hint"><span data-i18n="t_modal_task_tz_hint_a">Calculado en la zona horaria del servidor (</span><span id="task-modal-tz">America/Guayaquil</span><span data-i18n="t_modal_task_tz_hint_b">).</span></div>
         </div>
         <div style="margin-top: 8px;">
-          <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 6px;">Plantillas rápidas de Cron:</div>
+          <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 6px;" data-i18n="t_modal_task_presets_label">Plantillas rápidas de Cron:</div>
           <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('0 4 * * *')">Diario a las 04:00</button>
-            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('0 */6 * * *')">Cada 6 horas</button>
-            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('0 0 * * 0')">Cada domingo a medianoche</button>
-            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('*/30 * * * *')">Cada 30 minutos</button>
+            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('0 4 * * *')" data-i18n="t_modal_task_preset_daily4">Diario a las 04:00</button>
+            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('0 */6 * * *')" data-i18n="t_modal_task_preset_6h">Cada 6 horas</button>
+            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('0 0 * * 0')" data-i18n="t_modal_task_preset_weekly">Cada domingo a medianoche</button>
+            <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="Tasks.applyCronPreset('*/30 * * * *')" data-i18n="t_modal_task_preset_30m">Cada 30 minutos</button>
           </div>
         </div>
       </div>
 
       <div class="toggle-wrapper" style="margin-top: 18px;">
         <div>
-          <div style="font-weight: 600; font-size: 0.88rem;">Habilitar Tarea Inmediatamente</div>
-          <div style="font-size: 0.75rem; color: var(--text-dim);">La tarea comenzará a programarse según los parámetros configurados.</div>
+          <div style="font-weight: 600; font-size: 0.88rem;" data-i18n="t_modal_task_enable_label">Habilitar Tarea Inmediatamente</div>
+          <div style="font-size: 0.75rem; color: var(--text-dim);" data-i18n="t_modal_task_enable_hint">La tarea comenzará a programarse según los parámetros configurados.</div>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="task-enabled-input" checked>
@@ -426,10 +426,10 @@
 
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="Tasks.closeModal()">Cancelar</button>
+      <button class="btn btn-outline" onclick="Tasks.closeModal()" data-i18n="t_modal_cancel">Cancelar</button>
       <button class="btn btn-purple" id="btn-save-task" onclick="Tasks.saveTask()" style="display: inline-flex; align-items: center; gap: 6px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        Guardar Tarea
+        <span data-i18n="t_modal_task_save">Guardar Tarea</span>
       </button>
     </div>
   </div>
@@ -441,22 +441,22 @@
     <div class="modal-header">
       <h3 style="display: flex; align-items: center; gap: 8px;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        Diagnóstico Inteligente & Logs
+        <span data-i18n="t_modal_diag_title">Diagnóstico Inteligente &amp; Logs</span>
       </h3>
       <button class="action-icon-btn" onclick="Console.closeDiagnosticsModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <!-- Tabs within modal -->
       <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid #30363d; padding-bottom: 8px;">
-        <button class="chip-btn active" id="diag-tab-analysis-btn" onclick="Console.switchDiagTab('analysis')">Diagnóstico Automático</button>
-        <button class="chip-btn" id="diag-tab-share-btn" onclick="Console.switchDiagTab('share')">Compartir Registro Sanitizado (mclo.gs)</button>
+        <button class="chip-btn active" id="diag-tab-analysis-btn" onclick="Console.switchDiagTab('analysis')" data-i18n="t_modal_diag_tab_analysis">Diagnóstico Automático</button>
+        <button class="chip-btn" id="diag-tab-share-btn" onclick="Console.switchDiagTab('share')" data-i18n="t_modal_diag_tab_share">Compartir Registro Sanitizado (mclo.gs)</button>
       </div>
 
       <!-- Analysis Tab Pane -->
       <div id="diag-pane-analysis">
         <div id="diag-loading" style="text-align: center; padding: 24px; color: var(--text-dim);">
           <span class="spin-icon" style="display: inline-block; font-size: 1.2rem; margin-bottom: 8px;">↻</span>
-          <div>Analizando registros y reportes de caídas...</div>
+          <div data-i18n="t_modal_diag_loading">Analizando registros y reportes de caídas...</div>
         </div>
 
         <div id="diag-results" style="display: none;">
@@ -466,7 +466,7 @@
           </div>
 
           <div style="margin-bottom: 16px;">
-            <span style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-dim);">Solución Recomendada:</span>
+            <span style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-dim);" data-i18n="t_modal_diag_rec_title">Solución Recomendada:</span>
             <div id="diag-recommendation" style="margin-top: 6px; font-size: 0.88rem; line-height: 1.5; color: #f0f6fc; background: #161b22; padding: 12px; border-radius: 6px; border: 1px solid #30363d;">
               --
             </div>
@@ -474,7 +474,7 @@
 
           <div id="diag-excerpt-container" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-dim);">Fragmento de Error Relevante (<span id="diag-source">--</span>):</span>
+              <span style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-dim);"><span data-i18n="t_modal_diag_excerpt_title_a">Fragmento de Error Relevante (</span><span id="diag-source">--</span><span data-i18n="t_modal_diag_excerpt_title_b">):</span></span>
             </div>
             <pre id="diag-excerpt" style="background: #0d1117; border: 1px solid #30363d; padding: 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.78rem; color: #f85149; max-height: 180px; overflow: auto; white-space: pre-wrap; line-height: 1.4;"></pre>
           </div>
@@ -484,31 +484,31 @@
       <!-- Share Log Tab Pane -->
       <div id="diag-pane-share" style="display: none;">
         <p style="font-size: 0.86rem; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px;">
-          Esta función sube automáticamente los registros recientes de tu servidor al servicio oficial y seguro de <a href="https://mclo.gs" target="_blank" style="color: #58a6ff; text-decoration: underline;">mclo.gs</a>.
-          <br><strong style="color: #c9d1d9;">Las direcciones IP públicas, nombres de usuarios privados y contraseñas son anonimizadas automáticamente</strong> antes de ser publicadas.
+          <span data-i18n="t_modal_diag_share_intro_a">Esta función sube automáticamente los registros recientes de tu servidor al servicio oficial y seguro de </span><a href="https://mclo.gs" target="_blank" style="color: #58a6ff; text-decoration: underline;">mclo.gs</a><span data-i18n="t_modal_diag_share_intro_b">.</span>
+          <br><strong style="color: #c9d1d9;" data-i18n="t_modal_diag_share_anon">Las direcciones IP públicas, nombres de usuarios privados y contraseñas son anonimizadas automáticamente</strong><span data-i18n="t_modal_diag_share_anon_tail"> antes de ser publicadas.</span>
         </p>
 
         <div style="text-align: center; margin: 20px 0;">
           <button class="btn btn-primary" id="btn-do-share-log" onclick="Console.shareLogToMclogs()" style="padding: 10px 24px; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 8px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-            Subir y Generar Enlace Seguro (mclo.gs)
+            <span data-i18n="t_modal_diag_share_btn">Subir y Generar Enlace Seguro (mclo.gs)</span>
           </button>
         </div>
 
         <div id="diag-share-result" style="display: none; background: rgba(56, 139, 253, 0.1); border: 1px solid #388bfd; border-radius: 6px; padding: 14px; margin-top: 16px;">
-          <div style="font-size: 0.82rem; color: #58a6ff; font-weight: 600; margin-bottom: 6px;">¡Registro subido exitosamente!</div>
+          <div style="font-size: 0.82rem; color: #58a6ff; font-weight: 600; margin-bottom: 6px;" data-i18n="t_modal_diag_share_success">¡Registro subido exitosamente!</div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="text" id="diag-share-url" class="form-input" readonly style="flex: 1; font-family: var(--font-mono); font-size: 0.85rem;">
-            <button class="btn btn-outline" onclick="Console.copyShareUrl()" style="white-space: nowrap;">Copiar Enlace</button>
-            <a id="diag-share-link" href="#" target="_blank" class="btn btn-primary" style="white-space: nowrap;">Abrir</a>
+            <button class="btn btn-outline" onclick="Console.copyShareUrl()" style="white-space: nowrap;" data-i18n="t_modal_diag_copy_link">Copiar Enlace</button>
+            <a id="diag-share-link" href="#" target="_blank" class="btn btn-primary" style="white-space: nowrap;" data-i18n="t_modal_diag_open">Abrir</a>
           </div>
         </div>
       </div>
 
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="Console.closeDiagnosticsModal()">Cerrar</button>
-      <button class="btn btn-primary" onclick="Console.loadDiagnostics()">Volver a Analizar</button>
+      <button class="btn btn-outline" onclick="Console.closeDiagnosticsModal()" data-i18n="t_modal_diag_close">Cerrar</button>
+      <button class="btn btn-primary" onclick="Console.loadDiagnostics()" data-i18n="t_modal_diag_reanalyze">Volver a Analizar</button>
     </div>
   </div>
 </div>

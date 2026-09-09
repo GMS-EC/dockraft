@@ -14,9 +14,45 @@ const Installer = {
       this.setupEvents();
       this.eventsSetup = true;
     }
+    this.init();
     await this.checkLockState();
     await this.loadJavaRuntimes();
     await this.selectType(this.selectedType);
+  },
+
+  init() {
+    if (this._langListener) return;
+    this._langListener = true;
+    window.addEventListener('dockraft:language_changed', () => {
+      if (typeof App === 'undefined' || App.activeTab !== 'installer') return;
+      this.refreshLanguage();
+    });
+  },
+
+  // Re-applies translations to currently visible installer sections (no toasts).
+  refreshLanguage() {
+    const installSelect = document.getElementById('installer-version-select');
+    if (installSelect && installSelect.options.length <= 1) {
+      installSelect.innerHTML = '<option value="">' + I18n.t('t_install_loading_versions') + '</option>';
+    }
+    const stableSel = document.getElementById('update-version-select-stable');
+    if (stableSel && stableSel.options.length === 1 && !stableSel.value) {
+      stableSel.options[0].textContent = I18n.t('t_install_update_loading_stable');
+    }
+    const betaSel = document.getElementById('update-version-select-beta');
+    if (betaSel && betaSel.options.length === 1 && !betaSel.value) {
+      betaSel.options[0].textContent = I18n.t('t_install_update_loading_beta');
+    }
+
+    if (!this.isLocked) {
+      this.updateRecommendedJava();
+    } else {
+      // Installed server: re-render locked banner, update card and plugin notices.
+      const updateCard = document.getElementById('installer-update-card');
+      if (updateCard && window.__INITIAL_STATS__) {
+        this.loadUpdateInfo(window.__INITIAL_STATS__);
+      }
+    }
   },
 
   applyLockState(stats, cfg) {
@@ -40,11 +76,11 @@ const Installer = {
       if (info && cfg) {
         const typeName = (cfg.server_type || 'Minecraft').toUpperCase();
         const ver = cfg.server_version || '';
-        info.innerHTML = `Tienes instalado un servidor <strong>${typeName} ${ver}</strong> (<code>${cfg.server_file || 'server.jar'}</code>). La instalación de otro software está bloqueada para evitar sobrescribir mundos, plugins y configuraciones.`;
+        info.innerHTML = `${I18n.t('t_install_banner_locked_installed_a')} <strong>${escapeHtml(typeName)} ${escapeHtml(ver)}</strong> (<code>${escapeHtml(cfg.server_file || 'server.jar')}</code>)${I18n.t('t_install_banner_locked_installed_b')}`;
       }
       if (btn) {
         btn.disabled = true;
-        btn.textContent = "Servidor ya Instalado (Bloqueado)";
+        btn.textContent = I18n.t('t_install_btn_installed_locked');
         btn.className = "btn btn-outline";
       }
       const updateCard = document.getElementById('installer-update-card');
@@ -66,7 +102,7 @@ const Installer = {
       if (sub) sub.style.display = 'none';
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "Instalar y Configurar Servidor";
+        btn.textContent = I18n.t('t_install_btn_install');
         btn.className = "btn btn-primary";
       }
     }
@@ -109,9 +145,9 @@ const Installer = {
 
     if (this.isLocked) {
       const ok = await App.confirm({
-        title: 'Desbloquear Reinstalación',
-        message: '¿Deseas desbloquear la reinstalación y opciones avanzadas?\n\nADVERTENCIA: Se desbloqueará la selección de software y la opción de eliminar el servidor actual.',
-        confirmText: 'Desbloquear',
+        title: I18n.t('t_install_btn_unlock'),
+        message: I18n.t('t_install_unlock_confirm_msg'),
+        confirmText: I18n.t('t_install_unlock_confirm_btn'),
         warning: true
       });
       if (ok) {
@@ -120,13 +156,13 @@ const Installer = {
         if (mainCard) mainCard.style.display = 'block'; // Mostrar selector al desbloquear
         if (btnDelete) btnDelete.style.display = 'inline-flex'; // Mostrar botón eliminar al desbloquear
         if (badge) badge.style.display = 'inline-block';
-        if (btnUnlock) btnUnlock.textContent = 'Bloquear / Ocultar opciones';
+        if (btnUnlock) btnUnlock.textContent = I18n.t('t_install_btn_lock');
         if (btnInstall) {
           btnInstall.disabled = false;
-          btnInstall.textContent = "Sobrescribir e Instalar";
+          btnInstall.textContent = I18n.t('t_install_btn_overwrite');
           btnInstall.className = "btn btn-danger";
         }
-        App.showToast("Opciones de reinstalación y eliminación desbloqueadas", 'warning');
+        App.showToast(I18n.t('t_install_unlock_toast'), 'warning');
       }
     } else {
       this.isLocked = true;
@@ -134,10 +170,10 @@ const Installer = {
       if (mainCard) mainCard.style.display = 'none'; // Ocultar nuevamente al bloquear
       if (btnDelete) btnDelete.style.display = 'none'; // Ocultar botón eliminar
       if (badge) badge.style.display = 'none';
-      if (btnUnlock) btnUnlock.textContent = 'Desbloquear Reinstalación';
+      if (btnUnlock) btnUnlock.textContent = I18n.t('t_install_btn_unlock');
       if (btnInstall) {
         btnInstall.disabled = true;
-        btnInstall.textContent = "Servidor ya Instalado (Bloqueado)";
+        btnInstall.textContent = I18n.t('t_install_btn_installed_locked');
         btnInstall.className = "btn btn-outline";
       }
     }
@@ -208,7 +244,7 @@ const Installer = {
     const select = document.getElementById('installer-version-select');
     if (!select) return;
 
-    select.innerHTML = '<option value="">Loading versions...</option>';
+    select.innerHTML = '<option value="">' + I18n.t('t_install_loading_versions') + '</option>';
     select.disabled = true;
 
     try {
@@ -231,8 +267,8 @@ const Installer = {
       select.disabled = false;
       this.updateRecommendedJava();
     } catch (e) {
-      select.innerHTML = '<option value="">Error loading versions</option>';
-      App.showToast(`Failed to load versions for ${type}`, 'danger');
+      select.innerHTML = '<option value="">' + I18n.t('t_install_err_loading_versions') + '</option>';
+      App.showToast(I18n.fmt('t_install_err_load_versions_for', [type]), 'danger');
     }
   },
 
@@ -245,7 +281,7 @@ const Installer = {
         if (select) {
           select.innerHTML = '';
           if (this.runtimes.length === 0) {
-            select.innerHTML = '<option value="java">Default System Java (java)</option>';
+            select.innerHTML = '<option value="java">' + I18n.t('t_install_java_default') + '</option>';
           } else {
             this.runtimes.forEach(rt => {
               const opt = document.createElement('option');
@@ -281,7 +317,7 @@ const Installer = {
       rec = 25;
     }
 
-    badge.textContent = `Recommended: Java ${rec}`;
+    badge.textContent = I18n.fmt('t_install_recommended_java', [rec]);
 
     // Auto-select runtime if found
     const selectJava = document.getElementById('installer-java-select');
@@ -303,7 +339,7 @@ const Installer = {
     const diskLimit = parseFloat(document.getElementById('install-disk-limit')?.value || '10');
 
     if (this.isLocked) {
-      App.showToast("La instalación está bloqueada para proteger tu servidor actual. Desbloquea la reinstalación si deseas continuar.", 'danger');
+      App.showToast(I18n.t('t_install_err_blocked'), 'danger');
       return;
     }
 
@@ -311,7 +347,7 @@ const Installer = {
     this.isInstalling = true;
 
     if (!selectVer || !selectVer.value) {
-      App.showToast("Please select a valid version first", 'danger');
+      App.showToast(I18n.t('t_install_err_select_version'), 'danger');
       this.isInstalling = false;
       return;
     }
@@ -335,7 +371,7 @@ const Installer = {
 
     const btn = document.getElementById('btn-install-server');
     btn.disabled = true;
-    btn.textContent = "Downloading & Preparing...";
+    btn.textContent = I18n.t('t_install_btn_downloading');
 
     const progressBox = document.getElementById('install-progress-box');
     const progressBar = document.getElementById('install-progress-bar');
@@ -351,10 +387,10 @@ const Installer = {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.detail || "Installation failed");
+        throw new Error(data.detail || I18n.t('t_install_err_install_failed'));
       }
 
-      App.showToast("Download started in background", 'success');
+      App.showToast(I18n.t('t_install_toast_download_bg'), 'success');
 
       // Poll progress
       this.pollingInterval = setInterval(async () => {
@@ -362,13 +398,15 @@ const Installer = {
           const pRes = await fetch('/api/installer/progress');
           const pData = await pRes.json();
           if (progressBar) progressBar.style.width = `${pData.percent || 0}%`;
-          if (progressText) progressText.textContent = `${pData.status || 'Downloading'} (${pData.percent || 0}%)`;
+          const st = pData.status || 'Downloading';
+          const stText = this.mapStatusText(st);
+          if (progressText) progressText.textContent = `${stText} (${pData.percent || 0}%)`;
 
           if (pData.status === 'completed') {
             clearInterval(this.pollingInterval);
             this.pollingInterval = null;
             this.isInstalling = false;
-            App.showToast("Servidor instalado y configurado correctamente.", 'success');
+            App.showToast(I18n.t('t_install_toast_installed_ok'), 'success');
             await this.checkLockState();
             setTimeout(() => {
               App.switchTab('console');
@@ -378,8 +416,8 @@ const Installer = {
             this.pollingInterval = null;
             this.isInstalling = false;
             btn.disabled = false;
-            btn.textContent = "Install & Setup Server";
-            App.showToast(`Download error: ${pData.status}`, 'danger');
+            btn.textContent = I18n.t('t_install_btn_install');
+            App.showToast(I18n.fmt('t_install_err_download', [pData.status]), 'danger');
           }
         } catch (err) {
           clearInterval(this.pollingInterval);
@@ -397,7 +435,7 @@ const Installer = {
       this.isInstalling = false;
       App.showToast(e.message, 'danger');
       btn.disabled = false;
-      btn.textContent = "Install & Setup Server";
+      btn.textContent = I18n.t('t_install_btn_install');
       if (progressBox) progressBox.style.display = 'none';
     }
   },
@@ -438,54 +476,58 @@ const Installer = {
 
       if (typeBadge) typeBadge.textContent = (data.server_type || '').toUpperCase();
 
-      const chName = data.current_channel === 'stable' ? 'Estable' :
+      const chName = data.current_channel === 'stable' ? I18n.t('t_install_channel_stable') :
                      data.current_channel === 'pre' ? 'Pre-Release' :
                      data.current_channel === 'preview' ? 'Preview / Beta' : 'Snapshot';
 
       if (curBadge) {
         if (data.current_version === 'importado') {
-          curBadge.innerHTML = `Versión Actual: <strong>Importada (${(data.server_type || 'Paper').toUpperCase()})</strong>`;
+          curBadge.innerHTML = I18n.fmt('t_install_current_imported_html', [escapeHtml((data.server_type || 'Paper').toUpperCase())]);
         } else {
-          curBadge.innerHTML = `Versión Actual: <strong>${data.current_version || 'Desconocida'}</strong> <span style="font-size:0.75rem; opacity:0.85; margin-left:4px;">(${chName})</span>`;
+          curBadge.innerHTML = I18n.fmt('t_install_current_version_html', [escapeHtml(data.current_version || I18n.t('t_install_unknown'))]);
+          const chSpan = document.createElement('span');
+          chSpan.style.cssText = 'font-size:0.75rem; opacity:0.85; margin-left:4px;';
+          chSpan.textContent = `(${chName})`;
+          curBadge.appendChild(chSpan);
         }
       }
 
       if (statusBadge) {
         statusBadge.style.cursor = 'pointer';
         if (data.current_version === 'importado') {
-          statusBadge.textContent = `Actualización disponible (${data.latest_stable || 'Ver versiones'})`;
+          statusBadge.textContent = I18n.fmt('t_install_status_update_available', [data.latest_stable || I18n.t('t_install_see_versions')]);
           statusBadge.style.background = 'rgba(56, 139, 253, 0.15)';
           statusBadge.style.borderColor = '#388bfd';
           statusBadge.style.color = '#58a6ff';
-          statusBadge.title = "Haz clic para seleccionar esta versión";
+          statusBadge.title = I18n.t('t_install_click_select_version');
           statusBadge.onclick = () => {
             this.switchUpdateChannel('stable');
             if (selectStable && data.latest_stable) {
               selectStable.value = data.latest_stable;
               this.onVersionSelectChange('stable');
-              App.showToast(`Versión seleccionada: ${data.latest_stable}`, 'info');
+              App.showToast(I18n.fmt('t_install_toast_version_selected', [data.latest_stable]), 'info');
             }
           };
         } else if (data.update_available) {
-          statusBadge.innerHTML = `Nueva versión disponible: <strong>${data.latest_stable}</strong> <span style="font-size:0.75rem; margin-left:4px; opacity:0.85;">(clic para elegir)</span>`;
+          statusBadge.innerHTML = I18n.fmt('t_install_status_new_version_html', [escapeHtml(data.latest_stable)]);
           statusBadge.style.background = 'rgba(56, 139, 253, 0.15)';
           statusBadge.style.borderColor = '#388bfd';
           statusBadge.style.color = '#58a6ff';
-          statusBadge.title = `Haz clic para seleccionar ${data.latest_stable}`;
+          statusBadge.title = I18n.fmt('t_install_click_select_ver', [data.latest_stable]);
           statusBadge.onclick = () => {
             this.switchUpdateChannel('stable');
             if (selectStable && data.latest_stable) {
               selectStable.value = data.latest_stable;
               this.onVersionSelectChange('stable');
-              App.showToast(`Versión seleccionada: ${data.latest_stable}`, 'info');
+              App.showToast(I18n.fmt('t_install_toast_version_selected', [data.latest_stable]), 'info');
             }
           };
         } else {
-          statusBadge.textContent = `Servidor actualizado (Estable: ${data.latest_stable || data.current_version})`;
+          statusBadge.textContent = I18n.fmt('t_install_status_up_to_date', [data.latest_stable || data.current_version]);
           statusBadge.style.background = 'rgba(46, 160, 67, 0.15)';
           statusBadge.style.borderColor = '#2ea043';
           statusBadge.style.color = '#3fb950';
-          statusBadge.title = "Servidor en la última versión estable";
+          statusBadge.title = I18n.t('t_install_status_latest_title');
           statusBadge.onclick = null;
         }
       }
@@ -495,14 +537,14 @@ const Installer = {
           previewBadge.style.display = 'inline-flex';
           previewBadge.style.alignItems = 'center';
           previewBadge.style.cursor = 'pointer';
-          previewBadge.title = `Haz clic para seleccionar la beta ${data.latest_preview}`;
-          previewBadge.innerHTML = `Beta disponible: <strong>${data.latest_preview}</strong> <span style="font-size:0.75rem; margin-left:4px; opacity:0.85;">(clic para elegir)</span>`;
+          previewBadge.title = I18n.fmt('t_install_click_select_beta', [data.latest_preview]);
+          previewBadge.innerHTML = I18n.fmt('t_install_beta_available_html', [escapeHtml(data.latest_preview)]);
           previewBadge.onclick = () => {
             this.switchUpdateChannel('beta');
             if (selectBeta) {
               selectBeta.value = data.latest_preview;
               this.onVersionSelectChange('beta');
-              App.showToast(`Versión beta seleccionada: ${data.latest_preview}`, 'warning');
+              App.showToast(I18n.fmt('t_install_toast_beta_selected', [data.latest_preview]), 'warning');
             }
           };
         } else {
@@ -525,7 +567,7 @@ const Installer = {
           selectStable.appendChild(opt);
         });
         if (stables.length === 0) {
-          selectStable.innerHTML = `<option value="">No hay versiones estables disponibles</option>`;
+          selectStable.innerHTML = `<option value="">${I18n.t('t_install_no_stable_versions')}</option>`;
         }
       }
 
@@ -540,7 +582,7 @@ const Installer = {
           selectBeta.appendChild(opt);
         });
         if (previews.length === 0) {
-          selectBeta.innerHTML = `<option value="">No hay versiones beta disponibles</option>`;
+          selectBeta.innerHTML = `<option value="">${I18n.t('t_install_no_beta_versions')}</option>`;
         }
       }
 
@@ -654,32 +696,32 @@ const Installer = {
     }
 
     if (!targetVer) {
-      App.showToast("Por favor selecciona una versión válida para actualizar.", 'danger');
+      App.showToast(I18n.t('t_install_err_update_version'), 'danger');
       return;
     }
 
     if (select) select.value = targetVer;
 
     const isBetaTarget = (this.currentUpdateChannel === 'beta');
-    const betaNotice = isBetaTarget ? '\n\n⚠️ NOTA: Estás instalando una versión Beta/Snapshot experimental.' : '';
+    const betaNotice = isBetaTarget ? '\n\n⚠️ ' + I18n.t('t_install_beta_notice') : '';
     const confirmMessage = isRunning
-      ? `¿Deseas actualizar tu servidor a la versión "${targetVer}"?${betaNotice}\n\n• El servidor se detendrá de forma segura (guardando mundos con save-all).\n• Se creará un respaldo de seguridad automático (pre-update-${targetVer}).\n• Se verificará la integridad del archivo para evitar corrupciones.\n• El servidor se reiniciará automáticamente al finalizar la actualización.`
-      : `¿Deseas actualizar tu servidor a la versión "${targetVer}"?${betaNotice}\n\n• Se creará un respaldo de seguridad automático (pre-update-${targetVer}).\n• Se verificará la integridad del paquete descargado contra corrupciones.\n• Tus mundos, plugins y configuraciones se mantendrán intactos.`;
+      ? I18n.fmt('t_install_update_confirm_running', [targetVer]) + betaNotice
+      : I18n.fmt('t_install_update_confirm_stopped', [targetVer]) + betaNotice;
 
     const ok = await App.confirm({
-      title: 'Actualizar Servidor',
+      title: I18n.t('t_install_btn_update'),
       message: confirmMessage,
-      confirmText: 'Actualizar Servidor',
+      confirmText: I18n.t('t_install_btn_update'),
       type: isBetaTarget ? 'warning' : 'info'
     });
     if (!ok) return;
 
     this.isInstalling = true;
     const btn = document.getElementById('btn-apply-update');
-    const updateIconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Actualizar Servidor';
+    const updateIconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ' + I18n.t('t_install_btn_update');
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="spin-icon" style="display:inline-block;">↻</span> Descargando...';
+      btn.innerHTML = '<span class="spin-icon" style="display:inline-block;">↻</span> ' + I18n.t('t_install_downloading_ellipsis');
     }
 
     const pBox = document.getElementById('update-progress-box');
@@ -696,10 +738,10 @@ const Installer = {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.detail || "Error al iniciar actualización");
+        throw new Error(data.detail || I18n.t('t_install_err_update_start'));
       }
 
-      App.showToast("Descarga de actualización iniciada...", 'info');
+      App.showToast(I18n.t('t_install_toast_update_started'), 'info');
 
       // Poll progress
       if (this.pollingInterval) clearInterval(this.pollingInterval);
@@ -710,7 +752,9 @@ const Installer = {
           const pct = pData.percent || 0;
           if (pBar) pBar.style.width = `${pct}%`;
           if (pPct) pPct.textContent = `${pct}%`;
-          if (pText) pText.textContent = `${pData.status || 'Actualizando'} (${pct}%)`;
+          const st = pData.status || 'Updating';
+          const stText = this.mapStatusText(st);
+          if (pText) pText.textContent = `${stText} (${pct}%)`;
 
           if (pData.status === 'completed') {
             clearInterval(this.pollingInterval);
@@ -720,7 +764,7 @@ const Installer = {
               btn.disabled = false;
               btn.innerHTML = updateIconSvg;
             }
-            App.showToast("¡Servidor actualizado correctamente!", 'success');
+            App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
             await this.checkLockState();
           } else if (pData.status && pData.status.startsWith('error')) {
             clearInterval(this.pollingInterval);
@@ -730,7 +774,7 @@ const Installer = {
               btn.disabled = false;
               btn.innerHTML = updateIconSvg;
             }
-            App.showToast(`Error al actualizar: ${pData.status}`, 'danger');
+            App.showToast(I18n.fmt('t_install_err_update_fail', [pData.status]), 'danger');
           }
         } catch (err) {
           clearInterval(this.pollingInterval);
@@ -754,6 +798,27 @@ const Installer = {
     }
   },
 
+  // Maps server-provided download/install status codes to localized labels.
+  mapStatusText(status) {
+    if (!status) return '';
+    const map = {
+      downloading: I18n.t('t_install_status_downloading'),
+      verifying: I18n.t('t_install_status_verifying'),
+      extracting: I18n.t('t_install_status_extracting'),
+      completed: I18n.t('t_install_status_completed'),
+      updating: I18n.t('t_install_status_updating'),
+      Downloading: I18n.t('t_install_status_downloading'),
+      Verifying: I18n.t('t_install_status_verifying'),
+      Extracting: I18n.t('t_install_status_extracting'),
+      Updating: I18n.t('t_install_status_updating'),
+      Completed: I18n.t('t_install_status_completed'),
+      'Downloading...': I18n.t('t_install_status_downloading'),
+      'Verifying...': I18n.t('t_install_status_verifying'),
+      'Extracting...': I18n.t('t_install_status_extracting')
+    };
+    return map[status] || status;
+  },
+
   openImportModal() {
     const modal = document.getElementById('import-server-modal');
     if (modal) {
@@ -773,12 +838,12 @@ const Installer = {
   async uploadServerZip() {
     const fileInput = document.getElementById('import-server-file');
     if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-      App.showToast("Por favor selecciona un archivo .zip para importar", 'danger');
+      App.showToast(I18n.t('t_install_err_import_zip'), 'danger');
       return;
     }
     const file = fileInput.files[0];
     if (!file.name.toLowerCase().endsWith('.zip')) {
-      App.showToast("El archivo debe tener extensión .zip", 'danger');
+      App.showToast(I18n.t('t_install_err_import_ext'), 'danger');
       return;
     }
 
@@ -791,7 +856,7 @@ const Installer = {
     if (btn) btn.disabled = true;
     if (progBox) progBox.style.display = 'block';
     if (progBar) progBar.style.width = '30%';
-    if (progText) progText.textContent = "Subiendo archivo del servidor...";
+    if (progText) progText.textContent = I18n.t('t_install_import_uploading');
 
     const formData = new FormData();
     formData.append('file', file);
@@ -799,7 +864,7 @@ const Installer = {
 
     try {
       if (progBar) progBar.style.width = '70%';
-      if (progText) progText.textContent = "Extrayendo y configurando servidor...";
+      if (progText) progText.textContent = I18n.t('t_install_import_extracting');
 
       const res = await fetch('/api/server/import', {
         method: 'POST',
@@ -807,12 +872,12 @@ const Installer = {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.detail || "Error al importar el servidor");
+        throw new Error(data.detail || I18n.t('t_install_err_import_failed'));
       }
 
       if (progBar) progBar.style.width = '100%';
-      if (progText) progText.textContent = "¡Importación completada!";
-      App.showToast(data.message || "Servidor importado correctamente", 'success');
+      if (progText) progText.textContent = I18n.t('t_install_import_done');
+      App.showToast(data.message || I18n.t('t_install_toast_imported_ok'), 'success');
 
       setTimeout(() => {
         this.closeImportModal();
@@ -832,24 +897,24 @@ const Installer = {
       const sRes = await fetch('/api/server/status');
       const stats = await sRes.json();
       if (stats.status !== 'OFFLINE') {
-        App.showToast("Debes detener el servidor antes de poder eliminarlo", 'danger');
+        App.showToast(I18n.t('t_install_err_delete_running'), 'danger');
         return;
       }
 
       const ok = await App.confirm({
-        title: 'Eliminar Servidor Definitivamente',
-        message: 'ATENCIÓN: ¿Estás completamente seguro de que deseas ELIMINAR el servidor actual?\n\nEsta acción borrará permanentemente los ejecutables, mundos, plugins, mods y archivos de configuración actuales.\n\n(Las copias de seguridad en la pestaña "Copias de Seguridad" permanecerán intactas y a salvo).\n\n¿Confirmas la eliminación definitiva?',
-        confirmText: 'Eliminar Servidor',
+        title: I18n.t('t_install_delete_title'),
+        message: I18n.t('t_install_delete_msg'),
+        confirmText: I18n.t('t_install_btn_delete'),
         danger: true
       });
       if (!ok) return;
 
-      App.showToast("Eliminando servidor y limpiando archivos...", 'info');
+      App.showToast(I18n.t('t_install_toast_deleting'), 'info');
       const res = await fetch('/api/server/delete', { method: 'POST' });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error al eliminar el servidor");
+      if (!res.ok) throw new Error(data.detail || I18n.t('t_install_err_delete_failed'));
 
-      App.showToast(data.message || "Servidor eliminado con éxito", 'success');
+      App.showToast(data.message || I18n.t('t_install_toast_deleted_ok'), 'success');
       await this.checkLockState();
       App.switchTab('installer');
     } catch (err) {
@@ -874,7 +939,7 @@ const Installer = {
       console.warn("Could not load console plugin updates:", e);
       const container = document.getElementById('installer-plugins-list-container');
       if (container) {
-        container.innerHTML = `<div style="text-align: center; padding: 16px; color: var(--text-muted); font-size: 0.84rem;">No se pudieron cargar los avisos de actualización.</div>`;
+        container.innerHTML = `<div style="text-align: center; padding: 16px; color: var(--text-muted); font-size: 0.84rem;">${I18n.t('t_install_plugin_load_error')}</div>`;
       }
     }
   },
@@ -888,7 +953,9 @@ const Installer = {
 
     const count = updates ? updates.length : 0;
     if (badge) {
-      badge.textContent = `${count} ${count === 1 ? 'detectada' : 'detectadas'}`;
+      badge.textContent = count === 1
+        ? I18n.fmt('t_install_plugin_count_one', [count])
+        : I18n.fmt('t_install_plugin_count_many', [count]);
       if (count > 0) {
         badge.style.background = 'rgba(210, 153, 34, 0.18)';
         badge.style.borderColor = '#d29922';
@@ -908,10 +975,10 @@ const Installer = {
       container.innerHTML = `
         <div style="text-align: center; padding: 20px 16px; background: rgba(0, 0, 0, 0.25); border-radius: 8px; border: 1px dashed var(--border-color);">
           <div style="font-size: 0.88rem; font-weight: 500; color: #7ee787; margin-bottom: 4px;">
-            ✅ Ningún plugin ha reportado actualizaciones pendientes en la consola
+            ✅ ${I18n.t('t_install_plugin_empty_title')}
           </div>
           <div style="font-size: 0.78rem; color: var(--text-muted); max-width: 520px; margin: 0 auto;">
-            Cuando un plugin instalado detecte una nueva versión oficial (en GitHub, Hangar, Spigot o su web oficial), el aviso y su enlace de descarga aparecerán automáticamente aquí.
+            ${I18n.t('t_install_plugin_empty_desc')}
           </div>
         </div>
       `;
@@ -924,7 +991,7 @@ const Installer = {
     updates.forEach(u => {
       const pluginEsc = escapeHtml(u.plugin);
       const isNamedNew = !u.version || String(u.version).toLowerCase() === 'nueva' || String(u.version).toLowerCase() === 'new';
-      const verText = isNamedNew ? 'Nueva versión' : (String(u.version).startsWith('v') ? escapeHtml(u.version) : `v${escapeHtml(u.version)}`);
+      const verText = isNamedNew ? I18n.t('t_install_plugin_new_version') : (String(u.version).startsWith('v') ? escapeHtml(u.version) : `v${escapeHtml(u.version)}`);
       const timeBadge = u.time_str ? `<span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">${escapeHtml(u.time_str)}</span>` : '';
 
       const rawUrl = String(u.url || '');
@@ -932,14 +999,14 @@ const Installer = {
       const downloadBtn = isSafeUrl ? `
         <a href="${escapeHtml(rawUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="padding: 5px 12px; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          Descargar ↗
+          ${I18n.t('t_install_plugin_download')} ↗
         </a>
       ` : `
-        <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted); font-size: 0.74rem;">Ver en consola</span>
+        <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted); font-size: 0.74rem;">${I18n.t('t_install_plugin_view_console')}</span>
       `;
 
       const dismissBtn = `
-        <button type="button" class="btn btn-outline" data-dismiss-plugin="${escapeHtml(u.plugin)}" style="padding: 5px 8px; font-size: 0.74rem; color: var(--text-muted); border-color: rgba(255,255,255,0.12);" title="Descartar este aviso">
+        <button type="button" class="btn btn-outline" data-dismiss-plugin="${escapeHtml(u.plugin)}" style="padding: 5px 8px; font-size: 0.74rem; color: var(--text-muted); border-color: rgba(255,255,255,0.12);" title="${I18n.t('t_install_plugin_dismiss_title')}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       `;
@@ -951,7 +1018,7 @@ const Installer = {
               <span style="font-weight: 600; font-size: 0.92rem; color: #f0f6fc;">${pluginEsc}</span>
               <span class="badge" style="background: rgba(210, 153, 34, 0.18); border: 1px solid #d29922; color: #e3b341; font-weight: 600; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-                ${verText} disponible
+                ${verText} ${I18n.t('t_install_plugin_available')}
               </span>
               ${timeBadge}
             </div>
@@ -993,7 +1060,7 @@ const Installer = {
         );
         this.renderConsolePluginUpdates(this.consolePluginUpdates);
         if (window.App && App.showToast) {
-          App.showToast(`Aviso de ${pluginName} descartado`, 'info');
+          App.showToast(I18n.fmt('t_install_toast_plugin_dismissed', [pluginName]), 'info');
         }
       }
     } catch (e) {
@@ -1002,7 +1069,7 @@ const Installer = {
   },
 
   async clearAllConsoleUpdates() {
-    if (!confirm('¿Deseas descartar todos los avisos de actualización de plugins detectados?')) {
+    if (!confirm(I18n.t('t_install_plugin_clear_confirm'))) {
       return;
     }
     try {
@@ -1011,7 +1078,7 @@ const Installer = {
         this.consolePluginUpdates = [];
         this.renderConsolePluginUpdates(this.consolePluginUpdates);
         if (window.App && App.showToast) {
-          App.showToast('Todos los avisos de actualización fueron limpiados', 'success');
+          App.showToast(I18n.t('t_install_toast_plugin_cleared'), 'success');
         }
       }
     } catch (e) {
@@ -1024,7 +1091,7 @@ const Installer = {
     const originalHtml = btn ? btn.innerHTML : '';
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<svg class="spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Escaneando...`;
+      btn.innerHTML = `<svg class="spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> ${I18n.t('t_install_plugin_scanning')}`;
     }
 
     try {
@@ -1034,15 +1101,15 @@ const Installer = {
         this.consolePluginUpdates = data.updates || [];
         this.renderConsolePluginUpdates(this.consolePluginUpdates);
         if (data.count > 0) {
-          App.showToast(`Se detectaron ${data.count} avisos de actualización de plugins en la consola`, 'warning');
+          App.showToast(I18n.fmt('t_install_toast_plugin_found', [data.count]), 'warning');
         } else {
-          App.showToast("No se encontraron avisos de actualización en el log de la consola.", 'info');
+          App.showToast(I18n.t('t_install_toast_plugin_none'), 'info');
         }
       } else {
-        App.showToast("Error al escanear los logs de la consola.", 'danger');
+        App.showToast(I18n.t('t_install_err_plugin_scan'), 'danger');
       }
     } catch (e) {
-      App.showToast("Error de conexión al escanear logs.", 'danger');
+      App.showToast(I18n.t('t_install_err_plugin_scan_conn'), 'danger');
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -1059,12 +1126,12 @@ const Installer = {
       const res = await fetch('/api/plugins/notify-updates', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        App.showToast(`Alerta despachada a Webhooks para ${data.total_outdated || data.total_detected || 0} plugins`, 'success');
+        App.showToast(I18n.fmt('t_install_toast_plugin_notified', [data.total_outdated || data.total_detected || 0]), 'success');
       } else {
-        App.showToast("Error al notificar por Webhook.", 'danger');
+        App.showToast(I18n.t('t_install_err_plugin_notify'), 'danger');
       }
     } catch (e) {
-      App.showToast("Error al despachar alerta de plugins.", 'danger');
+      App.showToast(I18n.t('t_install_err_plugin_notify_dispatch'), 'danger');
     } finally {
       if (btn) btn.disabled = false;
     }

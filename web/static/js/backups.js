@@ -7,6 +7,30 @@ const Backups = {
   configTargets: [],
   availableTargets: null,
 
+  _t(key, fallback) {
+    if (typeof I18n !== 'undefined' && I18n.t) return I18n.t(key, fallback);
+    return (fallback !== undefined ? fallback : key);
+  },
+
+  _tf(key, args, fallback) {
+    if (typeof I18n !== 'undefined' && I18n.fmt) return I18n.fmt(key, args || [], fallback);
+    let text = (fallback !== undefined ? fallback : key);
+    (args || []).forEach((value, i) => {
+      text = String(text).split(`{${i}}`).join(value);
+    });
+    return text;
+  },
+
+  init() {
+    if (this._initialized) return;
+    this._initialized = true;
+    window.addEventListener('dockraft:language_changed', () => {
+      if (typeof App !== 'undefined' && App.activeTab === 'backups') {
+        this.loadBackups();
+      }
+    });
+  },
+
   async loadBackups() {
     await Promise.all([
       this.fetchBackupsList(),
@@ -24,13 +48,13 @@ const Backups = {
 
     try {
       const res = await fetch('/api/backups/list');
-      if (!res.ok) throw new Error("Error al obtener la lista de backups");
+      if (!res.ok) throw new Error(this._t('t_backup_err_fetch_list', 'Error al obtener la lista de backups'));
       this.backupsList = await res.json();
 
       let totalBytes = 0;
       this.backupsList.forEach(b => { totalBytes += (b.size_bytes || 0); });
 
-      if (totalCountEl) totalCountEl.textContent = `${this.backupsList.length} copias`;
+      if (totalCountEl) totalCountEl.textContent = this._tf('t_backup_count_copies', [this.backupsList.length], '{0} copias');
       if (totalSizeEl) totalSizeEl.textContent = this.formatBytes(totalBytes);
 
       tableBody.innerHTML = '';
@@ -46,20 +70,20 @@ const Backups = {
         
         // Origin badge (Manual vs Auto)
         const originBadge = b.is_auto 
-          ? `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; background: rgba(56, 139, 253, 0.15); border: 1px solid #388bfd; color: #58a6ff;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Automático</span>`
-          : `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Manual</span>`;
+          ? `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; background: rgba(56, 139, 253, 0.15); border: 1px solid #388bfd; color: #58a6ff;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${this._t('t_backup_badge_auto', 'Automático')}</span>`
+          : `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${this._t('t_backup_badge_manual', 'Manual')}</span>`;
 
         // Scope badge
         const scope = b.scope || 'full';
         let scopeBadge = '';
         if (scope === 'worlds') {
-          scopeBadge = `<span class="badge-scope badge-scope-worlds">Solo Mundos</span>`;
+          scopeBadge = `<span class="badge-scope badge-scope-worlds">${this._t('t_backup_scope_worlds', 'Solo Mundos')}</span>`;
         } else if (scope === 'worlds_plugins') {
-          scopeBadge = `<span class="badge-scope badge-scope-worlds_plugins">Mundos + Plugins</span>`;
+          scopeBadge = `<span class="badge-scope badge-scope-worlds_plugins">${this._t('t_backup_scope_worlds_plugins', 'Mundos + Plugins')}</span>`;
         } else if (scope === 'custom') {
-          scopeBadge = `<span class="badge-scope badge-scope-custom">Personalizado</span>`;
+          scopeBadge = `<span class="badge-scope badge-scope-custom">${this._t('t_backup_scope_custom', 'Personalizado')}</span>`;
         } else {
-          scopeBadge = `<span class="badge-scope badge-scope-full">Completo</span>`;
+          scopeBadge = `<span class="badge-scope badge-scope-full">${this._t('t_backup_badge_full', 'Completo')}</span>`;
         }
 
         tr.innerHTML = `
@@ -75,15 +99,15 @@ const Backups = {
           <td style="font-family: var(--font-mono); font-size: 0.85rem; color: #79c0ff;">${b.size_formatted || '--'}</td>
           <td style="text-align: right;">
             <div style="display: inline-flex; gap: 6px;">
-              <a href="/api/backups/download/${encodeURIComponent(b.filename)}" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" title="Descargar archivo zip">
+              <a href="/api/backups/download/${encodeURIComponent(b.filename)}" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" title="${this._t('t_backup_download_title', 'Descargar archivo zip')}">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Descargar
+                ${this._t('t_backup_download', 'Descargar')}
               </a>
-              <button class="btn btn-warning" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" data-action="restore" title="Restaurar copia de seguridad">
+              <button class="btn btn-warning" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" data-action="restore" title="${this._t('t_backup_restore_title', 'Restaurar copia de seguridad')}">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                Restaurar
+                ${this._t('t_backup_restore', 'Restaurar')}
               </button>
-              <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center;" data-action="delete" title="Eliminar copia">
+              <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center;" data-action="delete" title="${this._t('t_backup_delete_title', 'Eliminar copia')}">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               </button>
             </div>
@@ -173,7 +197,7 @@ const Backups = {
     if (!container) return;
 
     if (!this.availableTargets) {
-      container.innerHTML = '<div style="color: var(--text-dim); font-size: 0.82rem; padding: 12px; text-align: center;">Analizando carpetas del servidor...</div>';
+      container.innerHTML = `<div style="color: var(--text-dim); font-size: 0.82rem; padding: 12px; text-align: center;">${this._t('t_backup_analyzing', 'Analizando carpetas del servidor...')}</div>`;
       try {
         const res = await fetch('/api/backups/targets');
         if (res.ok) {
@@ -184,7 +208,7 @@ const Backups = {
 
     container.innerHTML = '';
     if (!this.availableTargets || this.availableTargets.length === 0) {
-      container.innerHTML = '<div style="color: var(--text-dim); font-size: 0.82rem; padding: 12px; text-align: center;">No hay carpetas ni archivos disponibles en el servidor aún.</div>';
+      container.innerHTML = `<div style="color: var(--text-dim); font-size: 0.82rem; padding: 12px; text-align: center;">${this._t('t_backup_no_targets', 'No hay carpetas ni archivos disponibles en el servidor aún.')}</div>`;
       return;
     }
 
@@ -237,16 +261,16 @@ const Backups = {
       return;
     }
 
-    container.innerHTML = '<div style="color: var(--text-dim); font-size: 0.82rem; padding: 12px; text-align: center;">Analizando carpetas del servidor...</div>';
+    container.innerHTML = `<div style="color: var(--text-dim); font-size: 0.82rem; padding: 12px; text-align: center;">${this._t('t_backup_analyzing', 'Analizando carpetas del servidor...')}</div>`;
 
     try {
       const res = await fetch('/api/backups/targets');
-      if (!res.ok) throw new Error("Error al consultar estructura de carpetas");
+      if (!res.ok) throw new Error(this._t('t_backup_err_targets', 'Error al consultar estructura de carpetas'));
       this.availableTargets = await res.json();
 
       container.innerHTML = '';
       if (this.availableTargets.length === 0) {
-        container.innerHTML = '<div style="color: var(--text-dim); font-size: 0.82rem; padding: 12px; text-align: center;">No hay carpetas ni archivos disponibles en el servidor aún.</div>';
+        container.innerHTML = `<div style="color: var(--text-dim); font-size: 0.82rem; padding: 12px; text-align: center;">${this._t('t_backup_no_targets', 'No hay carpetas ni archivos disponibles en el servidor aún.')}</div>`;
         return;
       }
 
@@ -279,7 +303,7 @@ const Backups = {
       });
 
     } catch (err) {
-      container.innerHTML = `<div style="color: #f85149; font-size: 0.82rem; padding: 8px;">Error al cargar elementos: ${err.message}</div>`;
+      container.innerHTML = `<div style="color: #f85149; font-size: 0.82rem; padding: 8px;">${this._tf('t_backup_err_loading_targets', [err.message], 'Error al cargar elementos: {0}')}</div>`;
     }
   },
 
@@ -308,19 +332,19 @@ const Backups = {
       const cbs = document.querySelectorAll('.backup-target-cb:checked');
       selectedTargets = Array.from(cbs).map(cb => cb.value);
       if (selectedTargets.length === 0) {
-        App.showToast("Debes seleccionar al menos una carpeta o archivo para respaldar", 'warning');
+        App.showToast(this._t('t_backup_warn_select_target', 'Debes seleccionar al menos una carpeta o archivo para respaldar'), 'warning');
         return;
       }
     }
 
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<span class="spin-icon">↻</span> Comprimiendo...`;
+      btn.innerHTML = `<span class="spin-icon">↻</span> ${this._t('t_backup_compressing', 'Comprimiendo...')}`;
     }
     if (progBox) progBox.style.display = 'block';
 
     try {
-      App.showToast("Iniciando compresión del respaldo...", 'info');
+      App.showToast(this._t('t_backup_toast_start_compression', 'Iniciando compresión del respaldo...'), 'info');
       
       const payload = {
         tag: tag,
@@ -337,9 +361,9 @@ const Backups = {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error al crear la copia de seguridad");
+      if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_create', 'Error al crear la copia de seguridad'));
 
-      App.showToast(`Copia creada con éxito: ${data.filename} (${data.size_formatted})`, 'success');
+      App.showToast(this._tf('t_backup_toast_created', [data.filename, data.size_formatted], 'Copia creada con éxito: {0} ({1})'), 'success');
       this.closeCreateModal();
       await this.fetchBackupsList();
     } catch (err) {
@@ -347,7 +371,7 @@ const Backups = {
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Crear Copia de Seguridad`;
+        btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> ${this._t('t_backup_create_btn', 'Crear Copia de Seguridad')}`;
       }
       if (progBox) progBox.style.display = 'none';
     }
@@ -355,24 +379,24 @@ const Backups = {
 
   async restoreBackup(filename) {
     const ok = await App.confirm({
-      title: 'Restaurar Copia de Seguridad',
-      message: `¿Estás seguro de que deseas restaurar la copia de seguridad '${filename}'?\n\nADVERTENCIA: Esta acción reemplazará los archivos y mundos actuales por los contenidos en la copia de seguridad. El servidor debe estar APAGADO.`,
-      confirmText: 'Restaurar Copia',
+      title: this._t('t_backup_confirm_restore_title', 'Restaurar Copia de Seguridad'),
+      message: this._tf('t_backup_confirm_restore_msg', [filename], "¿Estás seguro de que deseas restaurar la copia de seguridad '{0}'?\n\nADVERTENCIA: Esta acción reemplazará los archivos y mundos actuales por los contenidos en la copia de seguridad. El servidor debe estar APAGADO."),
+      confirmText: this._t('t_backup_confirm_restore_btn', 'Restaurar Copia'),
       warning: true
     });
     if (!ok) return;
 
     try {
-      App.showToast("Restaurando copia de seguridad...", 'info');
+      App.showToast(this._t('t_backup_toast_restoring', 'Restaurando copia de seguridad...'), 'info');
       const res = await fetch('/api/backups/restore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error al restaurar la copia");
+      if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_restore', 'Error al restaurar la copia'));
 
-      App.showToast("Copia de seguridad restaurada correctamente.", 'success');
+      App.showToast(this._t('t_backup_toast_restored', 'Copia de seguridad restaurada correctamente.'), 'success');
     } catch (err) {
       App.showToast(err.message, 'danger');
     }
@@ -380,9 +404,9 @@ const Backups = {
 
   async deleteBackup(filename) {
     const ok = await App.confirm({
-      title: 'Eliminar Copia de Seguridad',
-      message: `¿Deseas eliminar permanentemente la copia de seguridad '${filename}'?`,
-      confirmText: 'Eliminar Copia',
+      title: this._t('t_backup_confirm_delete_title', 'Eliminar Copia de Seguridad'),
+      message: this._tf('t_backup_confirm_delete_msg', [filename], "¿Deseas eliminar permanentemente la copia de seguridad '{0}'?"),
+      confirmText: this._t('t_backup_confirm_delete_btn', 'Eliminar Copia'),
       danger: true
     });
     if (!ok) return;
@@ -392,9 +416,9 @@ const Backups = {
         method: 'DELETE'
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error al eliminar copia");
+      if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_delete', 'Error al eliminar copia'));
 
-      App.showToast("Copia de seguridad eliminada", 'success');
+      App.showToast(this._t('t_backup_toast_deleted', 'Copia de seguridad eliminada'), 'success');
       await this.fetchBackupsList();
     } catch (err) {
       App.showToast(err.message, 'danger');
@@ -443,7 +467,7 @@ const Backups = {
       const cbs = document.querySelectorAll('.backup-cfg-target-cb:checked');
       selectedTargets = Array.from(cbs).map(cb => cb.value);
       if (selectedTargets.length === 0) {
-        App.showToast("Debes seleccionar al menos una carpeta o archivo para respaldar", 'warning');
+        App.showToast(this._t('t_backup_warn_select_target', 'Debes seleccionar al menos una carpeta o archivo para respaldar'), 'warning');
         return;
       }
     }
@@ -464,13 +488,13 @@ const Backups = {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error guardando configuración de respaldo");
+      if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_save_cfg', 'Error guardando configuración de respaldo'));
 
       this.configCompression = payload.backup_compression;
       this.configStopServer = payload.backup_stop_server;
       this.configPreCommand = payload.backup_pre_command;
 
-      App.showToast("Configuración de alcance y retención guardada correctamente.", 'success');
+      App.showToast(this._t('t_backup_toast_cfg_saved', 'Configuración de alcance y retención guardada correctamente.'), 'success');
     } catch (err) {
       App.showToast(err.message, 'danger');
     }
@@ -498,3 +522,9 @@ const Backups = {
       .replace(/'/g, '&#039;');
   }
 };
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => Backups.init());
+} else {
+  Backups.init();
+}

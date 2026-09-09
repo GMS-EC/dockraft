@@ -4,10 +4,25 @@ const Webhooks = {
   currentModalChannel: null,
   isTesting: false,
 
+  init() {
+    if (this._initialized) return;
+    this._initialized = true;
+    window.addEventListener('dockraft:language_changed', () => this.refreshLanguage());
+  },
+
+  refreshLanguage() {
+    if (!this.config) return;
+    this.updateStatusBadges();
+    if (this.currentModalChannel) {
+      this.renderModalTitle(this.currentModalChannel);
+      this.renderModalTestBtn(this.currentModalChannel);
+    }
+  },
+
   async loadConfig() {
     try {
       const res = await fetch('/api/webhooks/config');
-      if (!res.ok) throw new Error("Error al obtener configuración de webhooks");
+      if (!res.ok) throw new Error(I18n.t('t_webhook_err_load'));
       this.config = await res.json();
       this.populateUI(this.config);
     } catch (err) {
@@ -89,10 +104,10 @@ const Webhooks = {
     if (dBadge && dText) {
       if (dUrl) {
         dBadge.className = 'webhook-status-badge configured';
-        dText.textContent = 'Configurado (Webhook activo)';
+        dText.textContent = I18n.t('t_webhook_status_configured_discord');
       } else {
         dBadge.className = 'webhook-status-badge unconfigured';
-        dText.textContent = 'Sin configurar';
+        dText.textContent = I18n.t('t_webhook_status_unconfigured');
       }
     }
 
@@ -104,10 +119,10 @@ const Webhooks = {
     if (tgBadge && tgText) {
       if (tgTok && tgChat) {
         tgBadge.className = 'webhook-status-badge configured';
-        tgText.textContent = `Configurado (Chat: ${tgChat})`;
+        tgText.textContent = I18n.fmt('t_webhook_status_configured_chat', [tgChat]);
       } else {
         tgBadge.className = 'webhook-status-badge unconfigured';
-        tgText.textContent = 'Sin configurar';
+        tgText.textContent = I18n.t('t_webhook_status_unconfigured');
       }
     }
 
@@ -119,10 +134,10 @@ const Webhooks = {
     if (emBadge && emText) {
       if (emHost && emTo) {
         emBadge.className = 'webhook-status-badge configured';
-        emText.textContent = `Configurado (${emHost})`;
+        emText.textContent = I18n.fmt('t_webhook_status_configured_host', [emHost]);
       } else {
         emBadge.className = 'webhook-status-badge unconfigured';
-        emText.textContent = 'Sin configurar';
+        emText.textContent = I18n.t('t_webhook_status_unconfigured');
       }
     }
   },
@@ -130,28 +145,35 @@ const Webhooks = {
   openModal(channel) {
     this.currentModalChannel = channel;
     const modal = document.getElementById('webhook-config-modal');
-    const titleEl = document.getElementById('webhook-modal-title');
     const secDiscord = document.getElementById('modal-section-discord');
     const secTg = document.getElementById('modal-section-telegram');
     const secEmail = document.getElementById('modal-section-email');
-    const testBtn = document.getElementById('webhook-modal-test-btn');
 
     if (secDiscord) secDiscord.style.display = channel === 'discord' ? 'block' : 'none';
     if (secTg) secTg.style.display = channel === 'telegram' ? 'block' : 'none';
     if (secEmail) secEmail.style.display = channel === 'email' ? 'block' : 'none';
 
-    if (titleEl) {
-      const cogSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
-      if (channel === 'discord') titleEl.innerHTML = `${cogSvg} Configurar Webhook de Discord`;
-      else if (channel === 'telegram') titleEl.innerHTML = `${cogSvg} Configurar Bot de Telegram`;
-      else if (channel === 'email') titleEl.innerHTML = `${cogSvg} Configurar Correo Electrónico (SMTP)`;
-    }
-
-    if (testBtn) {
-      testBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Probar ${channel.toUpperCase()}`;
-    }
+    this.renderModalTitle(channel);
+    this.renderModalTestBtn(channel);
 
     if (modal) modal.classList.add('open');
+  },
+
+  renderModalTitle(channel) {
+    const titleEl = document.getElementById('webhook-modal-title');
+    if (!titleEl) return;
+    const cogSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+    let titleKey = 't_webhook_modal_title_discord';
+    if (channel === 'telegram') titleKey = 't_webhook_modal_title_telegram';
+    else if (channel === 'email') titleKey = 't_webhook_modal_title_email';
+    titleEl.innerHTML = `${cogSvg} ${I18n.t(titleKey)}`;
+  },
+
+  renderModalTestBtn(channel) {
+    const testBtn = document.getElementById('webhook-modal-test-btn');
+    if (testBtn) {
+      testBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ${I18n.fmt('t_webhook_modal_test_btn', [channel.toUpperCase()])}`;
+    }
   },
 
   closeModal() {
@@ -171,8 +193,9 @@ const Webhooks = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [channel]: { enabled: isEnabled } })
       });
-      if (!res.ok) throw new Error("Error actualizando estado del canal");
-      App.showToast(`Canal ${channel.toUpperCase()} ${isEnabled ? 'activado' : 'desactivado'}.`, 'info');
+      if (!res.ok) throw new Error(I18n.t('t_webhook_err_channel_state'));
+      const ch = channel.toUpperCase();
+      App.showToast(isEnabled ? I18n.fmt('t_webhook_channel_enabled', [ch]) : I18n.fmt('t_webhook_channel_disabled', [ch]), 'info');
     } catch (err) {
       App.showToast(err.message, 'danger');
     }
@@ -222,11 +245,11 @@ const Webhooks = {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error al guardar configuración de webhooks");
+      if (!res.ok) throw new Error(data.detail || I18n.t('t_webhook_err_save'));
 
       this.config = data.config || payload;
       this.updateStatusBadges();
-      App.showToast("Configuración de Webhooks guardada correctamente.", "success");
+      App.showToast(I18n.t('t_webhook_saved_success'), "success");
       return true;
     } catch (err) {
       console.error("[Webhooks]", err);
@@ -258,25 +281,25 @@ const Webhooks = {
 
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<span class="spin-icon">↻</span> Probando...`;
+      btn.innerHTML = `<span class="spin-icon">↻</span> ${I18n.t('t_webhook_testing')}`;
     }
     if (modalBtn) {
       modalBtn.disabled = true;
-      modalBtn.innerHTML = `<span class="spin-icon">↻</span> Probando...`;
+      modalBtn.innerHTML = `<span class="spin-icon">↻</span> ${I18n.t('t_webhook_testing')}`;
     }
 
     try {
       // Auto-save current form data before testing
       await this.saveConfig();
 
-      App.showToast(`Enviando notificación de prueba a ${channel.toUpperCase()}...`, 'info');
+      App.showToast(I18n.fmt('t_webhook_test_sending', [channel.toUpperCase()]), 'info');
       const res = await fetch(`/api/webhooks/test/${encodeURIComponent(channel)}`, {
         method: 'POST'
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || `Error al probar ${channel}`);
+      if (!res.ok) throw new Error(data.detail || I18n.fmt('t_webhook_err_test', [channel]));
 
-      App.showToast(data.message || 'Notificación de prueba enviada con éxito', 'success');
+      App.showToast(data.message || I18n.t('t_webhook_test_success'), 'success');
     } catch (err) {
       console.error(`[Webhooks Test ${channel}]`, err);
       App.showToast(err.message, 'danger');
@@ -292,3 +315,9 @@ const Webhooks = {
     }
   }
 };
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => Webhooks.init());
+} else {
+  Webhooks.init();
+}

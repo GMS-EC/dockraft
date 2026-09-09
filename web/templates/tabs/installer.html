@@ -5,28 +5,28 @@
     <div>
       <div class="setup-alert-title" style="color: #d29922; display: flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Servidor Actualmente Instalado
+        <span data-i18n="t_install_banner_locked_title">Servidor Actualmente Instalado</span>
       </div>
       <div class="setup-alert-desc" id="installer-current-server-info" style="margin-top: 4px; line-height: 1.5;">
         {% if is_installed %}
-          Tienes instalado un servidor <strong>{{ (server_type or 'Minecraft')|upper }} {{ server_version }}</strong> (<code>{{ cfg.server_file or 'server.jar' }}</code>). La instalación de otro software está bloqueada para proteger tus mundos, plugins y configuraciones de sobrescritura accidental.
+          <span data-i18n="t_install_banner_locked_installed_a">Tienes instalado un servidor</span> <strong>{{ (server_type or 'Minecraft')|upper }} {{ server_version }}</strong> (<code>{{ cfg.server_file or 'server.jar' }}</code>)<span data-i18n="t_install_banner_locked_installed_b">. La instalación de otro software está bloqueada para proteger tus mundos, plugins y configuraciones de sobrescritura accidental.</span>
         {% else %}
-          Ya existe un servidor en este directorio (<code>/data</code>). La instalación está bloqueada para proteger tus mundos, plugins y configuraciones de sobrescritura accidental.
+          <span data-i18n="t_install_banner_locked_exists_a">Ya existe un servidor en este directorio</span> (<code>/data</code>)<span data-i18n="t_install_banner_locked_exists_b">. La instalación está bloqueada para proteger tus mundos, plugins y configuraciones de sobrescritura accidental.</span>
         {% endif %}
       </div>
     </div>
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
       <button class="btn btn-outline" id="btn-open-import-modal" onclick="Installer.openImportModal()" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Importar Servidor (.zip)
+        <span data-i18n="t_install_btn_import">Importar Servidor (.zip)</span>
       </button>
       <button class="btn btn-outline" id="btn-unlock-reinstall" onclick="Installer.toggleUnlockReinstall()" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
-        Desbloquear Reinstalación
+        <span data-i18n="t_install_btn_unlock">Desbloquear Reinstalación</span>
       </button>
       <button class="btn btn-danger" id="btn-delete-server" onclick="Installer.deleteServer()" style="display: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        Eliminar Servidor
+        <span data-i18n="t_install_btn_delete">Eliminar Servidor</span>
       </button>
     </div>
   </div>
@@ -36,13 +36,13 @@
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
       <div class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        Actualizar Servidor <span id="update-server-type-badge" style="text-transform: uppercase; color: #58a6ff;">{{ server_type if is_installed else '' }}</span>
+        <span data-i18n="t_install_update_title">Actualizar Servidor</span> <span id="update-server-type-badge" style="text-transform: uppercase; color: #58a6ff;">{{ server_type if is_installed else '' }}</span>
       </div>
       <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
         <span id="update-current-version-badge" style="background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
           Versión Actual: {{ ((server_type|upper ~ ' ' ~ server_version) if is_installed and server_version else '...') }}
         </span>
-        <span id="update-status-badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
+        <span id="update-status-badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;" data-i18n="t_install_update_checking">
           Comprobando...
         </span>
         <span id="update-preview-badge" style="display: none; background: rgba(210, 153, 34, 0.15); border: 1px solid #d29922; color: #e3b341; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
@@ -51,21 +51,21 @@
     </div>
 
     <p style="color: #8b949e; font-size: 0.88rem; margin-bottom: 16px; line-height: 1.5;">
-      Esta función actualiza el motor y ejecutables de tu servidor a la versión seleccionada. 
-      <strong style="color: #c9d1d9;">Tus mundos, plugins, mods y configuraciones (<code>server.properties</code>) se conservan intactos.</strong>
+      <span data-i18n="t_install_update_desc_a">Esta función actualiza el motor y ejecutables de tu servidor a la versión seleccionada.</span>
+      <strong style="color: #c9d1d9;"><span data-i18n="t_install_update_desc_b">Tus mundos, plugins, mods y configuraciones</span> (<code>server.properties</code>) <span data-i18n="t_install_update_desc_c">se conservan intactos.</span></strong>
     </p>
 
     <!-- Channel Tabs / Pill Switcher -->
     <div style="margin-bottom: 14px;">
       <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; font-weight: 500;">
-        Canal de actualización:
+        <span data-i18n="t_install_update_channel_label">Canal de actualización:</span>
       </div>
       <div class="channel-pills" style="display: inline-flex; background: #0d1117; padding: 3px; border-radius: 8px; border: 1px solid var(--border-color); gap: 4px; flex-wrap: wrap;">
         <button type="button" class="channel-pill-btn active" id="btn-channel-stable" onclick="Installer.switchUpdateChannel('stable')" style="background: var(--accent-primary); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-          <span>⭐ Versiones Estables (Recomendado)</span>
+          <span data-i18n="t_install_update_channel_stable">⭐ Versiones Estables (Recomendado)</span>
         </button>
         <button type="button" class="channel-pill-btn" id="btn-channel-beta" onclick="Installer.switchUpdateChannel('beta')" style="background: transparent; border: none; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-          <span>🔥 Betas, Snapshots & Pre-releases</span>
+          <span data-i18n="t_install_update_channel_beta">🔥 Betas, Snapshots & Pre-releases</span>
         </button>
       </div>
     </div>
@@ -75,8 +75,8 @@
       <div style="display: flex; align-items: flex-start; gap: 10px;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         <div>
-          <strong style="display: block; font-size: 0.88rem; margin-bottom: 3px; color: #f2cc60;">⚠️ Advertencia de Inestabilidad (Versiones Experimentales)</strong>
-          Las versiones Beta, Snapshots y Pre-releases son compilaciones preliminares en desarrollo. Pueden contener errores críticos, pérdida de datos, fallos de rendimiento o incompatibilidad con plugins y mods. Úsalas únicamente para pruebas y bajo tu propia responsabilidad. Dockraft creará una copia de seguridad preventiva antes de actualizar.
+          <strong style="display: block; font-size: 0.88rem; margin-bottom: 3px; color: #f2cc60;">⚠️ <span data-i18n="t_install_beta_warn_title">Advertencia de Inestabilidad (Versiones Experimentales)</span></strong>
+          <span data-i18n="t_install_beta_warn_desc">Las versiones Beta, Snapshots y Pre-releases son compilaciones preliminares en desarrollo. Pueden contener errores críticos, pérdida de datos, fallos de rendimiento o incompatibilidad con plugins y mods. Úsalas únicamente para pruebas y bajo tu propia responsabilidad. Dockraft creará una copia de seguridad preventiva antes de actualizar.</span>
         </div>
       </div>
     </div>
@@ -84,17 +84,17 @@
     <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
       <!-- Stable List Container -->
       <div class="form-group" id="update-group-stable" style="flex: 1; min-width: 240px; margin-bottom: 0;">
-        <label class="form-label" for="update-version-select-stable">Selecciona Versión Estable</label>
+        <label class="form-label" for="update-version-select-stable" data-i18n="t_install_update_select_stable">Selecciona Versión Estable</label>
         <select class="form-select" id="update-version-select-stable" onchange="Installer.onVersionSelectChange('stable')">
-          <option value="">Cargando versiones estables...</option>
+          <option value="" data-i18n="t_install_update_loading_stable">Cargando versiones estables...</option>
         </select>
       </div>
 
       <!-- Beta List Container (Hidden by default) -->
       <div class="form-group" id="update-group-beta" style="display: none; flex: 1; min-width: 240px; margin-bottom: 0;">
-        <label class="form-label" for="update-version-select-beta" style="color: #e3b341;">Selecciona Versión Beta / Snapshot</label>
+        <label class="form-label" for="update-version-select-beta" style="color: #e3b341;" data-i18n="t_install_update_select_beta">Selecciona Versión Beta / Snapshot</label>
         <select class="form-select" id="update-version-select-beta" style="border-color: rgba(210, 153, 34, 0.4);" onchange="Installer.onVersionSelectChange('beta')">
-          <option value="">Cargando versiones beta...</option>
+          <option value="" data-i18n="t_install_update_loading_beta">Cargando versiones beta...</option>
         </select>
       </div>
 
@@ -103,7 +103,7 @@
 
       <button class="btn btn-primary" id="btn-apply-update" onclick="Installer.startUpdate()" style="white-space: nowrap; height: 42px; display: flex; align-items: center; gap: 8px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        Actualizar Servidor
+        <span data-i18n="t_install_btn_update">Actualizar Servidor</span>
       </button>
     </div>
 
@@ -113,7 +113,7 @@
     <!-- Update Progress Bar -->
     <div id="update-progress-box" style="display: none; margin-top: 16px;">
       <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #8b949e; margin-bottom: 6px;">
-        <span id="update-progress-text">Descargando actualización...</span>
+        <span id="update-progress-text" data-i18n="t_install_update_downloading">Descargando actualización...</span>
         <span id="update-progress-percent">0%</span>
       </div>
       <div style="width: 100%; height: 8px; background: #21262d; border-radius: 4px; overflow: hidden;">
@@ -126,31 +126,31 @@
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-          <span style="font-weight: 600; font-size: 0.95rem; color: #f0f6fc;">Actualizaciones de Plugins</span>
+          <span style="font-weight: 600; font-size: 0.95rem; color: #f0f6fc;" data-i18n="t_install_plugin_updates_title">Actualizaciones de Plugins</span>
           <span id="plugins-update-count-badge" style="background: rgba(56, 139, 253, 0.15); border: 1px solid #388bfd; color: #58a6ff; padding: 2px 8px; font-size: 0.75rem; border-radius: 12px;">0 detectadas</span>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           <button type="button" class="btn btn-outline" id="btn-scan-console-updates" onclick="Installer.scanConsolePluginUpdates()" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; padding: 5px 12px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            Escanear Consola
+            <span data-i18n="t_install_btn_scan">Escanear Consola</span>
           </button>
-          <button type="button" class="btn btn-outline" id="btn-clear-console-updates" onclick="Installer.clearAllConsoleUpdates()" style="display: none; align-items: center; gap: 6px; font-size: 0.8rem; padding: 5px 12px; border-color: rgba(248, 81, 73, 0.35); color: #f85149;" title="Limpiar todos los avisos de actualización">
+          <button type="button" class="btn btn-outline" id="btn-clear-console-updates" onclick="Installer.clearAllConsoleUpdates()" style="display: none; align-items: center; gap: 6px; font-size: 0.8rem; padding: 5px 12px; border-color: rgba(248, 81, 73, 0.35); color: #f85149;" title="Limpiar todos los avisos de actualización" data-i18n-title="t_install_btn_clear_title">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            Limpiar Avisos
+            <span data-i18n="t_install_btn_clear">Limpiar Avisos</span>
           </button>
           <button type="button" class="btn btn-primary" id="btn-notify-console-updates" onclick="Installer.notifyConsolePluginUpdates()" style="display: none; align-items: center; gap: 6px; font-size: 0.8rem; padding: 5px 12px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            Notificar por Webhook
+            <span data-i18n="t_install_btn_notify">Notificar por Webhook</span>
           </button>
         </div>
       </div>
 
       <p style="color: #8b949e; font-size: 0.82rem; margin-bottom: 12px; line-height: 1.45;">
-        Avisos de nuevas versiones emitidos por los propios plugins en la consola del servidor (GitHub, Hangar, SpigotMC, Jenkins, etc.) con enlace oficial directo de descarga.
+        <span data-i18n="t_install_plugin_updates_desc">Avisos de nuevas versiones emitidos por los propios plugins en la consola del servidor (GitHub, Hangar, SpigotMC, Jenkins, etc.) con enlace oficial directo de descarga.</span>
       </p>
 
       <div id="installer-plugins-list-container">
-        <div style="text-align: center; padding: 18px; color: var(--text-muted); font-size: 0.84rem;">
+        <div style="text-align: center; padding: 18px; color: var(--text-muted); font-size: 0.84rem;" data-i18n="t_install_plugin_updates_loading">
           Cargando avisos de actualización...
         </div>
       </div>
@@ -161,14 +161,14 @@
     <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-        Selecciona el Tipo de Servidor
+        <span data-i18n="t_install_title">Selecciona el Tipo de Servidor</span>
         <span id="reinstall-warning-badge" style="display: none; font-size: 0.75rem; color: #f85149; background: rgba(248, 81, 73, 0.1); border: 1px solid #f85149; padding: 2px 8px; border-radius: 4px;">
-          REINSTALACIÓN DESBLOQUEADA
+          <span data-i18n="t_install_reinstall_badge">REINSTALACIÓN DESBLOQUEADA</span>
         </span>
       </div>
       <button class="btn btn-outline" onclick="Installer.openImportModal()" style="padding: 6px 14px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Importar Servidor (.zip)
+        <span data-i18n="t_install_btn_import">Importar Servidor (.zip)</span>
       </button>
     </div>
     
@@ -178,7 +178,7 @@
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         </span>
         <span class="type-title">PaperMC</span>
-        <span class="type-desc">Rápido y optimizado. El más recomendado para jugar con amigos y usar plugins.</span>
+        <span class="type-desc" data-i18n="t_install_desc_paper">Rápido y optimizado. El más recomendado para jugar con amigos y usar plugins.</span>
       </div>
 
       <div class="type-card" data-type="purpur">
@@ -186,7 +186,7 @@
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         </span>
         <span class="type-title">Purpur</span>
-        <span class="type-desc">Variante de Paper con máxima personalización y gran rendimiento.</span>
+        <span class="type-desc" data-i18n="t_install_desc_purpur">Variante de Paper con máxima personalización y gran rendimiento.</span>
       </div>
 
       <div class="type-card" data-type="vanilla">
@@ -194,7 +194,7 @@
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="1"/><rect x="2" y="14" width="20" height="8" rx="1"/><line x1="6" y1="6" x2="6" y2="6"/><line x1="18" y1="18" x2="18" y2="18"/></svg>
         </span>
         <span class="type-title">Mojang Vanilla</span>
-        <span class="type-desc">El Minecraft clásico original, sin añadidos, plugins ni mods.</span>
+        <span class="type-desc" data-i18n="t_install_desc_vanilla">El Minecraft clásico original, sin añadidos, plugins ni mods.</span>
       </div>
 
       <div class="type-card" data-type="fabric">
@@ -202,7 +202,7 @@
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
         </span>
         <span class="type-title">Fabric</span>
-        <span class="type-desc">Ligero y rápido para jugar con mods modernos.</span>
+        <span class="type-desc" data-i18n="t_install_desc_fabric">Ligero y rápido para jugar con mods modernos.</span>
       </div>
 
       <div class="type-card" data-type="forge">
@@ -210,7 +210,7 @@
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
         </span>
         <span class="type-title">Minecraft Forge</span>
-        <span class="type-desc">El sistema tradicional y con mayor variedad de mods.</span>
+        <span class="type-desc" data-i18n="t_install_desc_forge">El sistema tradicional y con mayor variedad de mods.</span>
       </div>
 
       <div class="type-card" data-type="bedrock">
@@ -218,54 +218,54 @@
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1"/><circle cx="18" cy="13" r="1"/></svg>
         </span>
         <span class="type-title">Bedrock Dedicated</span>
-        <span class="type-desc">Para jugar desde celulares, consolas (Xbox, PlayStation, Switch) y Windows.</span>
+        <span class="type-desc" data-i18n="t_install_desc_bedrock">Para jugar desde celulares, consolas (Xbox, PlayStation, Switch) y Windows.</span>
       </div>
     </div>
 
     <div class="grid-2">
       <!-- Left Column: Version & Resource Allocation -->
       <div class="card" style="background: rgba(17, 24, 39, 0.4);">
-        <div class="card-title">Versión y Asignación de Recursos</div>
+        <div class="card-title" data-i18n="t_install_res_title">Versión y Asignación de Recursos</div>
 
         <div class="form-group">
-          <label class="form-label" for="installer-server-name">Nombre del Servidor</label>
-          <input type="text" class="form-input" id="installer-server-name" value="{{ server_name or 'Mi Servidor Dockraft' }}" placeholder="ej: Servidor Survival de Amigos">
-          <div class="field-hint">Nombre descriptivo que se mostrará en la barra superior y notificaciones Webhooks.</div>
+          <label class="form-label" for="installer-server-name" data-i18n="t_install_server_name">Nombre del Servidor</label>
+          <input type="text" class="form-input" id="installer-server-name" value="{{ server_name or 'Mi Servidor Dockraft' }}" placeholder="ej: Servidor Survival de Amigos" data-i18n-placeholder="t_install_server_name_ph">
+          <div class="field-hint" data-i18n="t_install_server_name_hint">Nombre descriptivo que se mostrará en la barra superior y notificaciones Webhooks.</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="installer-version-select">Versión del Servidor de Minecraft</label>
+          <label class="form-label" for="installer-version-select" data-i18n="t_install_mc_version">Versión del Servidor de Minecraft</label>
           <select class="form-select" id="installer-version-select">
-            <option value="">Cargando versiones disponibles...</option>
+            <option value="" data-i18n="t_install_loading_versions">Cargando versiones disponibles...</option>
           </select>
           <div style="margin-top: 6px; font-size: 0.78rem; color: #79c0ff; display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
-            <span id="recommended-java-badge">Java automático según versión de Minecraft</span>
+            <span id="recommended-java-badge" data-i18n="t_install_java_auto">Java automático según versión de Minecraft</span>
           </div>
         </div>
 
         <div class="grid-2" style="margin-bottom: 0;">
           <div class="form-group">
-            <label class="form-label" for="install-cpu-cores">Núcleos de CPU</label>
+            <label class="form-label" for="install-cpu-cores" data-i18n="t_install_cpu_cores">Núcleos de CPU</label>
             <input type="number" class="form-input" id="install-cpu-cores" min="1" max="64" value="2">
-            <div class="field-hint">Hilos Java / Bedrock max-threads.</div>
+            <div class="field-hint" data-i18n="t_install_cpu_cores_hint">Hilos Java / Bedrock max-threads.</div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="install-disk-limit">Límite Disco (GB)</label>
+            <label class="form-label" for="install-disk-limit" data-i18n="t_install_disk_limit">Límite Disco (GB)</label>
             <input type="number" class="form-input" id="install-disk-limit" min="1" step="0.5" value="10">
-            <div class="field-hint">Capacidad para datos y backups.</div>
+            <div class="field-hint" data-i18n="t_install_disk_limit_hint">Capacidad para datos y backups.</div>
           </div>
         </div>
       </div>
 
       <!-- Right Column: Memory & Optimizations -->
       <div class="card" style="background: rgba(17, 24, 39, 0.4);">
-        <div class="card-title">Asignación de Memoria (RAM)</div>
+        <div class="card-title" data-i18n="t_install_ram_title">Asignación de Memoria (RAM)</div>
 
         <div class="form-group">
-          <label class="form-label">RAM Máxima (-Xmx)</label>
-          <input type="text" class="form-input" id="install-max-ram" value="2G" placeholder="ej: 2G o 2048M">
+          <label class="form-label" data-i18n="t_install_max_ram">RAM Máxima (-Xmx)</label>
+          <input type="text" class="form-input" id="install-max-ram" value="2G" placeholder="ej: 2G o 2048M" data-i18n-placeholder="t_install_max_ram_ph">
           <div style="display: flex; gap: 8px; margin-top: 6px;">
             <button type="button" class="chip-btn ram-chip" data-ram="1G">1 GB</button>
             <button type="button" class="chip-btn ram-chip" data-ram="2G">2 GB</button>
@@ -276,14 +276,14 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">RAM Mínima (-Xms)</label>
-          <input type="text" class="form-input" id="install-min-ram" value="1G" placeholder="ej: 1G">
+          <label class="form-label" data-i18n="t_install_min_ram">RAM Mínima (-Xms)</label>
+          <input type="text" class="form-input" id="install-min-ram" value="1G" placeholder="ej: 1G" data-i18n-placeholder="t_install_min_ram_ph">
         </div>
 
         <div class="toggle-wrapper" id="aikar-flags-group">
           <div>
-            <div style="font-weight:600; font-size:0.9rem;">Flags de Optimización Aikar</div>
-            <div style="font-size:0.75rem; color:var(--text-dim);">Optimiza el recolector de basura (G1GC) para evitar lag spikes.</div>
+            <div style="font-weight:600; font-size:0.9rem;" data-i18n="t_install_aikar_title">Flags de Optimización Aikar</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);" data-i18n="t_install_aikar_desc">Optimiza el recolector de basura (G1GC) para evitar lag spikes.</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="install-aikar-flags" checked>
@@ -296,7 +296,7 @@
     <!-- Download & Progress -->
     <div id="install-progress-box" style="display: none; margin-top: 10px;">
       <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:6px;">
-        <span id="install-progress-text">Descargando servidor...</span>
+        <span id="install-progress-text" data-i18n="t_install_downloading_server">Descargando servidor...</span>
       </div>
       <div class="progress-bar-bg" style="height: 10px;">
         <div class="progress-bar-fill" id="install-progress-bar" style="width: 0%;"></div>
@@ -306,7 +306,7 @@
     <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
       <button class="btn {{ 'btn-outline' if is_installed else 'btn-primary' }}" id="btn-install-server" {{ 'disabled' if is_installed else '' }} style="padding: 12px 28px; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        {{ 'Servidor ya Instalado (Bloqueado)' if is_installed else 'Instalar y Configurar Servidor' }}
+        <span data-i18n="t_install_btn_install">Descargar e Instalar Servidor</span>
       </button>
     </div>
   </div>

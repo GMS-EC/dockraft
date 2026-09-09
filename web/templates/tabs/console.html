@@ -84,7 +84,7 @@
         </button>
         <button class="chip-btn" id="btn-open-diagnostics" onclick="Console.openDiagnosticsModal()" style="display: inline-flex; align-items: center; gap: 6px; border-color: #388bfd; color: #58a6ff;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          Diagnóstico & Logs
+          <span data-i18n="t_console_diag_open">Diagnóstico & Logs</span>
         </button>
         <button class="chip-btn" id="btn-auto-scroll" data-i18n-title="console_autoscroll_on" style="display: inline-flex; align-items: center; gap: 6px;" title="Auto-scroll activado: haz clic para pausar">
           <span id="btn-auto-scroll-dot" style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #3fb950;"></span>
@@ -101,7 +101,7 @@
         <span id="console-crash-text"><strong>Alerta:</strong> El servidor se detuvo inesperadamente.</span>
       </div>
       <div style="display: flex; gap: 8px;">
-        <button class="btn btn-outline" onclick="Console.openDiagnosticsModal()" style="padding: 4px 10px; font-size: 0.78rem; border-color: #f85149; color: #f85149;">Ver Causa y Solución</button>
+        <button class="btn btn-outline" onclick="Console.openDiagnosticsModal()" style="padding: 4px 10px; font-size: 0.78rem; border-color: #f85149; color: #f85149;" data-i18n="t_console_crash_view_cause">Ver Causa y Solución</button>
         <button class="chip-btn" onclick="document.getElementById('console-crash-alert').style.display='none'" style="padding: 4px 8px;">✕</button>
       </div>
     </div>

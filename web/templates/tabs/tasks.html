@@ -4,17 +4,17 @@
     <div class="tasks-header-row">
       <div class="tasks-title-box">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a371f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <h3>Tareas Programadas</h3>
+        <h3 data-i18n="t_tasks_title">Tareas Programadas</h3>
       </div>
       <button class="btn btn-purple" id="btn-create-task" onclick="Tasks.openCreateModal()" style="display: inline-flex; align-items: center; gap: 6px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Crear nueva tarea programada
+        <span data-i18n="t_tasks_btn_new">Crear nueva tarea programada</span>
       </button>
     </div>
 
     <div class="tasks-filter-bar">
       <div class="tasks-entries-selector">
-        <label for="tasks-page-size">Mostrar entradas de</label>
+        <label for="tasks-page-size" data-i18n="t_tasks_show_entries">Mostrar entradas de</label>
         <select id="tasks-page-size" class="form-input" style="width: 75px; padding: 4px 8px;" onchange="Tasks.setPageSize(this.value)">
           <option value="10" selected>10</option>
           <option value="25">25</option>
@@ -22,8 +22,8 @@
         </select>
       </div>
       <div class="tasks-search-box">
-        <label for="tasks-search-input">Buscar:</label>
-        <input type="text" id="tasks-search-input" class="form-input" placeholder="Buscar tarea..." oninput="Tasks.setSearchQuery(this.value)" style="width: 220px; padding: 6px 10px;">
+        <label for="tasks-search-input" data-i18n="t_tasks_search_label">Buscar:</label>
+        <input type="text" id="tasks-search-input" class="form-input" placeholder="Buscar tarea..." data-i18n-placeholder="t_tasks_search_placeholder" oninput="Tasks.setSearchQuery(this.value)" style="width: 220px; padding: 6px 10px;">
       </div>
     </div>
 
@@ -31,13 +31,13 @@
       <table class="tasks-table">
         <thead>
           <tr>
-            <th style="width: 90px; text-align: center;">Habilitado</th>
-            <th>Nombre</th>
-            <th>Acción</th>
-            <th>Comando / Detalle</th>
-            <th>Intervalo</th>
-            <th>Siguiente ejecución</th>
-            <th style="width: 140px; text-align: center;">Acciones</th>
+            <th style="width: 90px; text-align: center;" data-i18n="t_tasks_col_enabled">Habilitado</th>
+            <th data-i18n="t_tasks_col_name">Nombre</th>
+            <th data-i18n="t_tasks_col_action">Acción</th>
+            <th data-i18n="t_tasks_col_command">Comando / Detalle</th>
+            <th data-i18n="t_tasks_col_interval">Intervalo</th>
+            <th data-i18n="t_tasks_col_next">Siguiente ejecución</th>
+            <th style="width: 140px; text-align: center;" data-i18n="t_tasks_col_actions">Acciones</th>
           </tr>
         </thead>
         <tbody id="tasks-table-body">

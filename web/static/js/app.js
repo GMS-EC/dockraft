@@ -330,14 +330,14 @@ const App = {
       });
       if (res.ok) {
         this.closeEulaModal();
-        this.showToast('EULA aceptado correctamente', 'success');
+        this.showToast(I18n.t('t_app_eula_accepted', 'EULA aceptado correctamente'), 'success');
         // Auto start server if on console tab
         if (typeof Console !== 'undefined' && Console.serverAction) {
           Console.serverAction('start');
         }
       }
     } catch (e) {
-      this.showToast('Error al aceptar el EULA', 'danger');
+      this.showToast(I18n.t('t_app_eula_error', 'Error al aceptar el EULA'), 'danger');
     }
   },
 
@@ -349,7 +349,7 @@ const App = {
         body: JSON.stringify({ accepted: false })
       });
       this.closeEulaModal();
-      this.showToast('EULA rechazado. Minecraft no se iniciará.', 'warning');
+      this.showToast(I18n.t('t_app_eula_rejected', 'EULA rechazado. Minecraft no se iniciará.'), 'warning');
     } catch (e) {
       this.closeEulaModal();
     }
@@ -376,7 +376,7 @@ const App = {
 
     if (!password) {
       if (errorEl) {
-        errorEl.textContent = 'Por favor ingresa la contraseña de administrador.';
+        errorEl.textContent = I18n.t('t_app_login_need_password', 'Por favor ingresa la contraseña de administrador.');
         errorEl.style.display = 'block';
       }
       return;
@@ -385,7 +385,7 @@ const App = {
     if (errorEl) errorEl.style.display = 'none';
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="spin-icon">↻</span> Verificando...';
+      btn.innerHTML = '<span class="spin-icon">↻</span> ' + I18n.t('t_app_login_verifying', 'Verificando...');
     }
 
     try {
@@ -397,7 +397,7 @@ const App = {
       if (res.ok) {
         const modal = document.getElementById('login-modal');
         if (modal) modal.classList.remove('open');
-        this.showToast('¡Bienvenido a Dockraft!', 'success');
+        this.showToast(I18n.t('t_app_welcome', '¡Bienvenido a Dockraft!'), 'success');
         if (input) input.value = '';
         Console.init();
       } else {
@@ -407,7 +407,7 @@ const App = {
           card.classList.add('shake');
         }
         if (errorEl) {
-          errorEl.textContent = 'Contraseña incorrecta. Inténtalo de nuevo.';
+          errorEl.textContent = I18n.t('t_app_login_wrong', 'Contraseña incorrecta. Inténtalo de nuevo.');
           errorEl.style.display = 'block';
         }
         if (input) {
@@ -417,13 +417,13 @@ const App = {
       }
     } catch (e) {
       if (errorEl) {
-        errorEl.textContent = 'Error de conexión con el servidor Dockraft.';
+        errorEl.textContent = I18n.t('t_app_login_conn_error', 'Error de conexión con el servidor Dockraft.');
         errorEl.style.display = 'block';
       }
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = 'Ingresar a Dockraft →';
+        btn.innerHTML = I18n.t('t_app_login_submit', 'Ingresar a Dockraft →');
       }
     }
   },
@@ -563,15 +563,15 @@ const App = {
       const btnCancel = document.getElementById('modal-confirm-btn-cancel');
       const btnClose = document.getElementById('modal-confirm-btn-close');
 
-      if (titleEl) titleEl.textContent = opts.title || (isDanger ? 'Confirmación requerida' : 'Confirmar Acción');
-      if (msgEl) msgEl.textContent = opts.message || '¿Estás seguro de continuar con esta acción?';
+      if (titleEl) titleEl.textContent = opts.title || (isDanger ? I18n.t('t_app_confirm_title_danger', 'Confirmación requerida') : I18n.t('t_app_confirm_title', 'Confirmar Acción'));
+      if (msgEl) msgEl.textContent = opts.message || I18n.t('t_app_confirm_msg', '¿Estás seguro de continuar con esta acción?');
 
       if (btnOk) {
-        btnOk.textContent = opts.confirmText || (isDanger ? 'Eliminar' : 'Confirmar');
+        btnOk.textContent = opts.confirmText || (isDanger ? I18n.t('t_app_confirm_ok_danger', 'Eliminar') : I18n.t('t_app_confirm_ok', 'Confirmar'));
         btnOk.className = isDanger ? 'btn btn-danger' : (isWarning ? 'btn btn-warning' : 'btn btn-primary');
       }
       if (btnCancel) {
-        btnCancel.textContent = opts.cancelText || 'Cancelar';
+        btnCancel.textContent = opts.cancelText || I18n.t('t_app_cancel', 'Cancelar');
       }
 
       if (iconEl) {
@@ -644,14 +644,14 @@ const App = {
       const btnCancel = document.getElementById('modal-prompt-btn-cancel');
       const btnClose = document.getElementById('modal-prompt-btn-close');
 
-      if (titleEl) titleEl.textContent = opts.title || 'Entrada Requerida';
+      if (titleEl) titleEl.textContent = opts.title || I18n.t('t_app_prompt_title', 'Entrada Requerida');
       if (msgEl) msgEl.textContent = opts.message || '';
       if (inputEl) {
         inputEl.placeholder = opts.placeholder || '';
         inputEl.value = opts.defaultValue || '';
       }
-      if (btnOk) btnOk.textContent = opts.confirmText || 'Aceptar';
-      if (btnCancel) btnCancel.textContent = opts.cancelText || 'Cancelar';
+      if (btnOk) btnOk.textContent = opts.confirmText || I18n.t('t_app_ok', 'Aceptar');
+      if (btnCancel) btnCancel.textContent = opts.cancelText || I18n.t('t_app_cancel', 'Cancelar');
 
       let resolved = false;
       const finish = (result) => {

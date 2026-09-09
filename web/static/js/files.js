@@ -5,6 +5,14 @@ const Files = {
   activeRenamePath: '',
   initialized: false,
 
+  tr(key, fallback) {
+    return (typeof I18n !== 'undefined' && I18n.t) ? I18n.t(key, fallback) : fallback;
+  },
+
+  trf(key, args, fallback) {
+    return (typeof I18n !== 'undefined' && I18n.fmt) ? I18n.fmt(key, args, fallback) : fallback;
+  },
+
   init() {
     if (this.initialized) return;
     this.initialized = true;
@@ -30,6 +38,13 @@ const Files = {
       this.hideContextMenu();
     }, true);
 
+    // Re-render the current listing (translated) when the UI language changes
+    window.addEventListener('dockraft:language_changed', () => {
+      if ((typeof App === 'undefined' || App.activeTab === 'files') && document.getElementById('files-table-body')) {
+        this.loadDirectory(this.currentPath);
+      }
+    });
+
     // Background right-click on the table
     const table = document.getElementById('file-manager-table');
     if (table) {
@@ -45,13 +60,13 @@ const Files = {
     const tbody = document.getElementById('files-table-body');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-dim);">Cargando archivos...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-dim);">' + this.tr('t_file_loading', 'Cargando archivos...') + '</td></tr>';
     this.updateBreadcrumbs(path);
     this.hideContextMenu();
 
     try {
       const res = await fetch(`/api/files/list?path=${encodeURIComponent(path)}`);
-      if (!res.ok) throw new Error("Could not list files");
+      if (!res.ok) throw new Error(this.tr('t_file_err_list', 'No se pudieron listar los archivos'));
       const data = await res.json();
       this.renderFileList(data.items);
     } catch (e) {
@@ -96,7 +111,7 @@ const Files = {
     if (!tbody) return;
 
     if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:var(--text-dim);">La carpeta está vacía. Haz clic derecho para crear archivos.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:var(--text-dim);">' + this.tr('t_file_empty', 'La carpeta está vacía. Haz clic derecho para crear archivos.') + '</td></tr>';
       return;
     }
 
@@ -112,7 +127,7 @@ const Files = {
             <span class="file-icon" style="display:inline-flex; align-items:center;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             </span>
-            <span>.. (Subir un nivel)</span>
+            <span>${this.tr('t_file_up_level', '.. (Subir un nivel)')}</span>
           </div>
         </td>
       `;
@@ -150,12 +165,12 @@ const Files = {
         <td>
           <div class="file-actions">
             ${!item.is_dir && this.isEditable(item.extension) ? 
-              `<button class="action-icon-btn btn-edit" title="Editar archivo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : ''}
+              `<button class="action-icon-btn btn-edit" title="${this.tr('t_file_tip_edit', 'Editar archivo')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : ''}
             ${!item.is_dir && item.extension === 'zip' ? 
-              `<button class="action-icon-btn btn-unzip" title="Extraer ZIP"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></button>` : ''}
+              `<button class="action-icon-btn btn-unzip" title="${this.tr('t_file_tip_unzip', 'Extraer ZIP')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></button>` : ''}
             ${!item.is_dir ? 
-              `<button class="action-icon-btn btn-dl" title="Descargar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>` : ''}
-            <button class="action-icon-btn danger btn-del" title="Eliminar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+              `<button class="action-icon-btn btn-dl" title="${this.tr('t_file_download', 'Descargar')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>` : ''}
+            <button class="action-icon-btn danger btn-del" title="${this.tr('t_file_delete', 'Eliminar')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
         </td>
       `;
@@ -215,20 +230,20 @@ const Files = {
       menu.innerHTML = `
         <button type="button" class="context-menu-item" data-act="newFile">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-          <span>Nuevo Archivo</span>
+          <span>${this.tr('t_file_new_file', 'Nuevo Archivo')}</span>
         </button>
         <button type="button" class="context-menu-item" data-act="newFolder">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
-          <span>Nueva Carpeta</span>
+          <span>${this.tr('t_file_new_folder', 'Nueva Carpeta')}</span>
         </button>
         <button type="button" class="context-menu-item" data-act="upload">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <span>Subir Archivo</span>
+          <span>${this.tr('t_file_upload', 'Subir Archivo')}</span>
         </button>
         <div class="context-menu-divider"></div>
         <button type="button" class="context-menu-item" data-act="refresh">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          <span>Refrescar</span>
+          <span>${this.tr('t_file_refresh', 'Refrescar')}</span>
         </button>
       `;
     } else if (item.is_dir) {
@@ -236,28 +251,28 @@ const Files = {
       menu.innerHTML = `
         <button type="button" class="context-menu-item" data-act="open">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          <span>Abrir Carpeta</span>
+          <span>${this.tr('t_file_open_folder', 'Abrir Carpeta')}</span>
         </button>
         <button type="button" class="context-menu-item" data-act="rename">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          <span>Renombrar</span>
+          <span>${this.tr('t_file_rename', 'Renombrar')}</span>
         </button>
         <button type="button" class="context-menu-item" data-act="compress">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-          <span>Comprimir a .ZIP</span>
+          <span>${this.tr('t_file_compress_zip', 'Comprimir a .ZIP')}</span>
         </button>
         <button type="button" class="context-menu-item" data-act="duplicate">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          <span>Duplicar</span>
+          <span>${this.tr('t_file_duplicate', 'Duplicar')}</span>
         </button>
         <button type="button" class="context-menu-item" data-act="copy">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          <span>Copiar ruta</span>
+          <span>${this.tr('t_file_copy_path', 'Copiar ruta')}</span>
         </button>
         <div class="context-menu-divider"></div>
         <button type="button" class="context-menu-item danger" data-act="delete">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          <span>Eliminar Carpeta</span>
+          <span>${this.tr('t_file_delete_folder', 'Eliminar Carpeta')}</span>
         </button>
       `;
     } else {
@@ -270,7 +285,7 @@ const Files = {
         itemsHtml += `
           <button type="button" class="context-menu-item" data-act="edit">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            <span>Editar Archivo</span>
+            <span>${this.tr('t_file_edit_file', 'Editar Archivo')}</span>
           </button>
         `;
       }
@@ -278,7 +293,7 @@ const Files = {
         itemsHtml += `
           <button type="button" class="context-menu-item" data-act="unzip">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-            <span>Extraer aquí</span>
+            <span>${this.tr('t_file_unzip_here', 'Extraer aquí')}</span>
           </button>
         `;
       }
@@ -286,28 +301,28 @@ const Files = {
       itemsHtml += `
         <button type="button" class="context-menu-item" data-act="download">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>Descargar</span>
+          <span>${this.tr('t_file_download', 'Descargar')}</span>
         </button>
         <button type="button" class="context-menu-item" data-act="rename">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          <span>Renombrar</span>
+          <span>${this.tr('t_file_rename', 'Renombrar')}</span>
         </button>
         <button type="button" class="context-menu-item" data-act="compress">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-          <span>Comprimir a .ZIP</span>
+          <span>${this.tr('t_file_compress_zip', 'Comprimir a .ZIP')}</span>
         </button>
         <button type="button" class="context-menu-item" data-act="duplicate">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          <span>Duplicar</span>
+          <span>${this.tr('t_file_duplicate', 'Duplicar')}</span>
         </button>
         <button type="button" class="context-menu-item" data-act="copy">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          <span>Copiar ruta</span>
+          <span>${this.tr('t_file_copy_path', 'Copiar ruta')}</span>
         </button>
         <div class="context-menu-divider"></div>
         <button type="button" class="context-menu-item danger" data-act="delete">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          <span>Eliminar</span>
+          <span>${this.tr('t_file_delete', 'Eliminar')}</span>
         </button>
       `;
       menu.innerHTML = itemsHtml;
@@ -364,14 +379,14 @@ const Files = {
     try {
       await navigator.clipboard.writeText(fullRel);
       if (typeof App !== 'undefined' && App.showToast) {
-        App.showToast(`Ruta copiada: ${fullRel}`, 'success');
+        App.showToast(this.trf('t_file_path_copied', [fullRel], `Ruta copiada: ${fullRel}`), 'success');
       }
     } catch (e) {
       await App.prompt({
-        title: 'Ruta del elemento',
-        message: 'Copia la siguiente ruta:',
+        title: this.tr('t_file_path_prompt_title', 'Ruta del elemento'),
+        message: this.tr('t_file_path_prompt_msg', 'Copia la siguiente ruta:'),
         defaultValue: fullRel,
-        confirmText: 'Aceptar'
+        confirmText: this.tr('t_file_btn_accept', 'Aceptar')
       });
     }
   },
@@ -415,12 +430,12 @@ const Files = {
       if (res.ok) {
         this.closeRenameModal();
         if (typeof App !== 'undefined' && App.showToast) {
-          App.showToast(`Renombrado a "${data.name}"`, 'success');
+          App.showToast(this.trf('t_file_renamed_to', [data.name], `Renombrado a "${data.name}"`), 'success');
         }
         this.loadDirectory(this.currentPath);
       } else {
         if (typeof App !== 'undefined' && App.showToast) {
-          App.showToast(data.detail || "Error al renombrar", 'danger');
+          App.showToast(data.detail || this.tr('t_file_err_rename', 'Error al renombrar'), 'danger');
         }
       }
     } catch (e) {
@@ -458,7 +473,7 @@ const Files = {
       if (res.ok) {
         this.closeCreateFileModal();
         if (typeof App !== 'undefined' && App.showToast) {
-          App.showToast(`Archivo "${fileName}" creado`, 'success');
+          App.showToast(this.trf('t_file_created', [fileName], `Archivo "${fileName}" creado`), 'success');
         }
         await this.loadDirectory(this.currentPath);
         const ext = fileName.split('.').pop().toLowerCase();
@@ -467,7 +482,7 @@ const Files = {
         }
       } else {
         if (typeof App !== 'undefined' && App.showToast) {
-          App.showToast(data.detail || "Error al crear archivo", 'danger');
+          App.showToast(data.detail || this.tr('t_file_err_create', 'Error al crear archivo'), 'danger');
         }
       }
     } catch (e) {
@@ -477,7 +492,7 @@ const Files = {
 
   async duplicateItem(filePath, name) {
     this.hideContextMenu();
-    if (typeof App !== 'undefined' && App.showToast) App.showToast(`Duplicando "${name}"...`, 'info');
+    if (typeof App !== 'undefined' && App.showToast) App.showToast(this.trf('t_file_duplicating', [name], `Duplicando "${name}"...`), 'info');
     try {
       const res = await fetch('/api/files/duplicate', {
         method: 'POST',
@@ -487,12 +502,12 @@ const Files = {
       const data = await res.json();
       if (res.ok) {
         if (typeof App !== 'undefined' && App.showToast) {
-          App.showToast(`Copia creada: "${data.new_name}"`, 'success');
+          App.showToast(this.trf('t_file_copy_created', [data.new_name], `Copia creada: "${data.new_name}"`), 'success');
         }
         this.loadDirectory(this.currentPath);
       } else {
         if (typeof App !== 'undefined' && App.showToast) {
-          App.showToast(data.detail || "Error al duplicar", 'danger');
+          App.showToast(data.detail || this.tr('t_file_err_duplicate', 'Error al duplicar'), 'danger');
         }
       }
     } catch (e) {
@@ -502,7 +517,7 @@ const Files = {
 
   async compressItem(filePath, name) {
     this.hideContextMenu();
-    if (typeof App !== 'undefined' && App.showToast) App.showToast(`Comprimiendo "${name}" a .zip...`, 'info');
+    if (typeof App !== 'undefined' && App.showToast) App.showToast(this.trf('t_file_compressing', [name], `Comprimiendo "${name}" a .zip...`), 'info');
     try {
       const res = await fetch('/api/files/compress', {
         method: 'POST',
@@ -512,12 +527,12 @@ const Files = {
       const data = await res.json();
       if (res.ok) {
         if (typeof App !== 'undefined' && App.showToast) {
-          App.showToast(`Archivo comprimido: "${data.archive_name}"`, 'success');
+          App.showToast(this.trf('t_file_compressed', [data.archive_name], `Archivo comprimido: "${data.archive_name}"`), 'success');
         }
         this.loadDirectory(this.currentPath);
       } else {
         if (typeof App !== 'undefined' && App.showToast) {
-          App.showToast(data.detail || "Error al comprimir", 'danger');
+          App.showToast(data.detail || this.tr('t_file_err_compress', 'Error al comprimir'), 'danger');
         }
       }
     } catch (e) {
@@ -591,18 +606,18 @@ const Files = {
     const saveBtn = document.getElementById('btn-editor-save');
 
     if (title) title.textContent = filePath;
-    if (textarea) { textarea.value = 'Cargando archivo...'; textarea.disabled = false; }
+    if (textarea) { textarea.value = this.tr('t_file_loading_file', 'Cargando archivo...'); textarea.disabled = false; }
     if (saveBtn) saveBtn.disabled = false;
     if (modal) modal.classList.add('open');
 
     try {
       const res = await fetch(`/api/files/content?path=${encodeURIComponent(filePath)}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error loading file");
+      if (!res.ok) throw new Error(data.detail || this.tr('t_file_err_load', 'Error al cargar el archivo'));
       if (textarea) textarea.value = data.content;
     } catch (e) {
       if (textarea) {
-        textarea.value = `⚠️ No se puede abrir el archivo:\n${e.message}\n\nSi el archivo es muy grande, descárgalo para editarlo localmente.`;
+        textarea.value = this.trf('t_file_err_open_big', [e.message], `⚠️ No se puede abrir el archivo:\n${e.message}\n\nSi el archivo es muy grande, descárgalo para editarlo localmente.`);
         textarea.disabled = true;
       }
       if (saveBtn) saveBtn.disabled = true;
@@ -622,9 +637,9 @@ const Files = {
         body: JSON.stringify({ path: this.activeEditingPath, content })
       });
       if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast("Archivo guardado (Ctrl+S)", 'success');
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_saved', 'Archivo guardado (Ctrl+S)'), 'success');
       } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast("Error al guardar archivo", 'danger');
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_err_save', 'Error al guardar archivo'), 'danger');
       }
     } catch (e) {
       if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
@@ -640,9 +655,9 @@ const Files = {
   async deleteItem(filePath, name) {
     this.hideContextMenu();
     const ok = await App.confirm({
-      title: 'Eliminar Elemento',
-      message: `¿Confirmas la eliminación permanente de "${name}"?`,
-      confirmText: 'Eliminar',
+      title: this.tr('t_file_confirm_delete_title', 'Eliminar Elemento'),
+      message: this.trf('t_file_confirm_delete_msg', [name], `¿Confirmas la eliminación permanente de "${name}"?`),
+      confirmText: this.tr('t_file_delete', 'Eliminar'),
       danger: true
     });
     if (!ok) return;
@@ -652,10 +667,10 @@ const Files = {
         method: 'DELETE'
       });
       if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(`"${name}" eliminado`, 'success');
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.trf('t_file_deleted', [name], `"${name}" eliminado`), 'success');
         this.loadDirectory(this.currentPath);
       } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast("Error al eliminar", 'danger');
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_err_delete', 'Error al eliminar'), 'danger');
       }
     } catch (e) {
       if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
@@ -665,17 +680,17 @@ const Files = {
   async unzipFile(filePath) {
     this.hideContextMenu();
     try {
-      if (typeof App !== 'undefined' && App.showToast) App.showToast("Extrayendo archivo zip...", 'info');
+      if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_unzipping', 'Extrayendo archivo zip...'), 'info');
       const res = await fetch('/api/files/unzip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: filePath, target_dir: this.currentPath })
       });
       if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast("Extracción completada", 'success');
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_unzip_done', 'Extracción completada'), 'success');
         this.loadDirectory(this.currentPath);
       } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast("Error en la extracción", 'danger');
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_err_unzip', 'Error en la extracción'), 'danger');
       }
     } catch (e) {
       if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
@@ -685,10 +700,10 @@ const Files = {
   async createNewFolder() {
     this.hideContextMenu();
     const folderName = await App.prompt({
-      title: 'Nueva Carpeta',
-      message: 'Ingresa el nombre de la nueva carpeta:',
-      placeholder: 'ej: plugins_backup, configs',
-      confirmText: 'Crear Carpeta'
+      title: this.tr('t_file_new_folder', 'Nueva Carpeta'),
+      message: this.tr('t_file_folder_prompt_msg', 'Ingresa el nombre de la nueva carpeta:'),
+      placeholder: this.tr('t_file_folder_prompt_ph', 'ej: plugins_backup, configs'),
+      confirmText: this.tr('t_file_btn_create_folder', 'Crear Carpeta')
     });
     if (!folderName || !folderName.trim()) return;
 
@@ -700,11 +715,11 @@ const Files = {
         body: JSON.stringify({ path: newPath })
       });
       if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast("Carpeta creada", 'success');
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_folder_created', 'Carpeta creada'), 'success');
         this.loadDirectory(this.currentPath);
       } else {
         const err = await res.json();
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(err.detail || "Error al crear carpeta", 'danger');
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(err.detail || this.tr('t_file_err_create_folder', 'Error al crear carpeta'), 'danger');
       }
     } catch (e) {
       if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
@@ -717,7 +732,7 @@ const Files = {
     formData.append('path', this.currentPath);
     formData.append('file', file);
 
-    if (typeof App !== 'undefined' && App.showToast) App.showToast(`Subiendo ${file.name}...`, 'info');
+    if (typeof App !== 'undefined' && App.showToast) App.showToast(this.trf('t_file_uploading', [file.name], `Subiendo ${file.name}...`), 'info');
 
     try {
       const res = await fetch('/api/files/upload', {
@@ -725,10 +740,10 @@ const Files = {
         body: formData
       });
       if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(`Subido: ${file.name}`, 'success');
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.trf('t_file_uploaded', [file.name], `Subido: ${file.name}`), 'success');
         this.loadDirectory(this.currentPath);
       } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast("Error al subir archivo", 'danger');
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_err_upload', 'Error al subir archivo'), 'danger');
       }
     } catch (e) {
       if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
