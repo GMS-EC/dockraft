@@ -86,9 +86,9 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           Diagnóstico & Logs
         </button>
-        <button class="chip-btn" id="btn-auto-scroll" style="display: inline-flex; align-items: center; gap: 6px;" title="Auto-scroll activado: haz clic para pausar">
+        <button class="chip-btn" id="btn-auto-scroll" data-i18n-title="console_autoscroll_on" style="display: inline-flex; align-items: center; gap: 6px;" title="Auto-scroll activado: haz clic para pausar">
           <span id="btn-auto-scroll-dot" style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #3fb950;"></span>
-          Auto-scroll
+          <span data-i18n="console_auto_scroll">Desplazamiento automático</span>
         </button>
         <button class="chip-btn" id="btn-clear-console" data-i18n="console_clear">Limpiar Consola</button>
       </div>
@@ -110,7 +110,7 @@
       <div class="terminal-body" id="terminal-content">
         <!-- Live log lines stream here -->
       </div>
-      <button type="button" class="terminal-jump-bottom" id="terminal-jump-bottom" title="Ir al final de la consola" style="display: none;" aria-label="Ir al final">
+      <button type="button" class="terminal-jump-bottom" id="terminal-jump-bottom" data-i18n-title="console_jump_bottom" title="Ir al final de la consola" style="display: none;" aria-label="Ir al final">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
     </div>

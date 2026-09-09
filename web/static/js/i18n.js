@@ -76,6 +76,10 @@ const I18n = {
       cmd_send: 'Enviar',
       console_clear: 'Limpiar Consola',
       console_view_audit: 'Historial de Registros',
+      console_autoscroll_on: 'Auto-scroll activado: haz clic para pausar',
+      console_autoscroll_off: 'Auto-scroll pausado: haz clic para activar',
+      console_jump_bottom: 'Ir al final de la consola',
+      console_reconnecting: 'Conexión con la consola perdida. Reconectando...',
 
       // Installer Tab
       inst_title: 'Selecciona el Tipo de Servidor',
@@ -245,7 +249,7 @@ const I18n = {
       logs_col_status: 'Estado',
 
       // Footer
-      footer_desc: 'Panel de control ultra-ligero y modular para servidores de Minecraft Java y Bedrock.',
+      footer_desc: 'Panel de control ultra-ligero para servidores de Minecraft Java y Bedrock.',
       footer_copyright: '© 2026 Dockraft',
 
       // Modals
@@ -281,6 +285,8 @@ const I18n = {
       login_retry_in: 'Podrás intentar de nuevo en:',
       login_session_expired_title: 'Sesión Caducada',
       login_session_expired_desc: 'Tu sesión ha expirado por inactividad o seguridad. Por favor, inicia sesión de nuevo para continuar.',
+      login_password_toggle: 'Mostrar/Ocultar contraseña',
+      login_footer_note: 'Acceso exclusivo para la administración del servidor Dockraft.',
       
       // Toasts
       toast_lang_changed: 'Idioma cambiado a Español',
@@ -363,6 +369,10 @@ const I18n = {
       cmd_send: 'Send',
       console_clear: 'Clear Console',
       console_view_audit: 'Audit & Command History',
+      console_autoscroll_on: 'Auto-scroll enabled: click to pause',
+      console_autoscroll_off: 'Auto-scroll paused: click to enable',
+      console_jump_bottom: 'Jump to the bottom of the console',
+      console_reconnecting: 'Console connection lost. Reconnecting...',
 
       // Installer Tab
       inst_title: 'Select Server Engine',
@@ -532,7 +542,7 @@ const I18n = {
       players_reason_label: 'Reason (Optional):',
 
       // Footer
-      footer_desc: 'Ultra-lightweight, modular control panel for Minecraft Java and Bedrock servers.',
+      footer_desc: 'Ultra-lightweight control panel for Minecraft Java and Bedrock servers.',
       footer_copyright: '© 2026 Dockraft',
 
       // Modals
@@ -568,6 +578,8 @@ const I18n = {
       login_retry_in: 'You can retry in:',
       login_session_expired_title: 'Session Expired',
       login_session_expired_desc: 'Your session has expired due to inactivity or security timeout. Please sign in again to continue.',
+      login_password_toggle: 'Show/Hide password',
+      login_footer_note: 'Exclusive access for Dockraft server administration.',
 
       // Toasts
       toast_lang_changed: 'Language switched to English',

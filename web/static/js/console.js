@@ -23,6 +23,7 @@ const Console = {
 
     window.addEventListener('dockraft:language_changed', () => {
       if (this.lastStats) this.updateStats(this.lastStats);
+      this.updateAutoScrollToggle();
     });
   },
 
@@ -49,10 +50,13 @@ const Console = {
   updateAutoScrollToggle() {
     const toggle = document.getElementById('btn-auto-scroll');
     const dot = document.getElementById('btn-auto-scroll-dot');
+    const onTitle = (typeof I18n !== 'undefined' && I18n.t)
+      ? I18n.t(this.followEnabled ? 'console_autoscroll_on' : 'console_autoscroll_off')
+      : (this.followEnabled ? 'Auto-scroll activado: haz clic para pausar' : 'Auto-scroll pausado: haz clic para activar');
     if (toggle) {
       toggle.style.borderColor = this.followEnabled ? '#2ea043' : '#30363d';
       toggle.style.color = this.followEnabled ? '#3fb950' : '#8b949e';
-      toggle.title = this.followEnabled ? 'Auto-scroll activado: haz clic para pausar' : 'Auto-scroll pausado: haz clic para activar';
+      toggle.title = onTitle;
     }
     if (dot) dot.style.background = this.followEnabled ? '#3fb950' : '#6e7681';
   },
@@ -128,7 +132,10 @@ const Console = {
         }
         return;
       }
-      this.appendTerminalLine("[Dockraft] Connection to console lost. Reconnecting...");
+      const lostMsg = (typeof I18n !== 'undefined' && I18n.t)
+        ? I18n.t('console_reconnecting')
+        : '[Dockraft] Connection to console lost. Reconnecting...';
+      this.appendTerminalLine(lostMsg);
       // Exponential backoff (3s -> 60s) so a long outage doesn't hammer the server.
       const delay = this.reconnectDelay;
       this.reconnectDelay = Math.min(60000, this.reconnectDelay * 2);
