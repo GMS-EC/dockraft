@@ -1,5 +1,6 @@
 import json
 import zipfile
+import httpx
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
@@ -360,3 +361,34 @@ def test_negative_pattern_allows_positive_update_notices():
     # update notice and must not be discarded as negative.
     mixed = "You are NOT running the latest version! A new version 2.20.0 is available at https://example.com/download"
     assert PluginManager.is_negative_notice(mixed) is False
+
+def test_parse_console_update_line_positive_with_url():
+    line = "[EssentialsX] A new version (v2.20.1) is available! Download: https://www.spigotmc.org/resources/9089/"
+    entry = plugin_manager.parse_console_update_line(line)
+    assert entry is not None
+    assert entry["plugin"] == "EssentialsX"
+    assert "2.20.1" in entry["version"]
+    assert entry["url"] == "https://www.spigotmc.org/resources/9089/"
+
+def test_parse_console_update_line_negative_uptodate():
+    line = "[EssentialsX] You are running the latest version."
+    assert plugin_manager.parse_console_update_line(line) is None
+
+def test_parse_console_update_line_check_failure_ignored():
+    line = "[Plugin] Failed to check for updates: connection timeout"
+    assert plugin_manager.parse_console_update_line(line) is None
+
+@pytest.mark.asyncio
+async def test_enrich_update_urls_fills_missing(monkeypatch):
+    # Simulates a console notice without URL; Spiget search resolves an official link.
+    items = [{"id": 9089, "name": "EssentialsX"}]
+    async def fake_get(self, url):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json = lambda: items
+        return resp
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    updates = [{"plugin": "EssentialsX", "version": "2.20.1", "url": None, "message": "New version available"}]
+    plugin_manager._detected_updates = {"essentialsx": updates[0]}
+    out = await plugin_manager.enrich_update_urls(updates)
+    assert out[0]["url"] == "https://www.spigotmc.org/resources/9089/"

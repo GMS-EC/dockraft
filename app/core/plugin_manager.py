@@ -40,7 +40,12 @@ NEGATIVE_UPDATE_PATTERN = re.compile(
     r'not\s+(?:outdated|found)|'
     r'ninguna\s+actualizaci[oó]n|'
     r'ya\s+(?:está|esta)\s+actualizado|'
-    r'sin\s+actualizaciones?)\b',
+    r'sin\s+actualizaciones?|'
+    r'unable\s+to\s+(?:check|fetch|reach)|'
+    r'(?:failed|fail(?:ure|ed)?)\s+to\s+check|'
+    r'could(?:n.t| not)?\s+check|'
+    r'error\s+(?:checking|while\s+checking|obtaining)|'
+    r'connection\s+(?:failed|error|unavailable))\b',
     re.IGNORECASE
 )
 
@@ -280,6 +285,62 @@ class PluginManager:
             self._detected_updates = cleaned
             self._save_cache()
         return list(self._detected_updates.values())
+
+    async def enrich_update_urls(self, updates: List[Dict[str, Any]], limit: int = 8) -> List[Dict[str, Any]]:
+        """Tries to resolve an official download URL (SpigotMC) for console-detected
+        updates that were announced without a link, so the admin always has somewhere
+        to download instead of searching the console."""
+        from urllib.parse import quote as _url_quote
+        missing = [u for u in updates if not (u.get("url") or "").strip()]
+        resolved: Dict[str, str] = {}
+        if missing:
+            async def _resolve(client, name: str) -> None:
+                if not name:
+                    return
+                try:
+                    resp = await client.get(
+                        f"{self.spiget_base_url}/search/resources/{_url_quote(name, safe='')}?size=3"
+                    )
+                    if resp.status_code != 200:
+                        return
+                    items = resp.json()
+                    match = None
+                    low = name.lower()
+                    if isinstance(items, list):
+                        for it in items:
+                            item_name = str(it.get("name", "")).lower()
+                            if item_name == low or low in item_name:
+                                match = it
+                                break
+                    if match and match.get("id"):
+                        resolved[low] = f"https://www.spigotmc.org/resources/{match['id']}/"
+                except Exception:
+                    return
+
+            try:
+                async with httpx.AsyncClient(timeout=6.0, headers={"User-Agent": "Dockraft-Minecraft-Manager/1.0"}) as client:
+                    tasks = [_resolve(client, (u.get("plugin") or "").strip()) for u in missing[:limit]]
+                    await asyncio.gather(*tasks)
+            except Exception:
+                pass
+
+        enriched = []
+        changed_cache = False
+        for u in updates:
+            entry = u
+            if not (u.get("url") or "").strip():
+                url = resolved.get((u.get("plugin") or "").strip().lower())
+                if url:
+                    entry = dict(u)
+                    entry["url"] = url
+                    key = (u.get("plugin") or "").strip().lower()
+                    if key in self._detected_updates:
+                        self._detected_updates[key]["url"] = url
+                        changed_cache = True
+            enriched.append(entry)
+        if changed_cache:
+            self._save_cache()
+        return enriched
 
     def scan_installed_plugins(self) -> List[Dict[str, Any]]:
         """Scans data/plugins/*.jar, parses plugin.yml, and returns metadata for each installed plugin."""
