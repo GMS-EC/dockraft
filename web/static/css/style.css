@@ -63,10 +63,10 @@ body {
 .header {
   background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
-  padding: 12px 24px;
+  padding: 8px 16px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 12px;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -78,12 +78,13 @@ body {
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .logo-icon {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   background-color: var(--bg-subtle);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -92,6 +93,7 @@ body {
   justify-content: center;
   font-size: 16px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .logo-icon img {
@@ -102,9 +104,10 @@ body {
 }
 
 .logo-text h1 {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.2px;
+  white-space: nowrap;
 }
 
 .logo-text .badge {
@@ -120,27 +123,46 @@ body {
 
 .nav-tabs {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   background-color: var(--bg-main);
   padding: 3px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nav-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-btn {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 6px 14px;
+  padding: 5px 8px;
   border-radius: var(--radius-sm);
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: 0.81rem;
   font-weight: 500;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  flex-shrink: 0;
+  white-space: nowrap;
   transition: all 0.15s ease;
+}
+
+.nav-btn .tab-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .nav-btn:hover {
@@ -156,21 +178,51 @@ body {
 .header-status {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* Status Pill */
 .status-pill {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 12px;
+  gap: 6px;
+  padding: 4px 10px;
   border-radius: 16px;
   background-color: var(--bg-subtle);
   border: 1px solid var(--border-color);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-logout,
+#btn-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-logout:hover,
+#btn-logout:hover {
+  background: rgba(248, 81, 73, 0.1);
+  border-color: rgba(248, 81, 73, 0.4);
+  color: #f85149;
 }
 
 .status-dot {
