@@ -50,7 +50,7 @@
     <div class="stat-box" style="justify-content: center; gap: 8px;">
       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);" data-i18n="stat_control">Control</span>
-        <span class="badge" id="stat-pid-badge" style="background-color: var(--bg-subtle); border: 1px solid var(--border-color); font-size: 0.75rem; font-family: var(--font-mono); color: #79c0ff;">ID: {{ stats.pid or '--' }}</span>
+        <span class="badge" id="stat-pid-badge" style="background-color: var(--bg-subtle); border: 1px solid var(--border-color); font-size: 0.75rem; font-family: var(--font-mono); color: #79c0ff;">PID: {{ stats.pid or '--' }}</span>
       </div>
       <div class="btn-group" style="width: 100%; display: flex; align-items: center; gap: 6px;">
         <button class="btn btn-success" id="btn-start" title="Iniciar Servidor" data-i18n-title="btn_start_title" style="flex: 1; min-width: 0; height: 38px; padding: 0 10px; white-space: nowrap;" {{ 'disabled' if server_status in ['RUNNING', 'STARTING'] else '' }}>

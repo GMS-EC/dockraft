@@ -1,5 +1,5 @@
 // Dockraft Service Worker for PWA
-const CACHE_NAME = 'dockraft-v3';
+const CACHE_NAME = 'dockraft-v4';
 const STATIC_ASSETS = [
   '/static/css/style.css',
   '/static/img/logo.png',
