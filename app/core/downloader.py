@@ -30,7 +30,12 @@ class DownloadManager:
             return all_versions
 
     async def get_paper_latest_build(self, project: str, version: str) -> Dict[str, Any]:
-        """Gets the latest build information for a Paper version using PaperMC v3 API."""
+        """Gets the latest build information for a Paper version using PaperMC v3 API.
+
+        NOTE: The PaperMC v3 API returns builds newest-first, so the latest build is
+        the first element. We defensively select the highest build id preferring
+        the stable/default channel so a beta build never shadows the last stable one.
+        """
         url = f"https://fill.papermc.io/v3/projects/{project}/versions/{version}/builds"
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(url)
@@ -38,7 +43,13 @@ class DownloadManager:
             builds = resp.json()
             if not builds or not isinstance(builds, list):
                 raise ValueError(f"No builds found for {project} {version}")
-            latest_build = builds[-1]
+
+            def _build_priority(b):
+                channel = str(b.get("channel", "")).upper()
+                is_stable = channel in ("STABLE", "DEFAULT", "")
+                return (0 if is_stable else 1, -int(b.get("id") or 0))
+
+            latest_build = min(builds, key=_build_priority)
             build_num = latest_build.get("id")
             downloads = latest_build.get("downloads", {})
             # Typically 'server:default' or first download object
