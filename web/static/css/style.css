@@ -2053,45 +2053,43 @@ input:checked + .slider:before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  background-color: #161b22;
-  border: 1px solid #30363d;
+  padding: 6px;
   color: #8b949e;
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .footer-icon-link:hover {
   color: #58a6ff;
-  border-color: #58a6ff;
-  background-color: rgba(56, 139, 253, 0.12);
-  transform: translateY(-1px);
 }
 
 .footer-icon-link svg {
   display: block;
   width: 18px;
   height: 18px;
-  margin: 0 auto;
 }
 
-/* Language switcher: consistent square icon-only button, glyph optically centered */
+/* Language switcher: plain icon button, no box, matches the other footer icons */
 #btn-lang-toggle.lang-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  transition: all 0.2s ease;
+  padding: 6px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: #8b949e;
+  cursor: pointer;
+  transition: color 0.2s ease;
 }
 
 #btn-lang-toggle.lang-toggle:hover {
   color: #58a6ff;
-  border-color: #58a6ff;
-  background-color: rgba(56, 139, 253, 0.12);
+}
+
+#btn-lang-toggle.lang-toggle svg {
+  width: 18px;
+  height: 18px;
 }
 
 .footer-copyright {
