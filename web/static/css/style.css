@@ -63,10 +63,10 @@ body {
 .header {
   background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
-  padding: 8px 16px;
+  padding: 10px 20px;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -122,14 +122,17 @@ body {
 }
 
 .nav-tabs {
-  display: flex;
+  display: inline-flex;
   gap: 3px;
   background-color: var(--bg-main);
   padding: 3px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: nowrap;
@@ -145,15 +148,15 @@ body {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 5px 8px;
+  padding: 6px 11px;
   border-radius: var(--radius-sm);
   font-family: var(--font-ui);
-  font-size: 0.81rem;
+  font-size: 0.83rem;
   font-weight: 500;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
   white-space: nowrap;
   transition: all 0.15s ease;
@@ -2236,16 +2239,18 @@ input:checked + .slider:before {
   }
 
   .nav-tabs {
-    gap: 3px;
+    gap: 2px;
     padding: 2px;
     overflow-x: auto;
     overflow-y: hidden;
     white-space: nowrap;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
     min-width: 0;
-    justify-content: flex-start;
   }
 
   .nav-tabs::-webkit-scrollbar {
@@ -2253,8 +2258,8 @@ input:checked + .slider:before {
   }
 
   .nav-btn {
-    padding: 5px 8px;
-    font-size: 0.8rem;
+    padding: 5px 9px;
+    font-size: 0.81rem;
     gap: 5px;
     flex-shrink: 0;
     white-space: nowrap;
