@@ -149,7 +149,9 @@ const Metrics = {
 
     if (!this.summary) return;
     const s = this.summary;
+    const isOnline = s.current_status === 'RUNNING' || s.current_status === 'ONLINE' || s.current_status === 'STARTING';
 
+    // CPU KPI
     const cpuVal = document.getElementById('metric-kpi-cpu-val');
     const cpuPeak = document.getElementById('metric-kpi-cpu-peak');
     const cpuAvg = document.getElementById('metric-kpi-cpu-avg');
@@ -157,6 +159,7 @@ const Metrics = {
     if (cpuPeak) cpuPeak.textContent = `${s.peak_cpu || 0.0}%`;
     if (cpuAvg) cpuAvg.textContent = `${s.avg_cpu || 0.0}%`;
 
+    // RAM KPI
     const ramVal = document.getElementById('metric-kpi-ram-val');
     const ramPct = document.getElementById('metric-kpi-ram-pct');
     const ramPeak = document.getElementById('metric-kpi-ram-peak');
@@ -166,14 +169,74 @@ const Metrics = {
     if (ramPeak) ramPeak.textContent = `${Math.round(s.peak_ram_mb || 0)} MB`;
     if (ramAssigned) ramAssigned.textContent = `${Math.round(s.assigned_ram_mb || 2048)} MB`;
 
+    // Disk Space KPI & Alert
+    const diskVal = document.getElementById('metric-kpi-disk-val');
+    const diskPct = document.getElementById('metric-kpi-disk-pct');
+    const diskBar = document.getElementById('metric-kpi-disk-bar');
+    const diskLimit = document.getElementById('metric-kpi-disk-limit');
+    const diskFree = document.getElementById('metric-kpi-disk-free');
+    const diskAlert = document.getElementById('metric-disk-alert');
+    const diskAlertIcon = document.getElementById('metric-disk-alert-icon');
+    const diskAlertTitle = document.getElementById('metric-disk-alert-title');
+    const diskAlertMsg = document.getElementById('metric-disk-alert-msg');
+
+    const usedMb = s.disk_used_mb || 0;
+    const limitMb = s.disk_limit_mb || 10240;
+    const freeMb = s.disk_free_mb !== undefined ? s.disk_free_mb : Math.max(0, limitMb - usedMb);
+    const pct = s.disk_percent !== undefined ? s.disk_percent : Math.min(100, Math.round((usedMb / limitMb) * 100));
+
+    const formatMbOrGb = (mb) => {
+      if (mb >= 1024) {
+        return (mb / 1024).toFixed(1) + ' GB';
+      }
+      return Math.round(mb) + ' MB';
+    };
+
+    if (diskVal) diskVal.textContent = formatMbOrGb(usedMb);
+    if (diskPct) diskPct.textContent = `(${pct}%)`;
+    if (diskLimit) diskLimit.textContent = s.disk_limit_gb ? `${s.disk_limit_gb} GB` : formatMbOrGb(limitMb);
+    if (diskFree) diskFree.textContent = formatMbOrGb(freeMb);
+
+    if (diskBar) {
+      diskBar.style.width = `${Math.min(100, pct)}%`;
+      diskBar.className = 'metric-progress-fill';
+      if (pct >= 90) {
+        diskBar.classList.add('danger');
+      } else if (pct >= 75) {
+        diskBar.classList.add('warning');
+      }
+    }
+
+    // Disk Alert Banner Evaluation (Warning >= 75%, Critical >= 90%)
+    if (diskAlert && diskAlertTitle && diskAlertMsg && diskAlertIcon) {
+      const usedGbStr = (usedMb / 1024).toFixed(1);
+      const limitGbStr = (limitMb / 1024).toFixed(1);
+
+      if (pct >= 90) {
+        diskAlert.className = 'metric-disk-alert critical';
+        diskAlertTitle.textContent = this._t('t_metric_alert_disk_crit_title', 'Alerta Crítica: Espacio en Disco Casi Agotado');
+        diskAlertMsg.textContent = this._tf('t_metric_alert_disk_crit_msg', [pct, usedGbStr, limitGbStr], `Peligro: El servidor ha alcanzado el ${pct}% de su capacidad (${usedGbStr} GB de ${limitGbStr} GB). Las subidas y el guardado del mundo se bloquearán para prevenir corrupción.`);
+        diskAlertIcon.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f85149" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+      } else if (pct >= 75) {
+        diskAlert.className = 'metric-disk-alert warning';
+        diskAlertTitle.textContent = this._t('t_metric_alert_disk_warn_title', 'Advertencia de Espacio en Disco');
+        diskAlertMsg.textContent = this._tf('t_metric_alert_disk_warn_msg', [pct, usedGbStr, limitGbStr], `El servidor ha consumido el ${pct}% del espacio asignado (${usedGbStr} GB de ${limitGbStr} GB usados). Te recomendamos limpiar respaldos o archivos antes de que se agote.`);
+        diskAlertIcon.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+      } else {
+        diskAlert.className = 'metric-disk-alert';
+        diskAlert.style.display = 'none';
+      }
+    }
+
+    // Players KPI
     const plVal = document.getElementById('metric-kpi-players-val');
     const plPeak = document.getElementById('metric-kpi-players-peak');
     if (plVal) plVal.textContent = s.current_players || 0;
     if (plPeak) plPeak.textContent = this._tf('t_metric_players_count', [s.peak_players || 0], '{0} jugadores');
 
+    // Uptime KPI
     const upVal = document.getElementById('metric-kpi-uptime-val');
     const stBadge = document.getElementById('metric-kpi-status-badge');
-    const isOnline = s.current_status === 'RUNNING' || s.current_status === 'ONLINE' || s.current_status === 'STARTING';
     if (upVal) {
       if (!isOnline) {
         upVal.textContent = '--';
@@ -198,6 +261,53 @@ const Metrics = {
       stBadge.textContent = s.current_status || 'OFFLINE';
       stBadge.style.background = isOnline ? 'rgba(46, 160, 67, 0.15)' : 'rgba(218, 54, 51, 0.15)';
       stBadge.style.color = isOnline ? '#3fb950' : '#f85149';
+    }
+
+    // TPS Performance KPI
+    const tpsVal = document.getElementById('metric-kpi-tps-val');
+    const tpsBadge = document.getElementById('metric-kpi-tps-badge');
+    const tps1m = document.getElementById('metric-kpi-tps-1m');
+    const tps5m = document.getElementById('metric-kpi-tps-5m');
+    const tps15m = document.getElementById('metric-kpi-tps-15m');
+
+    if (tpsVal) {
+      if (!isOnline) {
+        tpsVal.textContent = '--';
+        if (tpsBadge) {
+          tpsBadge.textContent = this._t('t_metric_tps_offline', 'Fuera de línea');
+          tpsBadge.style.background = 'rgba(148, 163, 184, 0.15)';
+          tpsBadge.style.color = '#94a3b8';
+        }
+        if (tps1m) tps1m.textContent = '--';
+        if (tps5m) tps5m.textContent = '--';
+        if (tps15m) tps15m.textContent = '--';
+      } else {
+        const tpsObj = s.tps;
+        const v1 = (tpsObj && tpsObj['1m'] != null) ? Number(tpsObj['1m']) : 20.0;
+        const v5 = (tpsObj && tpsObj['5m'] != null) ? Number(tpsObj['5m']) : 20.0;
+        const v15 = (tpsObj && tpsObj['15m'] != null) ? Number(tpsObj['15m']) : 20.0;
+
+        tpsVal.textContent = v1.toFixed(1);
+        if (tps1m) tps1m.textContent = v1.toFixed(1);
+        if (tps5m) tps5m.textContent = v5.toFixed(1);
+        if (tps15m) tps15m.textContent = v15.toFixed(1);
+
+        if (tpsBadge) {
+          if (v1 >= 18.0) {
+            tpsBadge.textContent = this._t('t_metric_tps_optimal', 'Óptimo');
+            tpsBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+            tpsBadge.style.color = '#10b981';
+          } else if (v1 >= 15.0) {
+            tpsBadge.textContent = this._t('t_metric_tps_moderate', 'Aceptable');
+            tpsBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+            tpsBadge.style.color = '#f59e0b';
+          } else {
+            tpsBadge.textContent = this._t('t_metric_tps_low', 'Bajo');
+            tpsBadge.style.background = 'rgba(248, 81, 73, 0.15)';
+            tpsBadge.style.color = '#f85149';
+          }
+        }
+      }
     }
   },
 
@@ -268,6 +378,7 @@ const Metrics = {
     const showCpu = document.getElementById('metric-series-cpu')?.checked !== false;
     const showRamPct = document.getElementById('metric-series-ram-pct')?.checked !== false;
     const showRamMb = document.getElementById('metric-series-ram-mb')?.checked === true;
+    const showDiskPct = document.getElementById('metric-series-disk-pct')?.checked === true;
     const showPlayers = document.getElementById('metric-series-players')?.checked !== false;
 
     // Draw Series: RAM % (Cyan)
@@ -279,6 +390,11 @@ const Metrics = {
     if (showRamMb) {
       const assigned = this.summary?.assigned_ram_mb || 2048;
       this.drawSeries(ctx, this.history, s => ((s.memory_mb || 0) / assigned) * 100, 100, '#60a5fa', 'rgba(96, 165, 250, 0.08)', padding, chartH, stepX);
+    }
+
+    // Draw Series: Disk % (Teal)
+    if (showDiskPct) {
+      this.drawSeries(ctx, this.history, s => s.disk_percent || 0, 100, '#06b6d4', 'rgba(6, 182, 212, 0.12)', padding, chartH, stepX);
     }
 
     // Draw Series: CPU % (Amber)
@@ -369,6 +485,9 @@ const Metrics = {
     if (!tooltip || !tTime || !tBody || !sample) return;
 
     tTime.textContent = sample.time_str || '--:--:--';
+    const diskUsed = sample.disk_used_mb || 0;
+    const diskFormatted = diskUsed >= 1024 ? (diskUsed / 1024).toFixed(1) + ' GB' : Math.round(diskUsed) + ' MB';
+
     tBody.innerHTML = `
       <div style="display: flex; justify-content: space-between; gap: 14px; color: #cbd5e1;">
         <span style="color: #f59e0b; font-weight: 600;">${this._t('t_metric_tt_cpu', 'CPU:')}</span>
@@ -379,6 +498,10 @@ const Metrics = {
         <span style="font-family: var(--font-mono);">${Math.round(sample.memory_mb || 0)} MB (${sample.memory_percent || 0}%)</span>
       </div>
       <div style="display: flex; justify-content: space-between; gap: 14px; color: #cbd5e1;">
+        <span style="color: #06b6d4; font-weight: 600;">${this._t('t_metric_tt_disk', 'Disco:')}</span>
+        <span style="font-family: var(--font-mono);">${diskFormatted} (${sample.disk_percent || 0}%)</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; gap: 14px; color: #cbd5e1;">
         <span style="color: #a855f7; font-weight: 600;">${this._t('t_metric_tt_players', 'Jugadores:')}</span>
         <span style="font-family: var(--font-mono);">${sample.players_online || 0}</span>
       </div>
@@ -387,7 +510,7 @@ const Metrics = {
     tooltip.style.display = 'block';
 
     // Prevent tooltip overflow
-    const tooltipW = 160;
+    const tooltipW = 175;
     let posX = x + 15;
     if (posX + tooltipW > rect.width) {
       posX = x - tooltipW - 15;

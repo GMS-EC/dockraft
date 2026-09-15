@@ -4,6 +4,11 @@ const Files = {
   activeEditingPath: '',
   activeRenamePath: '',
   initialized: false,
+  rawItems: [],
+  searchQuery: '',
+  selectedPaths: new Set(),
+  dragTargetCounter: 0,
+  editorInitDone: false,
 
   tr(key, fallback) {
     return (typeof I18n !== 'undefined' && I18n.t) ? I18n.t(key, fallback) : fallback;
@@ -19,7 +24,7 @@ const Files = {
 
     // Global listener: close context menu on click outside
     window.addEventListener('click', (e) => {
-      if (!e.target.closest('#file-context-menu')) {
+      if (!e.target.closest('#file-context-menu') && !e.target.closest('.mobile-more-btn')) {
         this.hideContextMenu();
       }
     });
@@ -53,14 +58,75 @@ const Files = {
         this.showContextMenu(e, null);
       });
     }
+
+    // Setup Drag and Drop
+    this.setupDragAndDrop();
+  },
+
+  setupDragAndDrop() {
+    const card = document.getElementById('file-manager-card') || document.getElementById('tab-files');
+    const overlay = document.getElementById('file-dropzone-overlay');
+    const targetText = document.getElementById('dropzone-target-text');
+    if (!card || !overlay) return;
+
+    const showOverlay = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.dragTargetCounter++;
+      if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+        if (targetText) {
+          const dest = this.currentPath ? `/data/${this.currentPath}` : '/data';
+          targetText.textContent = this.trf('t_file_dropzone_target', [this.currentPath || ''], `Destino: ${dest}`);
+        }
+        overlay.style.display = 'flex';
+      }
+    };
+
+    const hideOverlay = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.dragTargetCounter--;
+      if (this.dragTargetCounter <= 0) {
+        this.dragTargetCounter = 0;
+        overlay.style.display = 'none';
+      }
+    };
+
+    card.addEventListener('dragenter', showOverlay);
+    card.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    });
+    card.addEventListener('dragleave', hideOverlay);
+    card.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.dragTargetCounter = 0;
+      overlay.style.display = 'none';
+
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        this.uploadFiles(e.dataTransfer.files);
+      }
+    });
   },
 
   async loadDirectory(path = '') {
     this.currentPath = path;
+    this.selectedPaths.clear();
+    this.updateBulkBar();
+
+    // Reset search input on directory change
+    const searchInput = document.getElementById('file-search-input');
+    if (searchInput) searchInput.value = '';
+    this.searchQuery = '';
+
     const tbody = document.getElementById('files-table-body');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-dim);">' + this.tr('t_file_loading', 'Cargando archivos...') + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-dim);">' + this.tr('t_file_loading', 'Cargando archivos...') + '</td></tr>';
     this.updateBreadcrumbs(path);
     this.hideContextMenu();
 
@@ -68,9 +134,10 @@ const Files = {
       const res = await fetch(`/api/files/list?path=${encodeURIComponent(path)}`);
       if (!res.ok) throw new Error(this.tr('t_file_err_list', 'No se pudieron listar los archivos'));
       const data = await res.json();
-      this.renderFileList(data.items);
+      this.rawItems = Array.isArray(data.items) ? data.items : [];
+      this.renderFileList(this.rawItems);
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--status-danger);">${e.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--status-danger);">${this.escapeHtml(e.message)}</td></tr>`;
     }
   },
 
@@ -106,22 +173,41 @@ const Files = {
     });
   },
 
-  renderFileList(items) {
+  filterFiles(query) {
+    this.searchQuery = (query || '').toLowerCase().trim();
+    if (!this.searchQuery) {
+      this.renderFileList(this.rawItems, true);
+    } else {
+      const filtered = this.rawItems.filter(it => it.name.toLowerCase().includes(this.searchQuery));
+      this.renderFileList(filtered, true);
+    }
+  },
+
+  renderFileList(items, isFiltered = false) {
     const tbody = document.getElementById('files-table-body');
     if (!tbody) return;
 
-    if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:var(--text-dim);">' + this.tr('t_file_empty', 'La carpeta está vacía. Haz clic derecho para crear archivos.') + '</td></tr>';
+    if (!isFiltered) {
+      this.rawItems = items || [];
+      if (this.searchQuery) {
+        items = this.rawItems.filter(it => it.name.toLowerCase().includes(this.searchQuery));
+      }
+    }
+
+    if (!items || items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:24px; color:var(--text-dim);">' + this.tr('t_file_empty', 'La carpeta está vacía. Haz clic derecho para crear archivos.') + '</td></tr>';
+      this.syncSelectAllCheckbox();
       return;
     }
 
     tbody.innerHTML = '';
 
     // If inside a subfolder, add '..' parent directory row
-    if (this.currentPath) {
+    if (this.currentPath && !this.searchQuery) {
       const parentRow = document.createElement('tr');
       parentRow.className = 'file-row';
       parentRow.innerHTML = `
+        <td style="text-align: center; color: var(--text-dim);">-</td>
         <td colspan="4">
           <div class="file-name-cell">
             <span class="file-icon" style="display:inline-flex; align-items:center;">
@@ -144,16 +230,22 @@ const Files = {
 
     items.forEach(item => {
       const row = document.createElement('tr');
-      row.className = 'file-row';
+      const itemRelativePath = (this.currentPath ? this.currentPath + '/' : '') + item.name;
+      const isSelected = this.selectedPaths.has(itemRelativePath);
+
+      row.className = `file-row ${isSelected ? 'row-selected' : ''}`;
+      row.dataset.path = itemRelativePath;
 
       const iconSvg = item.is_dir 
         ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
         : this.getFileIcon(item.extension);
       const formattedSize = item.is_dir ? '-' : this.formatBytes(item.size);
       const formattedDate = new Date(item.modified * 1000).toLocaleString();
-      const itemRelativePath = (this.currentPath ? this.currentPath + '/' : '') + item.name;
 
       row.innerHTML = `
+        <td style="width: 38px; text-align: center;" class="file-select-cell">
+          <input type="checkbox" class="form-checkbox file-item-checkbox" data-path="${this.escapeHtml(itemRelativePath)}" ${isSelected ? 'checked' : ''}>
+        </td>
         <td>
           <div class="file-name-cell">
             <span class="file-icon" style="display:inline-flex; align-items:center;">${iconSvg}</span>
@@ -161,7 +253,7 @@ const Files = {
           </div>
         </td>
         <td style="color:var(--text-muted);">${formattedSize}</td>
-        <td style="color:var(--text-dim); font-size:0.8rem;">${formattedDate}</td>
+        <td class="col-modified" style="color:var(--text-dim); font-size:0.8rem;">${formattedDate}</td>
         <td>
           <div class="file-actions">
             ${!item.is_dir && this.isEditable(item.extension) ? 
@@ -170,12 +262,22 @@ const Files = {
               `<button class="action-icon-btn btn-unzip" title="${this.tr('t_file_tip_unzip', 'Extraer ZIP')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></button>` : ''}
             ${!item.is_dir ? 
               `<button class="action-icon-btn btn-dl" title="${this.tr('t_file_download', 'Descargar')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>` : ''}
-            <button class="action-icon-btn danger btn-del" title="${this.tr('t_file_delete', 'Eliminar')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            <button class="action-icon-btn danger btn-del" title="${this.tr('t_file_delete', 'Eliminar')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
+            <button class="action-icon-btn mobile-more-btn btn-more" title="${this.tr('t_file_col_actions', 'Acciones')}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
           </div>
         </td>
       `;
 
-      // Event listener for name cell click
+      // Checkbox click
+      const checkbox = row.querySelector('.file-item-checkbox');
+      if (checkbox) {
+        checkbox.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleRowSelect(itemRelativePath, checkbox.checked, row);
+        });
+      }
+
+      // Name cell click
       const nameCell = row.querySelector('.file-name-cell');
       nameCell.addEventListener('click', () => {
         if (item.is_dir) {
@@ -193,12 +295,27 @@ const Files = {
       if (unzipBtn) unzipBtn.addEventListener('click', () => this.unzipFile(itemRelativePath));
 
       const dlBtn = row.querySelector('.btn-dl');
-      if (dlBtn) dlBtn.addEventListener('click', () => {
-        this.downloadFile(itemRelativePath);
-      });
+      if (dlBtn) dlBtn.addEventListener('click', () => this.downloadFile(itemRelativePath));
 
       const delBtn = row.querySelector('.btn-del');
       if (delBtn) delBtn.addEventListener('click', () => this.deleteItem(itemRelativePath, item.name));
+
+      // Mobile More button click
+      const moreBtn = row.querySelector('.btn-more');
+      if (moreBtn) {
+        moreBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const rect = moreBtn.getBoundingClientRect();
+          const fakeEvent = {
+            preventDefault() {},
+            stopPropagation() {},
+            clientX: rect.left - 150,
+            clientY: rect.bottom + 4
+          };
+          this.showContextMenu(fakeEvent, item, itemRelativePath, row);
+        });
+      }
 
       // Right-click context menu event
       row.addEventListener('contextmenu', (e) => {
@@ -207,6 +324,157 @@ const Files = {
 
       tbody.appendChild(row);
     });
+
+    this.syncSelectAllCheckbox();
+  },
+
+  toggleRowSelect(path, isChecked, rowElement) {
+    if (isChecked) {
+      this.selectedPaths.add(path);
+      if (rowElement) rowElement.classList.add('row-selected');
+    } else {
+      this.selectedPaths.delete(path);
+      if (rowElement) rowElement.classList.remove('row-selected');
+    }
+    this.updateBulkBar();
+  },
+
+  toggleSelectAll(checked) {
+    const checkboxes = document.querySelectorAll('.file-item-checkbox');
+    checkboxes.forEach(cb => {
+      const p = cb.getAttribute('data-path');
+      cb.checked = checked;
+      const r = cb.closest('.file-row');
+      if (checked) {
+        this.selectedPaths.add(p);
+        if (r) r.classList.add('row-selected');
+      } else {
+        this.selectedPaths.delete(p);
+        if (r) r.classList.remove('row-selected');
+      }
+    });
+    this.updateBulkBar();
+  },
+
+  clearSelection() {
+    this.selectedPaths.clear();
+    document.querySelectorAll('.file-item-checkbox').forEach(cb => {
+      cb.checked = false;
+      const r = cb.closest('.file-row');
+      if (r) r.classList.remove('row-selected');
+    });
+    this.updateBulkBar();
+  },
+
+  updateBulkBar() {
+    const bulkBar = document.getElementById('files-bulk-bar');
+    const countEl = document.getElementById('bulk-selected-count');
+    const count = this.selectedPaths.size;
+
+    if (count > 0) {
+      if (bulkBar) bulkBar.style.display = 'flex';
+      if (countEl) countEl.textContent = this.trf('t_file_bulk_selected', [count], `${count} seleccionados`);
+    } else {
+      if (bulkBar) bulkBar.style.display = 'none';
+    }
+
+    this.syncSelectAllCheckbox();
+  },
+
+  syncSelectAllCheckbox() {
+    const selectAll = document.getElementById('file-select-all');
+    if (!selectAll) return;
+    const checkboxes = Array.from(document.querySelectorAll('.file-item-checkbox'));
+    if (checkboxes.length === 0) {
+      selectAll.checked = false;
+      selectAll.indeterminate = false;
+      return;
+    }
+    const allChecked = checkboxes.every(cb => cb.checked);
+    const someChecked = checkboxes.some(cb => cb.checked);
+    selectAll.checked = allChecked;
+    selectAll.indeterminate = !allChecked && someChecked;
+  },
+
+  async bulkDelete() {
+    if (this.selectedPaths.size === 0) return;
+    const count = this.selectedPaths.size;
+
+    const ok = await App.confirm({
+      title: this.tr('t_file_bulk_delete_confirm_title', 'Eliminar Elementos Seleccionados'),
+      message: this.trf('t_file_bulk_delete_confirm_msg', [count], `¿Confirmas la eliminación permanente de los ${count} elementos seleccionados?`),
+      confirmText: this.tr('t_file_bulk_delete', 'Eliminar'),
+      danger: true
+    });
+    if (!ok) return;
+
+    const paths = Array.from(this.selectedPaths);
+    try {
+      const res = await fetch('/api/files/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (typeof App !== 'undefined' && App.showToast) {
+          App.showToast(this.trf('t_file_bulk_deleted', [data.deleted_count || count], `${data.deleted_count || count} elementos eliminados`), 'success');
+        }
+        this.clearSelection();
+        this.loadDirectory(this.currentPath);
+      } else {
+        if (typeof App !== 'undefined' && App.showToast) {
+          App.showToast(data.detail || this.tr('t_file_bulk_err_delete', 'Error al eliminar algunos elementos'), 'danger');
+        }
+      }
+    } catch (e) {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
+    }
+  },
+
+  async bulkCompress() {
+    if (this.selectedPaths.size === 0) return;
+    const count = this.selectedPaths.size;
+    const defaultName = (this.currentPath ? this.currentPath.split('/').pop() : 'dockraft') + '_bundle.zip';
+
+    const archiveName = await App.prompt({
+      title: this.tr('t_file_bulk_compress', 'Comprimir ZIP'),
+      message: this.tr('t_file_bulk_compress_prompt', 'Nombre para el archivo ZIP:'),
+      defaultValue: defaultName,
+      confirmText: this.tr('t_file_bulk_compress', 'Comprimir ZIP')
+    });
+    if (!archiveName || !archiveName.trim()) return;
+
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(this.trf('t_file_bulk_compressing', [count], `Comprimiendo ${count} elementos...`), 'info');
+    }
+
+    const paths = Array.from(this.selectedPaths);
+    try {
+      const res = await fetch('/api/files/bulk-compress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paths,
+          target_dir: this.currentPath,
+          archive_name: archiveName.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (typeof App !== 'undefined' && App.showToast) {
+          App.showToast(this.trf('t_file_bulk_compressed', [data.archive_name], `Archivo ZIP creado: "${data.archive_name}"`), 'success');
+        }
+        this.clearSelection();
+        this.loadDirectory(this.currentPath);
+      } else {
+        if (typeof App !== 'undefined' && App.showToast) {
+          App.showToast(data.detail || this.tr('t_file_bulk_err_compress', 'Error al comprimir elementos'), 'danger');
+        }
+      }
+    } catch (e) {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
+    }
   },
 
   showContextMenu(e, item = null, itemRelativePath = '', targetRow = null) {
@@ -569,24 +837,14 @@ const Files = {
   },
 
   isEditable(ext) {
-    // Block only real binary / non-text formats. Everything else (including any
-    // unknown or text format: .yml, .json, .txt, .log, .md, .sh, .datapack text,
-    // .svg/.xml, .pem, etc.) is treated as editable text.
     const BINARY_EXTENSIONS = new Set([
-      // Archives & packages
       'jar', 'zip', 'gz', 'tar', 'rar', '7z', 'bz2', 'xz', 'zst', 'lz4',
-      // Images (bitmap; SVG is text/XML and stays editable)
       'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'ico', 'tiff', 'tif',
-      // Audio / Video
       'mp3', 'wav', 'ogg', 'flac', 'mp4', 'avi', 'mkv', 'mov', 'webm',
-      // Binaries / executables
       'exe', 'dll', 'so', 'dylib', 'bin', 'elf', 'o', 'a', 'lib', 'class',
-      // Databases / binary world data
       'db', 'sqlite', 'sqlite3', 'dat', 'nbt', 'mca', 'mcworld', 'ldb',
-      // Documents (binary)
       'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
-      // Fonts
-      'ttf', 'otf', 'woff', 'woff2', 'eot',
+      'ttf', 'otf', 'woff', 'woff2', 'eot'
     ]);
     return !BINARY_EXTENSIONS.has((ext || '').toLowerCase());
   },
@@ -599,16 +857,78 @@ const Files = {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   },
 
+  setupEditorListeners() {
+    if (this.editorInitDone) return;
+    this.editorInitDone = true;
+
+    const textarea = document.getElementById('editor-textarea');
+    if (!textarea) return;
+
+    // Tab key inserts 2 spaces without losing focus
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const value = textarea.value;
+        textarea.value = value.substring(0, start) + '  ' + value.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start + 2;
+        this.updateEditorStatusBar();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        this.saveCurrentFile();
+      }
+    });
+
+    textarea.addEventListener('input', () => this.updateEditorStatusBar());
+    textarea.addEventListener('keyup', () => this.updateEditorStatusBar());
+    textarea.addEventListener('click', () => this.updateEditorStatusBar());
+
+    // Window Ctrl+S shortcut when modal is open
+    window.addEventListener('keydown', (e) => {
+      const modal = document.getElementById('file-editor-modal');
+      if (modal && modal.classList.contains('open')) {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          this.saveCurrentFile();
+        }
+      }
+    });
+  },
+
+  updateEditorStatusBar() {
+    const textarea = document.getElementById('editor-textarea');
+    const posEl = document.getElementById('editor-cursor-pos');
+    const charEl = document.getElementById('editor-char-count');
+    if (!textarea || !posEl || !charEl) return;
+
+    const val = textarea.value || '';
+    const pos = textarea.selectionStart || 0;
+    const textBefore = val.substring(0, pos);
+    const line = textBefore.split('\n').length;
+    const lastNewline = textBefore.lastIndexOf('\n');
+    const col = lastNewline === -1 ? pos + 1 : pos - lastNewline;
+    const charCount = val.length;
+
+    posEl.textContent = `Línea ${line}, Columna ${col}`;
+    charEl.textContent = `${charCount} caracteres`;
+  },
+
   async openEditor(filePath) {
     this.hideContextMenu();
     this.activeEditingPath = filePath;
+    this.setupEditorListeners();
+
     const modal = document.getElementById('file-editor-modal');
     const title = document.getElementById('editor-file-title');
     const textarea = document.getElementById('editor-textarea');
     const saveBtn = document.getElementById('btn-editor-save');
 
     if (title) title.textContent = filePath;
-    if (textarea) { textarea.value = this.tr('t_file_loading_file', 'Cargando archivo...'); textarea.disabled = false; }
+    if (textarea) { 
+      textarea.value = this.tr('t_file_loading_file', 'Cargando archivo...'); 
+      textarea.disabled = false; 
+    }
     if (saveBtn) saveBtn.disabled = false;
     if (modal) modal.classList.add('open');
 
@@ -616,10 +936,13 @@ const Files = {
       const res = await fetch(`/api/files/content?path=${encodeURIComponent(filePath)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || this.tr('t_file_err_load', 'Error al cargar el archivo'));
-      if (textarea) textarea.value = data.content;
+      if (textarea) {
+        textarea.value = data.content;
+        this.updateEditorStatusBar();
+      }
     } catch (e) {
       if (textarea) {
-        textarea.value = this.trf('t_file_err_open_big', [e.message], `⚠️ No se puede abrir el archivo:\n${e.message}\n\nSi el archivo es muy grande, descárgalo para editarlo localmente.`);
+        textarea.value = this.trf('t_file_err_open_big', [e.message], `No se puede abrir el archivo:\n${e.message}\n\nSi el archivo es muy grande, descárgalo para editarlo localmente.`);
         textarea.disabled = true;
       }
       if (saveBtn) saveBtn.disabled = true;
@@ -670,6 +993,8 @@ const Files = {
       });
       if (res.ok) {
         if (typeof App !== 'undefined' && App.showToast) App.showToast(this.trf('t_file_deleted', [name], `"${name}" eliminado`), 'success');
+        this.selectedPaths.delete(filePath);
+        this.updateBulkBar();
         this.loadDirectory(this.currentPath);
       } else {
         if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_err_delete', 'Error al eliminar'), 'danger');
@@ -728,28 +1053,55 @@ const Files = {
     }
   },
 
-  async uploadFile(file) {
-    this.hideContextMenu();
-    const formData = new FormData();
-    formData.append('path', this.currentPath);
-    formData.append('file', file);
+  async uploadFiles(fileList) {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList);
+    const total = files.length;
+    let uploadedCount = 0;
 
-    if (typeof App !== 'undefined' && App.showToast) App.showToast(this.trf('t_file_uploading', [file.name], `Subiendo ${file.name}...`), 'info');
-
-    try {
-      const res = await fetch('/api/files/upload', {
-        method: 'POST',
-        body: formData
-      });
-      if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.trf('t_file_uploaded', [file.name], `Subido: ${file.name}`), 'success');
-        this.loadDirectory(this.currentPath);
-      } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_err_upload', 'Error al subir archivo'), 'danger');
+    for (let i = 0; i < total; i++) {
+      const file = files[i];
+      if (typeof App !== 'undefined' && App.showToast) {
+        App.showToast(this.trf('t_file_upload_progress', [i + 1, total, file.name], `Subiendo ${i + 1} de ${total}: ${file.name}...`), 'info');
       }
-    } catch (e) {
-      if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
+
+      const formData = new FormData();
+      formData.append('path', this.currentPath);
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/files/upload', {
+          method: 'POST',
+          body: formData
+        });
+        if (res.ok) {
+          uploadedCount++;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          if (typeof App !== 'undefined' && App.showToast) {
+            App.showToast(errData.detail || this.trf('t_file_err_upload', [file.name], `Error al subir ${file.name}`), 'danger');
+          }
+        }
+      } catch (e) {
+        if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
+      }
     }
+
+    // Reset upload input value so same files can be re-selected if desired
+    const uploadInput = document.getElementById('file-upload-input');
+    if (uploadInput) uploadInput.value = '';
+
+    if (uploadedCount > 0) {
+      if (typeof App !== 'undefined' && App.showToast) {
+        App.showToast(this.trf('t_file_upload_complete', [uploadedCount], `${uploadedCount} archivo(s) subido(s) correctamente`), 'success');
+      }
+      this.loadDirectory(this.currentPath);
+    }
+  },
+
+  async uploadFile(file) {
+    if (!file) return;
+    return this.uploadFiles([file]);
   },
 
   _buildContextActions(item, itemRelativePath) {
@@ -793,4 +1145,3 @@ if (typeof document !== 'undefined') {
     Files.init();
   }
 }
-

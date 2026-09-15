@@ -255,8 +255,8 @@ const I18n = {
       logs_page_range: 'Mostrando {0}–{1} de {2} registros',
 
       // Footer
-      footer_version: 'v1.1.0',
-      app_version: 'v1.1.0',
+      footer_version: 'v1.2.0',
+      app_version: 'v1.2.0',
       footer_desc: 'Panel de control ultra-ligero para servidores de Minecraft Java y Bedrock.',
       footer_copyright: '© 2026 Dockraft',
 
@@ -556,8 +556,8 @@ const I18n = {
       players_reason_label: 'Reason (Optional):',
 
       // Footer
-      footer_version: 'v1.1.0',
-      app_version: 'v1.1.0',
+      footer_version: 'v1.2.0',
+      app_version: 'v1.2.0',
       footer_desc: 'Ultra-lightweight control panel for Minecraft Java and Bedrock servers.',
       footer_copyright: '© 2026 Dockraft',
 

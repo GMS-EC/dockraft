@@ -157,6 +157,14 @@ class FileCompressRequest(BaseModel):
 class FileCreateRequest(BaseModel):
     path: str
 
+class BulkDeleteRequest(BaseModel):
+    paths: List[str]
+
+class BulkCompressRequest(BaseModel):
+    paths: List[str]
+    target_dir: Optional[str] = ""
+    archive_name: Optional[str] = ""
+
 class InstallRequest(BaseModel):
     server_type: str # paper, purpur, vanilla, fabric, bedrock, forge
     version: str
@@ -1242,6 +1250,14 @@ async def file_compress(req: FileCompressRequest):
 @app.post("/api/files/create", dependencies=[Depends(get_current_user)])
 async def file_create(req: FileCreateRequest):
     return file_manager.create_file(req.path)
+
+@app.post("/api/files/bulk-delete", dependencies=[Depends(get_current_user)])
+async def file_bulk_delete(req: BulkDeleteRequest):
+    return file_manager.bulk_delete(req.paths)
+
+@app.post("/api/files/bulk-compress", dependencies=[Depends(get_current_user)])
+async def file_bulk_compress(req: BulkCompressRequest):
+    return file_manager.bulk_compress(req.paths, req.target_dir or "", req.archive_name or "")
 
 # --- Server Import Endpoint ---
 @app.post("/api/server/import", dependencies=[Depends(get_current_user)])

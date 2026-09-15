@@ -225,20 +225,31 @@
 
 <!-- Modal: File Text Editor -->
 <div class="modal-backdrop" id="file-editor-modal">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width: 800px; width: 95%;">
     <div class="modal-header">
       <h3 id="editor-file-title" style="font-family: var(--font-mono); font-size: 1rem;">Editar Archivo</h3>
       <button class="action-icon-btn" onclick="Files.closeEditor()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
-    <div class="modal-body">
-      <textarea class="code-editor-area" id="editor-textarea" spellcheck="false"></textarea>
+    <div class="modal-body" style="padding-bottom: 4px;">
+      <textarea class="code-editor-area" id="editor-textarea" spellcheck="false" style="border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0;"></textarea>
+      <div id="editor-status-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); background: var(--bg-main); border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md);">
+        <span id="editor-cursor-pos">Línea 1, Columna 1</span>
+        <span id="editor-char-count">0 caracteres</span>
+      </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="Files.closeEditor()" data-i18n="t_modal_cancel">Cancelar</button>
-      <button id="btn-editor-save" class="btn btn-primary" onclick="Files.saveCurrentFile()" style="display: inline-flex; align-items: center; gap: 6px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        <span data-i18n="t_modal_editor_save">Guardar (Ctrl+S)</span>
-      </button>
+    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-size: 0.75rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+        <kbd style="background: var(--bg-card); padding: 2px 5px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 0.7rem;">Tab</kbd> Indentar (2 esp)
+        <span style="margin: 0 4px;">•</span>
+        <kbd style="background: var(--bg-card); padding: 2px 5px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 0.7rem;">Ctrl+S</kbd> Guardar
+      </span>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-outline" onclick="Files.closeEditor()" data-i18n="t_modal_cancel">Cancelar</button>
+        <button id="btn-editor-save" class="btn btn-primary" onclick="Files.saveCurrentFile()" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span data-i18n="t_modal_editor_save">Guardar (Ctrl+S)</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>

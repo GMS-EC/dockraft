@@ -37,6 +37,9 @@ class MetricsManager:
         ram_percent = round(stats.get("memory_percent", 0.0), 1)
         assigned_ram_mb = round(stats.get("assigned_memory_mb", 2048.0), 1)
         players = int(stats.get("online_players", 0))
+        disk_used_mb = round(stats.get("disk_used_mb", 0.0), 1)
+        disk_limit_mb = round(stats.get("disk_limit_mb", 10240.0), 1)
+        disk_percent = round(stats.get("disk_percent", 0.0), 1)
 
         # Track peaks
         if cpu > self.peak_cpu:
@@ -54,7 +57,10 @@ class MetricsManager:
             "memory_mb": ram_mb,
             "memory_percent": ram_percent,
             "assigned_ram_mb": assigned_ram_mb,
-            "players_online": players
+            "players_online": players,
+            "disk_used_mb": disk_used_mb,
+            "disk_limit_mb": disk_limit_mb,
+            "disk_percent": disk_percent
         }
 
         self.history.append(sample)
@@ -116,7 +122,13 @@ class MetricsManager:
             "peak_ram_mb": self.peak_ram_mb,
             "current_players": int(stats.get("online_players", 0)),
             "peak_players": self.peak_players,
-            "total_samples": len(self.history)
+            "total_samples": len(self.history),
+            "disk_used_mb": round(stats.get("disk_used_mb", 0.0), 1),
+            "disk_limit_mb": round(stats.get("disk_limit_mb", 10240.0), 1),
+            "disk_free_mb": round(stats.get("disk_free_mb", 0.0), 1),
+            "disk_percent": round(stats.get("disk_percent", 0.0), 1),
+            "disk_limit_gb": round(float(stats.get("disk_limit_mb", 10240.0)) / 1024.0, 1),
+            "tps": stats.get("tps")
         }
 
     def reset(self) -> None:

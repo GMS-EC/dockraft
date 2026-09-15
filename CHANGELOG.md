@@ -5,6 +5,47 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.2.0] - 2026-09-15
+
+### Agregado (Added)
+- **Monitoreo de Espacio en Disco y Alerta Inteligente en Métricas:**
+  - Nueva tarjeta KPI de Espacio en Disco en la pestaña de Métricas que muestra en tiempo real los GB usados vs límite asignado, porcentaje de uso y espacio libre disponible.
+  - Barra de progreso visual compacta con cambio de color automático (cian para estado normal, ámbar para advertencia y rojo para crítico).
+  - Banner inteligente de alerta de espacio en disco en la parte superior del panel de telemetría:
+    - **Modo Advertencia (`>= 75%`):** Aviso preventivo para recomendar limpieza de respaldos o archivos antes de agotar la capacidad.
+    - **Modo Crítico (`>= 90%`):** Alerta de alta prioridad con botones de acceso directo para explorar archivos (`/data`) o ajustar el límite en Configuración antes de que se bloqueen las escrituras del servidor.
+  - Telemetría histórica de almacenamiento: ahora cada muestra del búfer circular registra `disk_used_mb`, `disk_limit_mb` y `disk_percent`.
+  - Nueva serie opcional `Disco %` en el lienzo interactivo de telemetría (Canvas) y detalle de almacenamiento en el tooltip flotante al pasar el cursor.
+- **Mejoras Integrales en el Administrador de Archivos (Files Tab):**
+  - **Subida por Arrastre (Drag & Drop):** Superposición visual con detección de destino (`/data/...`) al arrastrar archivos externos hacia el explorador.
+  - **Subida múltiple de archivos:** Carga masiva secuencial con notificaciones de progreso en vivo.
+  - **Buscador en Tiempo Real:** Campo de búsqueda interactivo con filtrado instantáneo en memoria sin recargar la página ni realizar peticiones adicionales.
+  - **Selección Múltiple y Acciones en Lote:** Checkbox general y por fila, barra de herramientas flotante con contador dinámico, borrado masivo seguro (`/api/files/bulk-delete`) y empaquetado en archivo `.zip` simultáneo (`/api/files/bulk-compress`).
+  - **Editor de Texto Mejorado:** Soporte para indentación con la tecla `Tab` (2 espacios sin desenfocar), atajo de teclado global `Ctrl+S` / `Cmd+S`, y barra de estado inferior con contador dinámico de línea, columna y caracteres.
+  - **Optimización Táctil y Móvil:** Botón contextual de tres puntos `•••` por elemento para pantallas táctiles y ocultación de columnas secundarias en pantallas reducidas.
+- **Redirección Oficial de Versiones y Changelogs por Motor:**
+  - Botones contextuales que enlazan directamente a los portales oficiales de descarga y notas de cada software (PaperMC en `papermc.io`, Purpur en `purpurmc.org`, Fabric en `fabricmc.net`, Forge en `minecraftforge.net`, Bedrock Changelogs en `feedback.minecraft.net` y Vanilla en `minecraft.net`).
+- **Pruebas Automatizadas:**
+  - Suite de pruebas unitarias para operaciones de archivo por lote (`tests/test_file_operations.py`).
+  - Suite de pruebas para telemetría de rendimiento y almacenamiento en disco (`tests/test_metrics_telemetry.py`).
+
+### Modificado (Changed)
+- **Estandarización Visual de Iconos (Sin Emojis):**
+  - Sustitución de todos los emojis residuales (`⚠️`) por iconos vectoriales SVG limpios y consistentes en las pestañas de Instalador, Archivos y Métricas.
+  - Unificación de estilos y badges de estado.
+- **Telemetría Dinámica de Rendimiento TPS:**
+  - Conexión dinámica de la tarjeta KPI de TPS en Métricas para reflejar los valores de 1m, 5m y 15m recopilados por el gestor de procesos en tiempo real, distinguiendo estados `Óptimo` (>=18), `Aceptable` (15-17.9), `Bajo` (<15) y `Fuera de línea`.
+- **Actualización de Versiones de Recursos (Cache-Busting):**
+  - Actualización de versiones de scripts `files.js?v=1.2.4`, `i18n-files.js?v=1.2.4`, `metrics.js?v=1.2.4`, `i18n-metrics.js?v=1.2.4` e `installer.js?v=1.2.4`.
+
+### Corregido (Fixed)
+- **Desplazamiento y Espacio Blanco del Teclado Virtual en Login Móvil:**
+  - Corrección del espacio en blanco al desplegar el teclado en teléfonos móviles mediante la directiva `interactive-widget=resizes-content` en el viewport, altura dinámica `100dvh`, declaración de `color-scheme: dark` y fondo oscuro permanente en la etiqueta `html`.
+- **Eliminación de Advertencias Duplicadas en el Instalador:**
+  - Supresión de la alerta redundante de inestabilidad de versiones beta para mantener una interfaz limpia con la tarjeta oficial de versiones.
+
+---
+
 ## [1.1.0] - 2026-09-15
 
 ### Agregado (Added)

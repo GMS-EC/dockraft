@@ -1,3 +1,4 @@
+import zipfile
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app, get_current_user
@@ -71,3 +72,55 @@ def test_file_duplicate_and_compress(client):
     assert not (settings.data_dir / source_file).exists()
     assert not (settings.data_dir / dup_name).exists()
     assert not (settings.data_dir / archive_name).exists()
+
+def test_bulk_delete(client):
+    f1 = "test_bulk_del1.txt"
+    f2 = "test_bulk_del2.txt"
+    f3 = "test_bulk_del3.txt"
+
+    client.post("/api/files/create", json={"path": f1})
+    client.post("/api/files/create", json={"path": f2})
+    client.post("/api/files/create", json={"path": f3})
+
+    assert (settings.data_dir / f1).exists()
+    assert (settings.data_dir / f2).exists()
+    assert (settings.data_dir / f3).exists()
+
+    res = client.post("/api/files/bulk-delete", json={"paths": [f1, f2, f3]})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["deleted_count"] == 3
+    assert not (settings.data_dir / f1).exists()
+    assert not (settings.data_dir / f2).exists()
+    assert not (settings.data_dir / f3).exists()
+
+def test_bulk_compress(client):
+    f1 = "test_bcomp1.txt"
+    f2 = "test_bcomp2.txt"
+    archive = "test_bundle.zip"
+
+    client.post("/api/files/save", json={"path": f1, "content": "file 1 content"})
+    client.post("/api/files/save", json={"path": f2, "content": "file 2 content"})
+
+    res = client.post("/api/files/bulk-compress", json={
+        "paths": [f1, f2],
+        "archive_name": archive
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["archive_name"] == archive
+    zip_path = settings.data_dir / archive
+    assert zip_path.exists()
+
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        namelist = zf.namelist()
+        assert f1 in namelist
+        assert f2 in namelist
+
+    # Clean up
+    client.delete(f"/api/files/delete?path={f1}")
+    client.delete(f"/api/files/delete?path={f2}")
+    client.delete(f"/api/files/delete?path={archive}")
+    assert not (settings.data_dir / f1).exists()
+    assert not (settings.data_dir / f2).exists()
+    assert not (settings.data_dir / archive).exists()

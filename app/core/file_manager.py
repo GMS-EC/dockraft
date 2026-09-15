@@ -313,4 +313,63 @@ class FileManager:
         target.touch()
         return {"status": "created", "path": relative_path}
 
+    def bulk_delete(self, paths: List[str]) -> Dict[str, Any]:
+        """Deletes multiple files or directories safely."""
+        deleted = []
+        errors = []
+        for p in paths:
+            try:
+                target = self._resolve_safe_path(p)
+                if not target.exists() or target == self.base_dir:
+                    continue
+                if target.is_dir():
+                    shutil.rmtree(target)
+                else:
+                    target.unlink()
+                deleted.append(p)
+            except Exception as e:
+                errors.append({"path": p, "error": str(e)})
+
+        return {"status": "ok", "deleted": deleted, "errors": errors, "count": len(deleted), "deleted_count": len(deleted)}
+
+    def bulk_compress(self, paths: List[str], target_dir: str = "", archive_name: str = "") -> Dict[str, Any]:
+        """Compresses multiple selected files or folders into a single .zip archive."""
+        dest_dir = self._resolve_safe_path(target_dir)
+        if not dest_dir.exists() or not dest_dir.is_dir():
+            dest_dir = self.base_dir
+
+        raw_name = (archive_name or "").strip()
+        if not raw_name or "/" in raw_name or "\\" in raw_name:
+            raw_name = f"archive_{int(time.time())}.zip"
+        if not raw_name.lower().endswith(".zip"):
+            raw_name += ".zip"
+
+        dest_zip = dest_dir / raw_name
+        if dest_zip.exists():
+            dest_zip = dest_dir / f"{dest_zip.stem}_{int(time.time())}.zip"
+
+        self._check_disk_quota(extra_bytes=1024 * 1024)
+
+        try:
+            with zipfile.ZipFile(dest_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for p in paths:
+                    target = self._resolve_safe_path(p)
+                    if not target.exists() or target == self.base_dir:
+                        continue
+                    if target.is_file():
+                        zf.write(target, arcname=target.name)
+                    else:
+                        for root, _, files in os.walk(target):
+                            for file in files:
+                                file_path = Path(root) / file
+                                arcname = Path(target.name) / file_path.relative_to(target)
+                                zf.write(file_path, arcname=str(arcname).replace("\\", "/"))
+
+            rel_zip = str(dest_zip.relative_to(self.base_dir.resolve())).replace("\\", "/")
+            return {"status": "compressed", "archive_name": dest_zip.name, "path": rel_zip}
+        except Exception as e:
+            if dest_zip.exists():
+                dest_zip.unlink(missing_ok=True)
+            raise HTTPException(status_code=500, detail=f"Error al comprimir: {str(e)}")
+
 file_manager = FileManager()
