@@ -22,9 +22,18 @@
   🌐 <strong>Select Language / Selecciona Idioma:</strong> <a href="#-versión-en-español"><strong>ES Español</strong></a> | <a href="#-english-version"><strong>GB English</strong></a>
 </p>
 
-<p align="center">
-  <img src="web/static/img/dockraft_console.png" alt="Dockraft Dashboard" width="100%" />
-</p>
+<table width="100%">
+  <tr>
+    <td align="center" width="50%">
+      <img src="web/static/img/dockraft_console.png" alt="Consola interactiva en tiempo real" width="100%" />
+      <sub><b>Consola interactiva y control en tiempo real</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="web/static/img/dockraft_metrics.png" alt="Telemetría y rendimiento" width="100%" />
+      <sub><b>Telemetría de hardware y gráficos de rendimiento (TPS)</b></sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
@@ -78,23 +87,6 @@ Al enfocarse exclusivamente en mantener y optimizar **una única instancia de se
 
 ---
 
-### 📸 Capturas de Pantalla
-
-#### 📟 Consola interactiva y control en tiempo real
-Transmisión instantánea de registros del servidor, terminal para comandos con historial navegable mediante flechas, métricas de cabecera y controles de energía (iniciar, detener, reiniciar y forzar apagado).
-
-<p align="center">
-  <img src="web/static/img/dockraft_console.png" alt="Dockraft - Consola interactiva y control en tiempo real" width="100%" />
-</p>
-
-#### 📈 Telemetría de hardware y gráficos de rendimiento (TPS)
-Monitoreo continuo de uso de CPU, memoria RAM, almacenamiento en disco con alertas visuales de espacio, tiempo activo del servidor y gráfico histórico de TPS para auditar el rendimiento y prevenir lag.
-
-<p align="center">
-  <img src="web/static/img/dockraft_metrics.png" alt="Dockraft - Telemetría y Rendimiento" width="100%" />
-</p>
-
----
 
 ### ⚡ ¿Cómo entender el Rendimiento y los TPS (Ticks Per Second)?
 
@@ -273,23 +265,6 @@ By focusing strictly on managing and optimizing **a single server instance per c
 
 ---
 
-### 📸 Screenshots
-
-#### 📟 Real-Time Interactive Console & Controls
-Instant server log streaming, command terminal with keyboard arrow history, live top-bar resource counters, and power controls (start, stop, restart, and kill).
-
-<p align="center">
-  <img src="web/static/img/dockraft_console.png" alt="Dockraft - Real-Time Console and Controls" width="100%" />
-</p>
-
-#### 📈 Hardware Telemetry & Performance Graphs (TPS)
-Continuous monitoring of CPU load, RAM allocation, storage usage with disk warning alerts, uptime counter, and real-time TPS trend graphs to analyze performance and eliminate lag.
-
-<p align="center">
-  <img src="web/static/img/dockraft_metrics.png" alt="Dockraft - Telemetry and Performance" width="100%" />
-</p>
-
----
 
 ### ⚡ Understanding Server Performance & TPS (Ticks Per Second)
 
