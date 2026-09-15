@@ -1,4 +1,5 @@
 import os
+import stat
 import re
 import shutil
 import time
@@ -199,9 +200,11 @@ class FileManager:
             raise HTTPException(status_code=400, detail="Invalid zip file")
 
         with zipfile.ZipFile(zip_path, 'r') as zf:
-            # Check zip slip vulnerability
-            for member in zf.namelist():
-                member_path = (dest_dir / member).resolve()
+            # Check zip slip and symlink vulnerabilities
+            for member in zf.infolist():
+                if stat.S_ISLNK(member.external_attr >> 16):
+                    raise HTTPException(status_code=400, detail="Zip contains unsafe symbolic links")
+                member_path = (dest_dir / member.filename).resolve()
                 if not member_path.is_relative_to(dest_dir):
                     raise HTTPException(status_code=400, detail="Zip contains unsafe paths (ZipSlip)")
             zf.extractall(dest_dir)

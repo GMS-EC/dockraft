@@ -122,10 +122,24 @@
       </table>
     </div>
 
-    <!-- Logs Footer Status -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 0.8rem; color: var(--text-dim);">
-      <span id="logs-pagination-info">Cargando registros...</span>
-      <span style="font-size: 0.75rem;">Historial persistente protegido contra reinicios</span>
+    <!-- Logs Footer Pagination Bar -->
+    <div class="logs-pagination-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 0.82rem; color: var(--text-dim);">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <span id="logs-pagination-info">Cargando registros...</span>
+        <div style="display: inline-flex; align-items: center; gap: 6px;">
+          <label for="logs-page-size" style="font-size: 0.78rem; color: var(--text-dim);" data-i18n="logs_page_size">Por página:</label>
+          <select id="logs-page-size" class="form-input" style="padding: 3px 8px; font-size: 0.78rem; width: auto; background: var(--bg-secondary); border-color: var(--border-color);" onchange="Logs.changePageSize(Number(this.value))">
+            <option value="15">15</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="logs-pagination-controls" style="display: flex; align-items: center; gap: 4px;">
+        <!-- Populated dynamically by logs.js -->
+      </div>
     </div>
   </div>
 </section>

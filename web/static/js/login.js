@@ -4,6 +4,19 @@ const LoginApp = {
   remainingSeconds: 0,
 
   init() {
+    const loginCard = document.getElementById('login-card');
+    if (loginCard) {
+      if (loginCard.dataset.lockout) {
+        window.SERVER_LOCKOUT_REMAINING = parseInt(loginCard.dataset.lockout, 10) || 0;
+      }
+      if (loginCard.dataset.locked !== undefined) {
+        window.IS_LOCKED_INIT = loginCard.dataset.locked === 'true';
+      }
+      if (loginCard.dataset.expired !== undefined) {
+        window.SESSION_EXPIRED_INIT = loginCard.dataset.expired === 'true';
+      }
+    }
+
     if (window.SERVER_LOCKOUT_REMAINING && window.SERVER_LOCKOUT_REMAINING > 0) {
       this.startLockoutCountdown(window.SERVER_LOCKOUT_REMAINING);
     }

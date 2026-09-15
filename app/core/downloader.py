@@ -4,6 +4,7 @@ import re
 import httpx
 import asyncio
 import zipfile
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
 from app.config import settings
@@ -13,6 +14,7 @@ class DownloadManager:
     def __init__(self):
         self.active_download: Optional[Dict[str, Any]] = None
         self._bedrock_cache: Dict[str, Dict[str, str]] = {}
+        self._paper_classified_cache: Dict[str, Dict[str, Any]] = {}
 
     async def get_paper_versions(self, project: str = "paper") -> List[str]:
         """Fetches available Minecraft versions for Paper/Folia/Velocity using PaperMC v3 API."""
@@ -26,8 +28,112 @@ class DownloadManager:
             for group, v_list in versions_dict.items():
                 if isinstance(v_list, list):
                     all_versions.extend(v_list)
-            # Filter out pre-releases/snapshots if desired or keep clean versions first
             return all_versions
+
+    async def get_paper_classified_versions(self, project: str = "paper") -> Dict[str, Any]:
+        """
+        Fetches PaperMC project versions and accurately classifies each as 'stable' or 'preview'
+        by inspecting the actual channel ('STABLE', 'ALPHA', 'BETA') of their latest builds.
+        This ensures that when a new Minecraft version (e.g. 26.3) is released in alpha/experimental
+        for Paper, it is NOT falsely identified as a stable update over previous stable releases.
+        Caches results for 180 seconds to avoid unnecessary API requests.
+        """
+        cached = self._paper_classified_cache.get(project)
+        now = time.time()
+        if cached and (now - cached.get("timestamp", 0) < 180):
+            return cached["data"]
+
+        url = f"https://fill.papermc.io/v3/projects/{project}"
+        headers = {"User-Agent": "Dockraft-Manager/1.0"}
+
+        async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+            versions_dict = data.get("versions", {})
+            all_versions: List[str] = []
+            for group, v_list in versions_dict.items():
+                if isinstance(v_list, list):
+                    all_versions.extend(v_list)
+
+            if not all_versions:
+                return {"versions": [], "latest_stable": "", "latest_preview": ""}
+
+            experimental_versions = {}
+            latest_stable = ""
+            latest_preview = ""
+
+            # Check latest build channel for the newest versions until finding the latest STABLE version
+            for pv in all_versions:
+                is_pre_name = ("-pre" in pv) or ("-rc" in pv)
+                if is_pre_name:
+                    if not latest_preview:
+                        latest_preview = pv
+                    continue
+
+                # Query latest build to inspect actual release channel
+                try:
+                    b_resp = await client.get(f"https://fill.papermc.io/v3/projects/{project}/versions/{pv}/builds/latest")
+                    if b_resp.status_code == 200:
+                        b_data = b_resp.json()
+                        ch = str(b_data.get("channel", "")).upper()
+                        if ch in ("STABLE", "RECOMMENDED"):
+                            latest_stable = pv
+                            break
+                        else:
+                            # ALPHA, BETA, EXPERIMENTAL
+                            experimental_versions[pv] = ch or "EXPERIMENTAL"
+                            if not latest_preview:
+                                latest_preview = pv
+                    else:
+                        # Defensive fallback if builds/latest fails
+                        latest_stable = pv
+                        break
+                except Exception as e:
+                    print(f"[Dockraft] Warning checking Paper build channel for {pv}: {e}")
+                    latest_stable = pv
+                    break
+
+            # If no stable version found yet, fall back to first non-pre version
+            if not latest_stable:
+                for pv in all_versions:
+                    if "-pre" not in pv and "-rc" not in pv:
+                        latest_stable = pv
+                        break
+
+            # Build full version items list with accurate channel and labels
+            version_items = []
+            is_past_stable = False
+            for pv in all_versions:
+                if pv == latest_stable:
+                    is_past_stable = True
+
+                if "-rc" in pv:
+                    version_items.append({"id": pv, "label": f"{pv} (Release Candidate)", "channel": "pre"})
+                elif "-pre" in pv or "pre-release" in pv.lower():
+                    version_items.append({"id": pv, "label": f"{pv} (Pre-Release)", "channel": "pre"})
+                elif pv in experimental_versions:
+                    exp_ch = experimental_versions[pv]
+                    lbl = f"{pv} (Experimental / {exp_ch.capitalize()})" if exp_ch else f"{pv} (Experimental)"
+                    version_items.append({"id": pv, "label": lbl, "channel": "preview"})
+                elif not is_past_stable and latest_stable and pv != latest_stable:
+                    # Version is newer than latest_stable but not marked pre
+                    version_items.append({"id": pv, "label": f"{pv} (Experimental / Alpha)", "channel": "preview"})
+                else:
+                    version_items.append({"id": pv, "label": f"{pv} (Estable)", "channel": "stable"})
+
+            result = {
+                "versions": version_items,
+                "latest_stable": latest_stable,
+                "latest_preview": latest_preview
+            }
+
+            self._paper_classified_cache[project] = {
+                "timestamp": now,
+                "data": result
+            }
+            return result
+
 
     async def get_paper_latest_build(self, project: str, version: str) -> Dict[str, Any]:
         """Gets the latest build information for a Paper version using PaperMC v3 API.

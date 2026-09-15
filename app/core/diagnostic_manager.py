@@ -328,6 +328,12 @@ class DiagnosticManager:
         if not content or not content.strip():
             return {"success": False, "error": "El registro está vacío."}
 
+        # Redact any sensitive passwords or secret keys before sharing externally
+        if settings.admin_password and len(settings.admin_password) >= 3:
+            content = content.replace(settings.admin_password, "********")
+        if getattr(settings, "secret_key", None) and len(settings.secret_key) >= 6:
+            content = content.replace(settings.secret_key, "********")
+
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(

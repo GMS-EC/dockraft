@@ -70,6 +70,8 @@ class ProcessManager:
         self._consecutive_low_tps: int = 0
         self._last_tps_alert_time: float = 0.0
         self._tps_alert_active: bool = False
+        self._silent_tps_time: float = 0.0
+        self._silent_list_time: float = 0.0
 
     def format_uptime(self, seconds: int) -> str:
         """Formats seconds into human-readable Spanish e.g. '2 horas, 27 minutos y 8 segundos'."""
@@ -436,7 +438,7 @@ class ProcessManager:
                 if not line_bytes:
                     break
                 line = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
-                self._append_log(line)
+                suppress_console = False
 
                 clean_ansi = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', line)
 
@@ -578,17 +580,41 @@ class ProcessManager:
                             except Exception:
                                 pass
 
+                # Check for silent list responses from automated polling
+                now_ts = time.time()
+                if (now_ts - self._silent_list_time) < 4.0:
+                    if re.search(r'issued server command:\s*/?list\b', clean_ansi, re.IGNORECASE):
+                        suppress_console = True
+                    elif (
+                        "players online:" in clean_ansi.lower()
+                        or "jugadores en linea" in clean_ansi.lower()
+                        or "jugadores en línea" in clean_ansi.lower()
+                        or re.search(r'(?:There are|Hay)\s+\d+.*(?:players|jugadores)', clean_ansi, re.IGNORECASE)
+                    ):
+                        suppress_console = True
+
                 # Authoritative player reconciliation: the tps poller periodically issues
                 # "list"; the server replies "There are N ... online: name1, name2".
-                # Replacing the set here prevents stale names when a leave variant is missed.
-                if "players online:" in clean_ansi and self.status in ("RUNNING", "STARTING"):
+                # Supports Vanilla, Paper, and Essentials (Spanish & English)
+                if ("players online:" in clean_ansi or "jugadores en linea" in clean_ansi.lower() or "jugadores en línea" in clean_ansi.lower()) and self.status in ("RUNNING", "STARTING"):
                     try:
-                        after = clean_ansi.split("players online:", 1)[1].strip()
-                        raw_names = [n.strip().lstrip(":") for n in after.split(",") if n.strip()]
-                        if after == ":" or not raw_names:
+                        if re.search(r'Hay 0 jugadores|There are 0 (?:of|\/)', clean_ansi, re.IGNORECASE) or "0 players online" in clean_ansi.lower():
                             self.online_players.clear()
-                        else:
-                            self.online_players = {n for n in raw_names if n}
+                        elif "online:" in clean_ansi.lower():
+                            after = clean_ansi.split("online:", 1)[1].strip()
+                            raw_names = [n.strip().lstrip(":") for n in after.split(",") if n.strip()]
+                            if after == ":" or not raw_names:
+                                self.online_players.clear()
+                            else:
+                                self.online_players = {n for n in raw_names if n}
+                        elif "en linea:" in clean_ansi.lower() or "en línea:" in clean_ansi.lower():
+                            sep = "en linea:" if "en linea:" in clean_ansi.lower() else "en línea:"
+                            after = clean_ansi.split(sep, 1)[1].strip()
+                            raw_names = [n.strip().lstrip(":") for n in after.split(",") if n.strip()]
+                            if after == ":" or not raw_names:
+                                self.online_players.clear()
+                            else:
+                                self.online_players = {n for n in raw_names if n}
                     except Exception:
                         pass
 
@@ -602,6 +628,10 @@ class ProcessManager:
                 # Intercept TPS line (Paper / Purpur / Spigot / Fabric Carpet)
                 tps_m = re.search(r'TPS from last 1m, 5m, 15m:\s*([0-9\.\*]+)[,\s]+([0-9\.\*]+)[,\s]+([0-9\.\*]+)', clean_ansi)
                 if tps_m:
+                    if (now_ts - self._silent_tps_time) < 4.0:
+                        suppress_console = True
+                        self._silent_tps_time = 0.0
+
                     try:
                         t1 = float(tps_m.group(1).replace('*', ''))
                         t5 = float(tps_m.group(2).replace('*', ''))
@@ -648,8 +678,11 @@ class ProcessManager:
                     except Exception:
                         pass
 
-                # Broadcast line to connected WebSocket clients
-                await self.broadcast_message({"type": "log", "data": line})
+                # Broadcast line to connected WebSocket clients if not suppressed
+                if not suppress_console:
+                    self._append_log(line)
+                    await self.broadcast_message({"type": "log", "data": line})
+
             except Exception as loop_err:
                 print(f"[Dockraft] Error in _read_stream: {loop_err}")
 
@@ -1104,6 +1137,13 @@ class ProcessManager:
             return {"status": "error", "message": f"Server is not running (status: {self.status})"}
 
         try:
+            if not echo:
+                clean_low = clean_cmd.lower().lstrip("/")
+                if clean_low == "tps":
+                    self._silent_tps_time = time.time()
+                elif clean_low == "list":
+                    self._silent_list_time = time.time()
+
             self.process.stdin.write(f"{clean_cmd}\n".encode("utf-8"))
             await self.process.stdin.drain()
             if echo:

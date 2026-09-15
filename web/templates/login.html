@@ -5,7 +5,7 @@
 
 {% block content %}
 <div class="login-page-wrapper">
-  <div class="dockraft-login-card" id="login-card">
+  <div class="dockraft-login-card" id="login-card" data-lockout="{{ cooldown_seconds or 0 }}" data-locked="{{ 'true' if is_locked else 'false' }}" data-expired="{{ 'true' if session_expired else 'false' }}">
     <div class="login-brand-header">
       <img src="/static/img/logo.png" alt="Dockraft Logo" class="dockraft-login-logo-img">
       <h1 class="dockraft-brand-title">Dockraft</h1>
@@ -13,7 +13,7 @@
     </div>
 
     <!-- Session Expired Alert Badge -->
-    <div class="login-expired-alert" id="login-expired-msg" style="{% if not session_expired %}display: none;{% endif %}">
+    <div class="login-expired-alert" id="login-expired-msg" {% if not session_expired %}style="display: none;"{% endif %}>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       <div>
         <div style="font-weight: 600; color: #f0883e; margin-bottom: 2px;" data-i18n="login_session_expired_title">Sesión Caducada</div>
@@ -22,7 +22,7 @@
     </div>
 
     <!-- Rate Limiting / Error Alert Badge -->
-    <div class="login-error-alert" id="login-error-msg" style="{% if not is_locked %}display: none;{% endif %}">
+    <div class="login-error-alert" id="login-error-msg" {% if not is_locked %}style="display: none;"{% endif %}>
       {% if is_locked %}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f85149" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         <strong><span data-i18n="login_locked_notice">Acceso bloqueado por seguridad debido a demasiados intentos fallidos.</span></strong><br>
@@ -30,7 +30,7 @@
       {% endif %}
     </div>
 
-    <form id="login-form" onsubmit="LoginApp.submitLogin(event)">
+    <form id="login-form" method="post" action="/api/auth/login" onsubmit="LoginApp.submitLogin(event)">
       <!-- Username Field -->
       <div class="form-group" style="text-align: left; margin-bottom: 14px;">
         <label class="form-label" for="login-username" style="font-size: 0.84rem; color: #cbd5e1;" data-i18n="login_username_label">Usuario</label>
@@ -44,7 +44,10 @@
             id="login-username" 
             name="username"
             placeholder="steve" 
-            autocomplete="off" 
+            autocomplete="username" 
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
             required
             {% if is_locked %}disabled{% endif %}
           >
@@ -65,6 +68,9 @@
             name="password"
             placeholder="******" 
             autocomplete="current-password"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
             required
             {% if is_locked %}disabled{% endif %}
           >
@@ -103,10 +109,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-  window.SERVER_LOCKOUT_REMAINING = {{ cooldown_seconds or 0 }};
-  window.IS_LOCKED_INIT = {{ 'true' if is_locked else 'false' }};
-  window.SESSION_EXPIRED_INIT = {{ 'true' if session_expired else 'false' }};
-</script>
 <script src="/static/js/login.js"></script>
 {% endblock %}

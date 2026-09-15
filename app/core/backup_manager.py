@@ -1,4 +1,5 @@
 import os
+import stat
 import time
 import zipfile
 import shutil
@@ -136,8 +137,10 @@ class BackupManager:
             pass
         return False
 
-    def create_backup(self, tag: str = "manual", scope: str = "full", targets: Optional[List[str]] = None, compression: bool = True) -> Dict[str, Any]:
+    def create_backup(self, tag: str = "manual", scope: str = "full", targets: Optional[List[str]] = None, compression: bool = True, compress: Optional[bool] = None) -> Dict[str, Any]:
         """Creates a zip archive of server files with selective scope."""
+        if compress is not None:
+            compression = compress
         if not self.has_server_data():
             raise HTTPException(
                 status_code=400,
@@ -253,13 +256,16 @@ class BackupManager:
         
         try:
             with zipfile.ZipFile(backup_file, 'r') as zf:
-                # ZipSlip check
-                for member in zf.namelist():
-                    member_path = (settings.data_dir / member).resolve()
+                # ZipSlip and symlink security check
+                for member in zf.infolist():
+                    # Reject symlinks to prevent symlink-based Zip Slip attacks
+                    if stat.S_ISLNK(member.external_attr >> 16):
+                        raise HTTPException(status_code=400, detail="Corrupted backup archive (unsafe symbolic links)")
+                    member_path = (settings.data_dir / member.filename).resolve()
                     if not member_path.is_relative_to(settings.data_dir.resolve()):
                         raise HTTPException(status_code=400, detail="Corrupted backup archive (unsafe paths)")
                     # Do not overwrite the backups folder itself
-                    if member.startswith("backups/") or member.startswith("backups\\"):
+                    if member.filename.startswith("backups/") or member.filename.startswith("backups\\"):
                         continue
                 
                 # Extract

@@ -272,11 +272,11 @@ class TaskScheduler:
                 server_type = settings.runtime_config.get("server_type", "paper")
                 # Trigger a check
                 if server_type in ["paper", "folia", "velocity"]:
-                    vers = await downloader.get_paper_versions(server_type)
-                    latest = vers[-1] if vers else "desconocida"
+                    classified = await downloader.get_paper_classified_versions(server_type)
+                    latest = classified.get("latest_stable") or "desconocida"
                 elif server_type == "purpur":
                     vers = await downloader.get_purpur_versions()
-                    latest = vers[-1] if vers else "desconocida"
+                    latest = vers[0] if vers else "desconocida"
                 else:
                     vers = await downloader.get_vanilla_versions()
                     latest = vers[0].get("id") if vers else "desconocida"

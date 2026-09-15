@@ -247,6 +247,12 @@ const I18n = {
       logs_col_details: 'Detalle / Comando',
       logs_col_user: 'Usuario',
       logs_col_status: 'Estado',
+      logs_page_size: 'Por página:',
+      logs_page_first: 'Primero',
+      logs_page_prev: 'Anterior',
+      logs_page_next: 'Siguiente',
+      logs_page_last: 'Último',
+      logs_page_range: 'Mostrando {0}–{1} de {2} registros',
 
       // Footer
       footer_desc: 'Panel de control ultra-ligero para servidores de Minecraft Java y Bedrock.',
@@ -458,6 +464,12 @@ const I18n = {
       logs_col_details: 'Detail / Command',
       logs_col_user: 'User',
       logs_col_status: 'Status',
+      logs_page_size: 'Per page:',
+      logs_page_first: 'First',
+      logs_page_prev: 'Previous',
+      logs_page_next: 'Next',
+      logs_page_last: 'Last',
+      logs_page_range: 'Showing {0}–{1} of {2} records',
 
       // Webhooks Tab
       webhooks_title: 'Webhook Notifications',

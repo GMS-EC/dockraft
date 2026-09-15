@@ -6,6 +6,8 @@ const Logs = {
   pollingTimer: null,
   autoRefresh: true,
   isFetching: false,
+  currentPage: 1,
+  pageSize: 25,
 
   async init() {
     this.setupEvents();
@@ -57,6 +59,7 @@ const Logs = {
     const tbody = document.getElementById('logs-table-body');
     const emptyState = document.getElementById('logs-empty-state');
     const pageInfo = document.getElementById('logs-pagination-info');
+    const controls = document.getElementById('logs-pagination-controls');
     if (!tbody) return;
 
     const q = (this.searchQuery || '').trim().toLowerCase();
@@ -83,15 +86,33 @@ const Logs = {
       tbody.innerHTML = '';
       if (emptyState) emptyState.style.display = 'block';
       if (pageInfo) pageInfo.textContent = 'Mostrando 0 registros';
+      if (controls) controls.innerHTML = '';
       return;
     }
 
     if (emptyState) emptyState.style.display = 'none';
+
+    // Pagination calculations
+    const totalPages = Math.ceil(filtered.length / this.pageSize) || 1;
+    if (this.currentPage > totalPages) this.currentPage = totalPages;
+    if (this.currentPage < 1) this.currentPage = 1;
+
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    const endIndex = Math.min(startIndex + this.pageSize, filtered.length);
+    const pageItems = filtered.slice(startIndex, endIndex);
+
     if (pageInfo) {
-      pageInfo.textContent = `Mostrando ${filtered.length} de ${this.logs.length} registros`;
+      const rangeText = (typeof I18n !== 'undefined' && I18n.fmt)
+        ? I18n.fmt('logs_page_range', [startIndex + 1, endIndex, filtered.length])
+        : `Mostrando ${startIndex + 1}–${endIndex} de ${filtered.length} registros`;
+      pageInfo.textContent = (filtered.length !== this.logs.length)
+        ? `${rangeText} (${this.logs.length} totales)`
+        : rangeText;
     }
 
-    tbody.innerHTML = filtered.map(item => {
+    this.renderPaginationControls(totalPages);
+
+    tbody.innerHTML = pageItems.map(item => {
       const catBadge = this.formatCategoryBadge(item.category);
       const statusBadge = this.formatStatusBadge(item.status || item.level);
       const timeStr = this.formatTimestamp(item.timestamp);
@@ -117,6 +138,82 @@ const Logs = {
       `;
     }).join('');
   },
+
+  renderPaginationControls(totalPages) {
+    const container = document.getElementById('logs-pagination-controls');
+    if (!container) return;
+
+    if (totalPages <= 1) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const cur = this.currentPage;
+    const btnBase = 'padding: 3px 8px; font-size: 0.76rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-color); cursor: pointer; transition: all 0.15s ease;';
+    const btnActive = 'padding: 3px 8px; font-size: 0.76rem; border-radius: 4px; border: 1px solid #388bfd; background: rgba(56, 139, 253, 0.2); color: #58a6ff; font-weight: 600; cursor: default;';
+    const btnDisabled = 'padding: 3px 8px; font-size: 0.76rem; border-radius: 4px; border: 1px solid rgba(48, 54, 61, 0.4); background: transparent; color: var(--text-dim); cursor: not-allowed; opacity: 0.4;';
+
+    let html = '';
+
+    // First button
+    const firstDisabled = cur === 1;
+    html += `<button class="btn btn-outline" style="${firstDisabled ? btnDisabled : btnBase}" ${firstDisabled ? 'disabled' : `onclick="Logs.changePage(1)"`} title="${I18n.t ? I18n.t('logs_page_first') : 'Primero'}">«</button>`;
+
+    // Prev button
+    const prevDisabled = cur === 1;
+    html += `<button class="btn btn-outline" style="${prevDisabled ? btnDisabled : btnBase}" ${prevDisabled ? 'disabled' : `onclick="Logs.changePage(${cur - 1})"`} title="${I18n.t ? I18n.t('logs_page_prev') : 'Anterior'}">‹</button>`;
+
+    // Numeric buttons with smart ellipsis
+    const windowPages = [];
+    const startP = Math.max(1, cur - 2);
+    const endP = Math.min(totalPages, cur + 2);
+
+    if (startP > 1) {
+      windowPages.push(1);
+      if (startP > 2) windowPages.push('...');
+    }
+
+    for (let p = startP; p <= endP; p++) {
+      windowPages.push(p);
+    }
+
+    if (endP < totalPages) {
+      if (endP < totalPages - 1) windowPages.push('...');
+      windowPages.push(totalPages);
+    }
+
+    windowPages.forEach(p => {
+      if (p === '...') {
+        html += `<span style="padding: 2px 4px; color: var(--text-dim); font-size: 0.78rem;">...</span>`;
+      } else if (p === cur) {
+        html += `<button class="btn" style="${btnActive}">${p}</button>`;
+      } else {
+        html += `<button class="btn btn-outline" style="${btnBase}" onclick="Logs.changePage(${p})">${p}</button>`;
+      }
+    });
+
+    // Next button
+    const nextDisabled = cur === totalPages;
+    html += `<button class="btn btn-outline" style="${nextDisabled ? btnDisabled : btnBase}" ${nextDisabled ? 'disabled' : `onclick="Logs.changePage(${cur + 1})"`} title="${I18n.t ? I18n.t('logs_page_next') : 'Siguiente'}">›</button>`;
+
+    // Last button
+    const lastDisabled = cur === totalPages;
+    html += `<button class="btn btn-outline" style="${lastDisabled ? btnDisabled : btnBase}" ${lastDisabled ? 'disabled' : `onclick="Logs.changePage(${totalPages})"`} title="${I18n.t ? I18n.t('logs_page_last') : 'Último'}">»</button>`;
+
+    container.innerHTML = html;
+  },
+
+  changePage(page) {
+    this.currentPage = page;
+    this.render();
+  },
+
+  changePageSize(size) {
+    this.pageSize = Math.max(1, size || 25);
+    this.currentPage = 1;
+    this.render();
+  },
+
 
   formatCategoryBadge(cat) {
     switch (cat) {
@@ -219,6 +316,7 @@ const Logs = {
 
   setCategory(cat) {
     this.currentCategory = cat;
+    this.currentPage = 1;
     document.querySelectorAll('.log-chip').forEach(chip => {
       chip.classList.toggle('active', chip.getAttribute('data-category') === cat);
     });
@@ -227,6 +325,7 @@ const Logs = {
 
   handleSearch(query) {
     this.searchQuery = query;
+    this.currentPage = 1;
     this.render();
   },
 

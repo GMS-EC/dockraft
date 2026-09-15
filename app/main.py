@@ -6,6 +6,7 @@ import time
 import shutil
 import zipfile
 import asyncio
+import inspect
 from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -795,22 +796,22 @@ async def get_update_info():
                 version_items.append({"id": vid, "label": lbl, "channel": ch})
 
         elif server_type in ["paper", "folia", "velocity"]:
-            paper_versions = await downloader.get_paper_versions(server_type)
-            for pv in paper_versions:
-                ch = "pre" if "-pre" in pv or "-rc" in pv else "stable"
-                lbl = f"{pv} (Estable)" if ch == "stable" else f"{pv} (Pre-Release)"
+            classified = await downloader.get_paper_classified_versions(server_type)
+            version_items = classified.get("versions", [])
+            latest_stable = classified.get("latest_stable", "")
+            latest_preview = classified.get("latest_preview", "")
+
+        elif server_type == "purpur":
+            purpur_versions = await downloader.get_purpur_versions()
+            for pv in purpur_versions:
+                is_pre = "-pre" in pv or "-rc" in pv
+                ch = "pre" if is_pre else "stable"
+                lbl = f"{pv} (Pre-Release)" if is_pre else f"{pv} (Estable)"
                 version_items.append({"id": pv, "label": lbl, "channel": ch})
                 if ch == "stable" and not latest_stable:
                     latest_stable = pv
                 elif ch != "stable" and not latest_preview:
                     latest_preview = pv
-
-        elif server_type == "purpur":
-            purpur_versions = await downloader.get_purpur_versions()
-            for pv in purpur_versions:
-                version_items.append({"id": pv, "label": f"{pv} (Estable)", "channel": "stable"})
-            if purpur_versions:
-                latest_stable = purpur_versions[0]
 
         elif server_type == "forge":
             forge_list = await downloader.get_forge_versions()
@@ -838,7 +839,12 @@ async def get_update_info():
     elif "snapshot" in curr_l or re.search(r'^[0-9]{2}w[0-9]{2}[a-z]$', curr_l):
         current_channel = "snapshot"
     else:
-        current_channel = "stable"
+        # Check if the installed version is actually tagged as preview/experimental
+        matching_ver = next((v for v in version_items if v.get("id") == current_version), None)
+        if matching_ver and matching_ver.get("channel") in ("preview", "pre", "snapshot"):
+            current_channel = matching_ver.get("channel")
+        else:
+            current_channel = "stable"
 
     curr_m = re.search(r'([0-9]+\.[0-9]+(?:\.[0-9]+)+)', current_version)
     curr_clean = curr_m.group(1) if curr_m else current_version
@@ -938,11 +944,13 @@ async def update_server(req: UpdateRequest):
                 msg = f"[Dockraft] Generando copia de seguridad preventiva (pre-update-{req.version})..."
                 process_manager._append_log(msg)
                 await process_manager.broadcast_message({"type": "log", "data": msg})
-                pre_backup = await backup_manager.create_backup(
+                pre_backup = backup_manager.create_backup(
                     scope="full",
                     tag=f"pre-update-{req.version}",
-                    compress=True
+                    compression=True
                 )
+                if inspect.isawaitable(pre_backup):
+                    pre_backup = await pre_backup
                 if pre_backup.get("status") == "error":
                     err_msg = f"[Dockraft] Error al crear copia preventiva: {pre_backup.get('message')}. Abortando actualización para seguridad de datos."
                     process_manager._append_log(err_msg)

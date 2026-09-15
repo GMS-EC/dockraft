@@ -144,7 +144,7 @@ async def test_update_server_workflow_with_safe_shutdown_and_backup(tmp_path, cl
             nonlocal status_val
             status_val = "RUNNING"
             return True
-        async def fake_backup(*args, **kwargs): return {"filename": "pre-update-1.21.4.zip"}
+        def fake_backup(*args, **kwargs): return {"filename": "pre-update-1.21.4.zip"}
         async def fake_dl(*args, **kwargs): return tmp_path / "server.jar"
         async def fake_broadcast(*args, **kwargs): pass
         async def fake_paper_build(proj, ver): return {"download_url": "https://example.com/paper-1.21.4.jar"}
