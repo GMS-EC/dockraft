@@ -421,7 +421,7 @@ class DownloadManager:
             else:
                 continue
 
-            label = f"{mc_ver} (Forge {build}{' - ⭐ Recomendada' if is_rec else ' - Latest'})"
+            label = f"{mc_ver} (Forge {build}{' - Recomendada' if is_rec else ' - Latest'})"
             results.append({
                 "id": mc_ver,
                 "label": label,

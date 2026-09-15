@@ -1,7 +1,7 @@
 <!-- TAB 7: INSTALLER & VERSION SELECTOR -->
 <section class="tab-pane" id="tab-installer">
   <!-- Locked Banner if Server Already Installed -->
-  <div class="setup-alert" id="installer-locked-banner" style="display: {{ 'flex' if is_installed else 'none' }}; border-left-color: #d29922; margin-bottom: 4px;">
+  <div class="setup-alert {{ '' if is_installed else 'd-none' }}" id="installer-locked-banner" style="border-left-color: #d29922; margin-bottom: 4px;">
     <div>
       <div class="setup-alert-title" style="color: #d29922; display: flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -32,7 +32,7 @@
   </div>
 
   <!-- Dedicated Server Update Section (Active when a server is already installed) -->
-  <div class="card" id="installer-update-card" style="display: {{ 'block' if is_installed else 'none' }}; border: 1px solid #30363d; margin-bottom: 16px;">
+  <div class="card {{ '' if is_installed else 'd-none' }}" id="installer-update-card" style="border: 1px solid #30363d; margin-bottom: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
       <div class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
@@ -62,22 +62,13 @@
       </div>
       <div class="channel-pills" style="display: inline-flex; background: #0d1117; padding: 3px; border-radius: 8px; border: 1px solid var(--border-color); gap: 4px; flex-wrap: wrap;">
         <button type="button" class="channel-pill-btn active" id="btn-channel-stable" onclick="Installer.switchUpdateChannel('stable')" style="background: var(--accent-primary); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-          <span data-i18n="t_install_update_channel_stable">⭐ Versiones Estables (Recomendado)</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span data-i18n="t_install_update_channel_stable">Versiones Estables (Recomendado)</span>
         </button>
         <button type="button" class="channel-pill-btn" id="btn-channel-beta" onclick="Installer.switchUpdateChannel('beta')" style="background: transparent; border: none; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-          <span data-i18n="t_install_update_channel_beta">🔥 Betas, Snapshots & Pre-releases</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31M14 9.3V1.99M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"/></svg>
+          <span data-i18n="t_install_update_channel_beta">Betas, Snapshots & Pre-releases</span>
         </button>
-      </div>
-    </div>
-
-    <!-- Beta Instability Warning Box (Displayed when Beta channel is active) -->
-    <div id="beta-instability-alert" style="display: none; margin-bottom: 14px; padding: 12px 14px; background: rgba(210, 153, 34, 0.12); border: 1px solid #d29922; border-left: 4px solid #d29922; color: #e3b341; font-size: 0.84rem; border-radius: 6px; line-height: 1.45;">
-      <div style="display: flex; align-items: flex-start; gap: 10px;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <div>
-          <strong style="display: block; font-size: 0.88rem; margin-bottom: 3px; color: #f2cc60;">⚠️ <span data-i18n="t_install_beta_warn_title">Advertencia de Inestabilidad (Versiones Experimentales)</span></strong>
-          <span data-i18n="t_install_beta_warn_desc">Las versiones Beta, Snapshots y Pre-releases son compilaciones preliminares en desarrollo. Pueden contener errores críticos, pérdida de datos, fallos de rendimiento o incompatibilidad con plugins y mods. Úsalas únicamente para pruebas y bajo tu propia responsabilidad. Dockraft creará una copia de seguridad preventiva antes de actualizar.</span>
-        </div>
       </div>
     </div>
 
@@ -120,12 +111,12 @@
         <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="update-details-links-group">
           <a id="btn-view-changelog" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; text-decoration: none; padding: 4px 10px; border-color: #388bfd; color: #58a6ff;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            <span id="btn-view-changelog-text" data-i18n="t_install_btn_view_changelog">📖 Web Oficial y Cambios</span>
+            <span id="btn-view-changelog-text" data-i18n="t_install_btn_view_changelog">Web Oficial y Cambios</span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </a>
           <a id="btn-view-engine-notes" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="display: none; align-items: center; gap: 6px; font-size: 0.78rem; text-decoration: none; padding: 4px 10px; color: #8b949e; border-color: #30363d;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            <span id="btn-engine-notes-label" data-i18n="t_install_btn_engine_notes">🌐 Wiki de Minecraft</span>
+            <span id="btn-engine-notes-label" data-i18n="t_install_btn_engine_notes">Wiki de Minecraft</span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </a>
         </div>
@@ -148,7 +139,7 @@
     </div>
 
     <!-- Dedicated Sub-section: Plugin Updates (Detected from Console) -->
-    <div id="update-plugins-subsection" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(48, 54, 61, 0.6); display: {{ 'none' if (not is_installed or server_type|lower == 'bedrock') else 'block' }};">
+    <div id="update-plugins-subsection" class="{{ 'd-none' if (not is_installed or server_type|lower == 'bedrock') else '' }}" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(48, 54, 61, 0.6);">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
@@ -183,7 +174,7 @@
     </div>
   </div>
 
-  <div class="card" id="installer-main-card" style="display: {{ 'none' if is_installed else 'block' }};">
+  <div class="card {{ 'd-none' if is_installed else '' }}" id="installer-main-card">
     <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
@@ -279,12 +270,12 @@
               <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                 <a id="btn-install-view-changelog" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; text-decoration: none; padding: 3px 8px; border-color: #388bfd; color: #58a6ff;">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                  <span id="btn-install-view-changelog-text" data-i18n="t_install_btn_view_changelog">📖 Web Oficial y Cambios</span>
+                  <span id="btn-install-view-changelog-text" data-i18n="t_install_btn_view_changelog">Web Oficial y Cambios</span>
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 </a>
                 <a id="btn-install-view-engine-notes" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="display: none; align-items: center; gap: 4px; font-size: 0.75rem; text-decoration: none; padding: 3px 8px; color: #8b949e; border-color: #30363d;">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                  <span id="btn-install-engine-notes-label" data-i18n="t_install_btn_engine_notes">🌐 Wiki de Minecraft</span>
+                  <span id="btn-install-engine-notes-label" data-i18n="t_install_btn_engine_notes">Wiki de Minecraft</span>
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 </a>
               </div>

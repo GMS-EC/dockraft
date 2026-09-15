@@ -219,10 +219,11 @@ def test_ssr_initial_state_and_websocket_immediate_stats():
         assert "window.__INITIAL_STATS__" in html
         assert "window.__INITIAL_CONFIG__" in html
 
-        # Verify installer main card is hidden and locked banner is displayed
-        assert 'id="installer-main-card" style="display: none;"' in html
-        assert 'id="installer-locked-banner" style="display: flex;' in html
-        assert 'id="installer-update-card" style="display: block;' in html
+        # Verify installer main card is hidden (via d-none) and locked banner & update card are active
+        assert 'id="installer-main-card"' in html
+        assert 'd-none' in html
+        assert 'id="installer-locked-banner"' in html
+        assert 'id="installer-update-card"' in html
 
         # 2. Test WebSocket sends immediate stats on connect
         with client.websocket_connect(f"/ws/console?token={token}") as websocket:

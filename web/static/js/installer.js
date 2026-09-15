@@ -70,8 +70,14 @@ const Installer = {
     if (stats.is_installed) {
       this.isLocked = true;
       this.allowForce = false;
-      if (banner) banner.style.display = 'flex';
-      if (mainCard) mainCard.style.display = 'none';
+      if (banner) {
+        banner.classList.remove('d-none');
+        banner.style.display = 'flex';
+      }
+      if (mainCard) {
+        mainCard.classList.add('d-none');
+        mainCard.style.display = 'none';
+      }
       if (btnDelete) btnDelete.style.display = 'none';
       if (info && cfg) {
         const typeName = (cfg.server_type || 'Minecraft').toUpperCase();
@@ -84,22 +90,43 @@ const Installer = {
         btn.className = "btn btn-outline";
       }
       const updateCard = document.getElementById('installer-update-card');
-      if (updateCard) updateCard.style.display = 'block';
+      if (updateCard) {
+        updateCard.classList.remove('d-none');
+        updateCard.style.display = 'block';
+      }
       const isBedrock = (cfg && cfg.server_type || '').toLowerCase() === 'bedrock';
       const pluginsSub = document.getElementById('update-plugins-subsection');
       if (pluginsSub) {
-        pluginsSub.style.display = isBedrock ? 'none' : 'block';
+        if (isBedrock) {
+          pluginsSub.classList.add('d-none');
+          pluginsSub.style.display = 'none';
+        } else {
+          pluginsSub.classList.remove('d-none');
+          pluginsSub.style.display = 'block';
+        }
       }
     } else {
       this.isLocked = false;
       this.allowForce = true;
-      if (banner) banner.style.display = 'none';
-      if (mainCard) mainCard.style.display = 'block';
+      if (banner) {
+        banner.classList.add('d-none');
+        banner.style.display = 'none';
+      }
+      if (mainCard) {
+        mainCard.classList.remove('d-none');
+        mainCard.style.display = 'block';
+      }
       if (btnDelete) btnDelete.style.display = 'none';
       const updateCard = document.getElementById('installer-update-card');
-      if (updateCard) updateCard.style.display = 'none';
+      if (updateCard) {
+        updateCard.classList.add('d-none');
+        updateCard.style.display = 'none';
+      }
       const sub = document.getElementById('update-plugins-subsection');
-      if (sub) sub.style.display = 'none';
+      if (sub) {
+        sub.classList.add('d-none');
+        sub.style.display = 'none';
+      }
       if (btn) {
         btn.disabled = false;
         btn.textContent = I18n.t('t_install_btn_install');
@@ -153,7 +180,10 @@ const Installer = {
       if (ok) {
         this.isLocked = false;
         this.allowForce = true;
-        if (mainCard) mainCard.style.display = 'block'; // Mostrar selector al desbloquear
+        if (mainCard) {
+          mainCard.classList.remove('d-none');
+          mainCard.style.display = 'block'; // Mostrar selector al desbloquear
+        }
         if (btnDelete) btnDelete.style.display = 'inline-flex'; // Mostrar botón eliminar al desbloquear
         if (badge) badge.style.display = 'inline-block';
         if (btnUnlock) btnUnlock.textContent = I18n.t('t_install_btn_lock');
@@ -167,7 +197,10 @@ const Installer = {
     } else {
       this.isLocked = true;
       this.allowForce = false;
-      if (mainCard) mainCard.style.display = 'none'; // Ocultar nuevamente al bloquear
+      if (mainCard) {
+        mainCard.classList.add('d-none');
+        mainCard.style.display = 'none'; // Ocultar nuevamente al bloquear
+      }
       if (btnDelete) btnDelete.style.display = 'none'; // Ocultar botón eliminar
       if (badge) badge.style.display = 'none';
       if (btnUnlock) btnUnlock.textContent = I18n.t('t_install_btn_unlock');
@@ -582,7 +615,7 @@ const Installer = {
         previews.forEach(v => {
           const opt = document.createElement('option');
           opt.value = v.id;
-          opt.textContent = `🔥 ${v.label || v.id}`;
+          opt.textContent = v.label || v.id;
           opt.setAttribute('data-channel', v.channel || 'pre');
           selectBeta.appendChild(opt);
         });
@@ -622,7 +655,6 @@ const Installer = {
     const btnBeta = document.getElementById('btn-channel-beta');
     const groupStable = document.getElementById('update-group-stable');
     const groupBeta = document.getElementById('update-group-beta');
-    const alertBeta = document.getElementById('beta-instability-alert');
     const selectStable = document.getElementById('update-version-select-stable');
     const selectBeta = document.getElementById('update-version-select-beta');
     const selectComp = document.getElementById('update-version-select');
@@ -641,7 +673,6 @@ const Installer = {
       }
       if (groupStable) groupStable.style.display = 'block';
       if (groupBeta) groupBeta.style.display = 'none';
-      if (alertBeta) alertBeta.style.display = 'none';
 
       if (selectComp && selectStable) {
         selectComp.value = selectStable.value;
@@ -660,7 +691,6 @@ const Installer = {
       }
       if (groupStable) groupStable.style.display = 'none';
       if (groupBeta) groupBeta.style.display = 'block';
-      if (alertBeta) alertBeta.style.display = 'block';
 
       if (selectComp && selectBeta) {
         selectComp.value = selectBeta.value;
@@ -747,13 +777,15 @@ const Installer = {
     let adviceTitle = '';
     let adviceText = '';
     if (isStable) {
-      adviceTitle = '⭐ ' + (I18n.t('t_install_advice_stable_title') || 'Compilación Estable (Recomendada para Producción)');
+      adviceTitle = I18n.t('t_install_advice_stable_title') || 'Compilación Estable (Recomendada para Producción)';
       adviceText = (typeof I18n.fmt === 'function')
         ? I18n.fmt('t_install_advice_stable_text', [cleanVer])
         : `La versión ${cleanVer} es una compilación Estable oficial. Es la opción recomendada si buscas máxima compatibilidad con plugins/mods, estabilidad para tus jugadores y cero riesgos de fallos experimentales.`;
     } else {
       const chLabel = (vid.includes('-rc') ? 'Release Candidate' : (vid.includes('-pre') ? 'Pre-Release' : (isBedrock ? 'Preview / Beta' : 'Beta / Snapshot')));
-      adviceTitle = `🔥 Compilación ${chLabel} (Preliminar de Desarrollo)`;
+      adviceTitle = (typeof I18n.fmt === 'function')
+        ? I18n.fmt('t_install_advice_beta_title', [chLabel])
+        : `Compilación ${chLabel} (Preliminar de Desarrollo)`;
       adviceText = (typeof I18n.fmt === 'function')
         ? I18n.fmt('t_install_advice_beta_text', [cleanVer])
         : `La versión ${cleanVer} incluye mecánicas preliminares antes de su lanzamiento final, pero puede contener bugs o incompatibilidad con plugins. Te conviene quedarte en Estable si tu comunidad está activa, o probar esta versión si tienes un entorno de prueba. Dockraft creará una copia de seguridad preventiva antes de actualizar.`;
@@ -827,7 +859,7 @@ const Installer = {
 
     if (chBadge) {
       if (meta.isStable) {
-        chBadge.textContent = '⭐ ' + (I18n.t('t_install_channel_stable') || 'Estable');
+        chBadge.textContent = I18n.t('t_install_channel_stable') || 'Estable';
         chBadge.style.background = 'rgba(46, 160, 67, 0.15)';
         chBadge.style.border = '1px solid #2ea043';
         chBadge.style.color = '#3fb950';
@@ -835,7 +867,7 @@ const Installer = {
         const chName = (item.channel === 'pre' || meta.versionId.includes('-pre')) ? 'Pre-Release' :
                        (item.channel === 'preview' || meta.versionId.includes('preview') || meta.serverType === 'bedrock') ? 'Preview / Beta' :
                        (meta.versionId.includes('-rc') ? 'Release Candidate' : 'Snapshot');
-        chBadge.textContent = '🔥 ' + chName;
+        chBadge.textContent = chName;
         chBadge.style.background = 'rgba(210, 153, 34, 0.15)';
         chBadge.style.border = '1px solid #d29922';
         chBadge.style.color = '#e3b341';
@@ -849,7 +881,7 @@ const Installer = {
     if (btnOfficial) {
       btnOfficial.href = meta.officialUrl;
       if (btnOfficialText) {
-        btnOfficialText.textContent = `📖 ${meta.officialLabel || 'Web Oficial y Cambios'}`;
+        btnOfficialText.textContent = meta.officialLabel || I18n.t('t_install_btn_view_changelog') || 'Web Oficial y Cambios';
       }
     }
 
@@ -858,7 +890,7 @@ const Installer = {
         btnWiki.style.display = 'inline-flex';
         btnWiki.href = meta.wikiUrl;
         if (btnWikiLabel) {
-          btnWikiLabel.textContent = `🌐 ${meta.wikiLabel || 'Wiki de Minecraft'}`;
+          btnWikiLabel.textContent = meta.wikiLabel || I18n.t('t_install_btn_engine_notes') || 'Wiki de Minecraft';
         }
       } else {
         btnWiki.style.display = 'none';
@@ -897,12 +929,12 @@ const Installer = {
 
     if (chBadge) {
       if (meta.isStable) {
-        chBadge.textContent = '⭐ ' + (I18n.t('t_install_channel_stable') || 'Estable');
+        chBadge.textContent = I18n.t('t_install_channel_stable') || 'Estable';
         chBadge.style.background = 'rgba(46, 160, 67, 0.15)';
         chBadge.style.border = '1px solid #2ea043';
         chBadge.style.color = '#3fb950';
       } else {
-        chBadge.textContent = '🔥 ' + (meta.versionId.includes('-pre') ? 'Pre-Release' : (meta.versionId.includes('-rc') ? 'Release Candidate' : 'Snapshot / Beta'));
+        chBadge.textContent = (meta.versionId.includes('-pre') ? 'Pre-Release' : (meta.versionId.includes('-rc') ? 'Release Candidate' : 'Snapshot / Beta'));
         chBadge.style.background = 'rgba(210, 153, 34, 0.15)';
         chBadge.style.border = '1px solid #d29922';
         chBadge.style.color = '#e3b341';
@@ -916,7 +948,7 @@ const Installer = {
     if (btnOfficial) {
       btnOfficial.href = meta.officialUrl;
       if (btnOfficialText) {
-        btnOfficialText.textContent = `📖 ${meta.officialLabel || 'Web Oficial y Cambios'}`;
+        btnOfficialText.textContent = meta.officialLabel || I18n.t('t_install_btn_view_changelog') || 'Web Oficial y Cambios';
       }
     }
 
@@ -925,7 +957,7 @@ const Installer = {
         btnWiki.style.display = 'inline-flex';
         btnWiki.href = meta.wikiUrl;
         if (btnWikiLabel) {
-          btnWikiLabel.textContent = `🌐 ${meta.wikiLabel || 'Wiki de Minecraft'}`;
+          btnWikiLabel.textContent = meta.wikiLabel || I18n.t('t_install_btn_engine_notes') || 'Wiki de Minecraft';
         }
       } else {
         btnWiki.style.display = 'none';
@@ -969,7 +1001,7 @@ const Installer = {
     if (select) select.value = targetVer;
 
     const isBetaTarget = (this.currentUpdateChannel === 'beta');
-    const betaNotice = isBetaTarget ? '\n\n⚠️ ' + I18n.t('t_install_beta_notice') : '';
+    const betaNotice = isBetaTarget ? '\n\n' + I18n.t('t_install_beta_notice') : '';
     const confirmMessage = isRunning
       ? I18n.fmt('t_install_update_confirm_running', [targetVer]) + betaNotice
       : I18n.fmt('t_install_update_confirm_stopped', [targetVer]) + betaNotice;
@@ -1240,8 +1272,9 @@ const Installer = {
     if (!updates || updates.length === 0) {
       container.innerHTML = `
         <div style="text-align: center; padding: 20px 16px; background: rgba(0, 0, 0, 0.25); border-radius: 8px; border: 1px dashed var(--border-color);">
-          <div style="font-size: 0.88rem; font-weight: 500; color: #7ee787; margin-bottom: 4px;">
-            ✅ ${I18n.t('t_install_plugin_empty_title')}
+          <div style="font-size: 0.88rem; font-weight: 500; color: #7ee787; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>${I18n.t('t_install_plugin_empty_title')}</span>
           </div>
           <div style="font-size: 0.78rem; color: var(--text-muted); max-width: 520px; margin: 0 auto;">
             ${I18n.t('t_install_plugin_empty_desc')}

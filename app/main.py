@@ -751,14 +751,14 @@ def get_version_changelog_info(server_type: str, version_id: str, channel: str =
 
     is_stable = channel == "stable"
     if is_stable:
-        advice_title = "⭐ Compilación Estable (Recomendada para Producción)"
+        advice_title = "Compilación Estable (Recomendada para Producción)"
         advice_text = (
             f"La versión {clean_ver} es una compilación Estable oficial. Es la opción recomendada "
             "si buscas máxima compatibilidad con plugins/mods, estabilidad para tus jugadores y cero riesgos de fallos experimentales."
         )
     else:
         ch_label = "Beta / Snapshot" if channel in ("beta", "snapshot", "pre") else "Experimental"
-        advice_title = f"🔥 Compilación {ch_label} (Preliminar de Desarrollo)"
+        advice_title = f"Compilación {ch_label} (Preliminar de Desarrollo)"
         advice_text = (
             f"La versión {clean_ver} incluye las mecánicas y bloques más recientes antes de su lanzamiento final, "
             "pero puede contener bugs, inestabilidad o incompatibilidad temporal con plugins. Te conviene quedarte en Estable "
