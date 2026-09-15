@@ -700,6 +700,72 @@ async def install_server(req: InstallRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def get_version_changelog_info(server_type: str, version_id: str, channel: str = "stable") -> Dict[str, Any]:
+    """Generates official changelog URLs, engine notes, and upgrade advice for any Minecraft server version."""
+    st = (server_type or "").lower().strip()
+    vid = (version_id or "").strip()
+
+    # Extract clean semantic version or snapshot id (e.g. '1.21.4', '26.3', '24w45a', '1.21.4-rc1')
+    m = re.search(r'([0-9]+(?:\.[0-9]+)+(?:-[a-zA-Z0-9\.\-]+)?)', vid)
+    clean_ver = m.group(1) if m else vid
+
+    # Determine canonical wiki and engine changelog URLs
+    if st == "bedrock":
+        changelog_url = f"https://minecraft.wiki/w/Bedrock_Edition_{clean_ver}"
+        if channel in ("preview", "beta"):
+            engine_url = "https://feedback.minecraft.net/hc/en-us/sections/360001185332-Beta-and-Preview-Information-and-Changelogs"
+            engine_label = "Feedback Oficial Mojang (Betas & Previews)"
+        else:
+            engine_url = "https://feedback.minecraft.net/hc/en-us/sections/360001186971-Release-Changelogs"
+            engine_label = "Feedback Oficial Mojang (Changelogs)"
+    elif st in ("paper", "folia", "velocity"):
+        changelog_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
+        engine_url = f"https://github.com/PaperMC/{st.capitalize()}/releases"
+        engine_label = f"Releases Oficiales de {st.capitalize()}"
+    elif st == "purpur":
+        changelog_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
+        engine_url = f"https://purpurmc.org/downloads?version={clean_ver}"
+        engine_label = "Descargas y Notas de Purpur"
+    elif st == "fabric":
+        changelog_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
+        engine_url = "https://fabricmc.net/"
+        engine_label = "Portal Oficial de Fabric"
+    elif st == "forge":
+        changelog_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
+        engine_url = "https://files.minecraftforge.net/net/minecraftforge/forge/"
+        engine_label = "Portal Oficial de Minecraft Forge"
+    else:  # vanilla or custom
+        changelog_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
+        engine_url = "https://www.minecraft.net/articles"
+        engine_label = "Artículos de Lanzamiento en Minecraft.net"
+
+    is_stable = channel == "stable"
+    if is_stable:
+        advice_title = "⭐ Compilación Estable (Recomendada para Producción)"
+        advice_text = (
+            f"La versión {clean_ver} es una compilación Estable oficial. Es la opción recomendada "
+            "si buscas máxima compatibilidad con plugins/mods, estabilidad para tus jugadores y cero riesgos de fallos experimentales."
+        )
+    else:
+        ch_label = "Beta / Snapshot" if channel in ("beta", "snapshot", "pre") else "Experimental"
+        advice_title = f"🔥 Compilación {ch_label} (Preliminar de Desarrollo)"
+        advice_text = (
+            f"La versión {clean_ver} incluye las mecánicas y bloques más recientes antes de su lanzamiento final, "
+            "pero puede contener bugs, inestabilidad o incompatibilidad temporal con plugins. Te conviene quedarte en Estable "
+            "si tu comunidad está activa, o probar esta versión si tienes un entorno de prueba o deseas explorar las novedades. "
+            "Dockraft generará una copia de seguridad preventiva antes de instalar."
+        )
+
+    return {
+        "clean_version": clean_ver,
+        "changelog_url": changelog_url,
+        "engine_url": engine_url,
+        "engine_label": engine_label,
+        "advice_title": advice_title,
+        "advice_text": advice_text,
+        "is_stable": is_stable
+    }
+
 @app.get("/api/installer/update-info", dependencies=[Depends(get_current_user)])
 async def get_update_info():
     """Returns update status and classified versions for the currently installed server type."""
@@ -863,6 +929,18 @@ async def get_update_info():
 
     preview_available = bool(latest_preview and latest_preview != current_version and latest_preview != latest_stable)
 
+    # Enrich version items with changelog links and guidance
+    enriched_versions = []
+    for it in version_items:
+        cinfo = get_version_changelog_info(server_type, it["id"], it.get("channel", "stable"))
+        enriched = dict(it)
+        enriched.update(cinfo)
+        enriched_versions.append(enriched)
+
+    latest_stable_info = get_version_changelog_info(server_type, latest_stable, "stable") if latest_stable else None
+    latest_preview_info = get_version_changelog_info(server_type, latest_preview, "preview") if latest_preview else None
+    current_version_info = get_version_changelog_info(server_type, current_version, current_channel) if current_version else None
+
     return {
         "is_installed": True,
         "server_type": server_type,
@@ -870,10 +948,13 @@ async def get_update_info():
         "current_channel": current_channel,
         "latest_stable": latest_stable,
         "latest_preview": latest_preview,
+        "latest_stable_info": latest_stable_info,
+        "latest_preview_info": latest_preview_info,
+        "current_version_info": current_version_info,
         "update_available": update_available,
         "preview_available": preview_available,
-        "available_versions": [it["label"] for it in version_items],
-        "versions": version_items
+        "available_versions": [it["label"] for it in enriched_versions],
+        "versions": enriched_versions
     }
 
 @app.post("/api/installer/update", dependencies=[Depends(get_current_user)])

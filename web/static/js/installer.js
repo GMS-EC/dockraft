@@ -448,6 +448,7 @@ const Installer = {
       const res = await fetch('/api/installer/update-info');
       if (!res.ok) return;
       const data = await res.json();
+      this.updateData = data;
 
       if (!data.is_installed) {
         card.style.display = 'none';
@@ -659,16 +660,95 @@ const Installer = {
         selectComp.value = selectBeta.value;
       }
     }
+
+    const activeSelect = channel === 'stable' ? selectStable : selectBeta;
+    if (activeSelect) {
+      this.updateVersionChangelogCard(activeSelect.value, channel);
+    }
   },
 
   onVersionSelectChange(channel) {
     const selectStable = document.getElementById('update-version-select-stable');
     const selectBeta = document.getElementById('update-version-select-beta');
     const selectComp = document.getElementById('update-version-select');
-    if (channel === 'stable' && selectStable && selectComp) {
-      selectComp.value = selectStable.value;
-    } else if (channel === 'beta' && selectBeta && selectComp) {
-      selectComp.value = selectBeta.value;
+    let selVal = null;
+    if (channel === 'stable' && selectStable) {
+      if (selectComp) selectComp.value = selectStable.value;
+      selVal = selectStable.value;
+    } else if (channel === 'beta' && selectBeta) {
+      if (selectComp) selectComp.value = selectBeta.value;
+      selVal = selectBeta.value;
+    }
+    this.updateVersionChangelogCard(selVal, channel);
+  },
+
+  updateVersionChangelogCard(selectedVersionId, channel) {
+    const card = document.getElementById('update-version-details-card');
+    if (!card) return;
+
+    const data = this.updateData;
+    if (!data || !selectedVersionId) {
+      card.style.display = 'none';
+      return;
+    }
+
+    const items = data.versions || [];
+    const item = items.find(v => v.id === selectedVersionId) || {};
+    const cleanVer = item.clean_version || selectedVersionId;
+    const isStable = (item.channel === 'stable' || channel === 'stable');
+
+    card.style.display = 'block';
+
+    const chBadge = document.getElementById('update-details-channel-badge');
+    const titleEl = document.getElementById('update-details-version-title');
+    const btnChangelog = document.getElementById('btn-view-changelog');
+    const btnChangelogText = document.getElementById('btn-view-changelog-text');
+    const btnEngine = document.getElementById('btn-view-engine-notes');
+    const btnEngineLabel = document.getElementById('btn-engine-notes-label');
+    const adviceTitle = document.getElementById('update-details-advice-title');
+    const adviceText = document.getElementById('update-details-advice-text');
+
+    if (chBadge) {
+      if (isStable) {
+        chBadge.textContent = '⭐ ' + (I18n.t('t_install_channel_stable') || 'Estable');
+        chBadge.style.background = 'rgba(46, 160, 67, 0.15)';
+        chBadge.style.border = '1px solid #2ea043';
+        chBadge.style.color = '#3fb950';
+      } else {
+        const chName = item.channel === 'pre' ? 'Pre-Release' : (item.channel === 'preview' ? 'Preview / Beta' : 'Snapshot');
+        chBadge.textContent = '🔥 ' + chName;
+        chBadge.style.background = 'rgba(210, 153, 34, 0.15)';
+        chBadge.style.border = '1px solid #d29922';
+        chBadge.style.color = '#e3b341';
+      }
+    }
+
+    if (titleEl) {
+      titleEl.textContent = `${(data.server_type || 'Minecraft').toUpperCase()} ${item.label || selectedVersionId}`;
+    }
+
+    if (btnChangelog) {
+      btnChangelog.href = item.changelog_url || `https://minecraft.wiki/w/Java_Edition_${cleanVer}`;
+      if (btnChangelogText) {
+        btnChangelogText.textContent = (typeof I18n.fmt === 'function') ? I18n.fmt('t_install_btn_view_changelog_ver', [cleanVer]) : `📖 Ver Cambios de v${cleanVer}`;
+      }
+    }
+
+    if (btnEngine) {
+      if (item.engine_url) {
+        btnEngine.style.display = 'inline-flex';
+        btnEngine.href = item.engine_url;
+        if (btnEngineLabel) {
+          btnEngineLabel.textContent = item.engine_label || I18n.t('t_install_btn_engine_notes') || 'Notas del Motor';
+        }
+      } else {
+        btnEngine.style.display = 'none';
+      }
+    }
+
+    if (adviceTitle && adviceText) {
+      adviceTitle.textContent = item.advice_title || (isStable ? '⭐ Compilación Estable' : '🔥 Compilación Experimental');
+      adviceText.textContent = item.advice_text || '';
     }
   },
 

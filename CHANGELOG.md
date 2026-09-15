@@ -19,6 +19,9 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 - **Detección Avanzada de Canales en PaperMC:**
   - Nuevo método `get_paper_classified_versions` en `app/core/downloader.py` con caché en memoria (180s) que consulta el canal real de compilaciones (`builds/latest`) en la API v3 de PaperMC.
   - Distinción automática entre versiones experimentales (`ALPHA`) y versiones estables (`STABLE`), evitando falsos positivos de actualización cuando se lanzan versiones preliminares (como Minecraft 26.3 en Paper).
+- **Visualizador de Cambios y Notas de Versión (Changelog & Betas):**
+  - Enlaces directos y contextuales al registro oficial de cambios (`minecraft.wiki` y portales oficiales de cada motor) para cualquier versión seleccionada (Vanilla, Bedrock, Paper, Purpur, Fabric, Forge).
+  - Tarjeta informativa dinámica con consejo de actualización: orientación comparativa sobre cuándo conviene quedarse en la versión Estable (para comunidades y servidores con plugins) o cuándo probar versiones Beta/Snapshot/Experimental (en entornos de prueba o para explorar novedades).
 - **Flujo de Publicación de Releases en GitHub:**
   - Flujo de GitHub Actions para generar automáticamente GitHub Releases con notas de cambios al publicar tags de versión (`v*`).
 - **Pruebas Automatizadas:**
