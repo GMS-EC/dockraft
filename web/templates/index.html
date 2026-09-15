@@ -32,9 +32,18 @@
 
 {% block scripts %}
   <!-- Server-Side Hydrated Initial State for Instant Zero-Delay UI -->
+  <script type="application/json" id="server-initial-stats">{{ stats_json | safe if stats_json else 'null' }}</script>
+  <script type="application/json" id="server-initial-config">{{ cfg_json | safe if cfg_json else 'null' }}</script>
   <script>
-    window.__INITIAL_STATS__ = {{ stats_json | safe if stats_json else 'null' }};
-    window.__INITIAL_CONFIG__ = {{ cfg_json | safe if cfg_json else 'null' }};
+    try {
+      const statsEl = document.getElementById('server-initial-stats');
+      const cfgEl = document.getElementById('server-initial-config');
+      window.__INITIAL_STATS__ = statsEl ? JSON.parse(statsEl.textContent) : null;
+      window.__INITIAL_CONFIG__ = cfgEl ? JSON.parse(cfgEl.textContent) : null;
+    } catch (e) {
+      window.__INITIAL_STATS__ = null;
+      window.__INITIAL_CONFIG__ = null;
+    }
   </script>
 
   <!-- Modular Dockraft Scripts -->
