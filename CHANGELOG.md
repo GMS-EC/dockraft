@@ -28,6 +28,9 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Nuevas suites de pruebas unitarias para clasificación de versiones PaperMC (`tests/test_paper_classification.py`) y supresión de comandos silenciosos (`tests/test_silent_commands.py`).
 
 ### Modificado (Changed)
+- **Centralización i18n de Versión en Footer y Cache-Busting de Cliente:**
+  - La versión del panel mostrada en el pie de página ahora se administra de forma centralizada en el diccionario de traducciones (`web/static/js/i18n.js` con clave `footer_version`), respetando la arquitectura de internacionalización del proyecto.
+  - Se incrementaron los parámetros de versión de los scripts en `index.html`, `base.html` y el Service Worker PWA (`dockraft-v7`) para garantizar una actualización instantánea en el navegador sin retención de scripts antiguos en caché.
 - **Consola Interactiva Silenciosa:**
   - Supresión limpia de la salida en consola para sondeos automáticos en segundo plano (`tps` cada 45s y `/list` cada 3 min), evitando inundar el terminal interactivo.
   - Las métricas de TPS y jugadores en línea se siguen actualizando en tiempo real sin interrupciones.

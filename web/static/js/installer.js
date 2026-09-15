@@ -266,6 +266,7 @@ const Installer = {
       });
       select.disabled = false;
       this.updateRecommendedJava();
+      this.onInstallVersionChange();
     } catch (e) {
       select.innerHTML = '<option value="">' + I18n.t('t_install_err_loading_versions') + '</option>';
       App.showToast(I18n.fmt('t_install_err_load_versions_for', [type]), 'danger');
@@ -449,6 +450,7 @@ const Installer = {
       if (!res.ok) return;
       const data = await res.json();
       this.updateData = data;
+      window.__LAST_UPDATE_DATA__ = data;
 
       if (!data.is_installed) {
         card.style.display = 'none';
@@ -569,6 +571,8 @@ const Installer = {
         });
         if (stables.length === 0) {
           selectStable.innerHTML = `<option value="">${I18n.t('t_install_no_stable_versions')}</option>`;
+        } else if (data.latest_stable) {
+          selectStable.value = data.latest_stable;
         }
       }
 
@@ -584,6 +588,8 @@ const Installer = {
         });
         if (previews.length === 0) {
           selectBeta.innerHTML = `<option value="">${I18n.t('t_install_no_beta_versions')}</option>`;
+        } else if (data.latest_preview) {
+          selectBeta.value = data.latest_preview;
         }
       }
 
@@ -662,9 +668,12 @@ const Installer = {
     }
 
     const activeSelect = channel === 'stable' ? selectStable : selectBeta;
-    if (activeSelect) {
-      this.updateVersionChangelogCard(activeSelect.value, channel);
+    let selVal = activeSelect ? activeSelect.value : null;
+    if (!selVal && activeSelect && activeSelect.options && activeSelect.options.length > 0) {
+      selVal = activeSelect.options[0].value;
+      activeSelect.value = selVal;
     }
+    this.updateVersionChangelogCard(selVal, channel);
   },
 
   onVersionSelectChange(channel) {
@@ -673,29 +682,124 @@ const Installer = {
     const selectComp = document.getElementById('update-version-select');
     let selVal = null;
     if (channel === 'stable' && selectStable) {
-      if (selectComp) selectComp.value = selectStable.value;
       selVal = selectStable.value;
+      if (selectComp) selectComp.value = selVal;
     } else if (channel === 'beta' && selectBeta) {
-      if (selectComp) selectComp.value = selectBeta.value;
       selVal = selectBeta.value;
+      if (selectComp) selectComp.value = selVal;
     }
     this.updateVersionChangelogCard(selVal, channel);
+  },
+
+  buildVersionMeta(serverType, versionId, channel) {
+    const st = (serverType || 'paper').toLowerCase();
+    const vid = String(versionId || '').trim();
+    const m = vid.match(/([0-9]+(?:\.[0-9]+)+(?:-[a-zA-Z0-9\.\-]+)?)/);
+    const cleanVer = m ? m[1] : vid;
+    const isBedrock = st === 'bedrock';
+
+    let isStable = channel === 'stable';
+    if (!channel) {
+      isStable = !vid.includes('-pre') && !vid.includes('-rc') && !vid.toLowerCase().includes('snapshot') && !vid.toLowerCase().includes('beta') && !vid.toLowerCase().includes('preview');
+    }
+
+    let changelogUrl = isBedrock
+      ? `https://minecraft.wiki/w/Bedrock_Edition_${cleanVer}`
+      : `https://minecraft.wiki/w/Java_Edition_${cleanVer}`;
+
+    let engineUrl = '';
+    let engineLabel = '';
+
+    if (st === 'bedrock') {
+      if (!isStable) {
+        engineUrl = 'https://feedback.minecraft.net/hc/en-us/sections/360001185332-Beta-and-Preview-Information-and-Changelogs';
+        engineLabel = 'Feedback Oficial Mojang (Betas & Previews)';
+      } else {
+        engineUrl = 'https://feedback.minecraft.net/hc/en-us/sections/360001186971-Release-Changelogs';
+        engineLabel = 'Feedback Oficial Mojang (Changelogs)';
+      }
+    } else if (st === 'paper' || st === 'folia' || st === 'velocity') {
+      const cap = st.charAt(0).toUpperCase() + st.slice(1);
+      engineUrl = `https://github.com/PaperMC/${cap}/releases`;
+      engineLabel = `Releases Oficiales de ${cap}`;
+    } else if (st === 'purpur') {
+      engineUrl = `https://purpurmc.org/downloads?version=${cleanVer}`;
+      engineLabel = 'Descargas y Notas de Purpur';
+    } else if (st === 'fabric') {
+      engineUrl = 'https://fabricmc.net/';
+      engineLabel = 'Portal Oficial de Fabric';
+    } else if (st === 'forge') {
+      engineUrl = 'https://files.minecraftforge.net/net/minecraftforge/forge/';
+      engineLabel = 'Portal Oficial de Minecraft Forge';
+    } else {
+      engineUrl = 'https://www.minecraft.net/articles';
+      engineLabel = 'Artículos Oficiales de Minecraft.net';
+    }
+
+    let adviceTitle = '';
+    let adviceText = '';
+    if (isStable) {
+      adviceTitle = '⭐ ' + (I18n.t('t_install_advice_stable_title') || 'Compilación Estable (Recomendada para Producción)');
+      adviceText = (typeof I18n.fmt === 'function')
+        ? I18n.fmt('t_install_advice_stable_text', [cleanVer])
+        : `La versión ${cleanVer} es una compilación Estable oficial. Es la opción recomendada si buscas máxima compatibilidad con plugins/mods, estabilidad para tus jugadores y cero riesgos de fallos experimentales.`;
+    } else {
+      const chLabel = (vid.includes('-rc') ? 'Release Candidate' : (vid.includes('-pre') ? 'Pre-Release' : (isBedrock ? 'Preview / Beta' : 'Beta / Snapshot')));
+      adviceTitle = `🔥 Compilación ${chLabel} (Preliminar de Desarrollo)`;
+      adviceText = (typeof I18n.fmt === 'function')
+        ? I18n.fmt('t_install_advice_beta_text', [cleanVer])
+        : `La versión ${cleanVer} incluye mecánicas preliminares antes de su lanzamiento final, pero puede contener bugs o incompatibilidad con plugins. Te conviene quedarte en Estable si tu comunidad está activa, o probar esta versión si tienes un entorno de prueba. Dockraft creará una copia de seguridad preventiva antes de actualizar.`;
+    }
+
+    return {
+      serverType: st,
+      versionId: vid,
+      cleanVer,
+      isStable,
+      changelogUrl,
+      engineUrl,
+      engineLabel,
+      adviceTitle,
+      adviceText
+    };
   },
 
   updateVersionChangelogCard(selectedVersionId, channel) {
     const card = document.getElementById('update-version-details-card');
     if (!card) return;
 
-    const data = this.updateData;
-    if (!data || !selectedVersionId) {
+    const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
+    const serverType = data.server_type || 'paper';
+
+    if (!selectedVersionId) {
+      const activeSelect = (channel === 'beta' || this.currentUpdateChannel === 'beta')
+        ? document.getElementById('update-version-select-beta')
+        : document.getElementById('update-version-select-stable');
+      if (activeSelect && activeSelect.value) {
+        selectedVersionId = activeSelect.value;
+      }
+    }
+
+    if (!selectedVersionId) {
       card.style.display = 'none';
       return;
     }
 
     const items = data.versions || [];
-    const item = items.find(v => v.id === selectedVersionId) || {};
-    const cleanVer = item.clean_version || selectedVersionId;
-    const isStable = (item.channel === 'stable' || channel === 'stable');
+    let item = items.find(v => String(v.id).trim() === String(selectedVersionId).trim());
+    if (!item) {
+      item = items.find(v => String(v.clean_version).trim() === String(selectedVersionId).trim()) || {};
+    }
+
+    const itemCh = item.channel || channel || 'stable';
+    const meta = this.buildVersionMeta(serverType, selectedVersionId, itemCh);
+
+    if (item.changelog_url) meta.changelogUrl = item.changelog_url;
+    if (item.engine_url) meta.engineUrl = item.engine_url;
+    if (item.engine_label) meta.engineLabel = item.engine_label;
+    if (item.advice_title) meta.adviceTitle = item.advice_title;
+    if (item.advice_text) meta.adviceText = item.advice_text;
+    if (item.clean_version) meta.cleanVer = item.clean_version;
 
     card.style.display = 'block';
 
@@ -709,13 +813,15 @@ const Installer = {
     const adviceText = document.getElementById('update-details-advice-text');
 
     if (chBadge) {
-      if (isStable) {
+      if (meta.isStable) {
         chBadge.textContent = '⭐ ' + (I18n.t('t_install_channel_stable') || 'Estable');
         chBadge.style.background = 'rgba(46, 160, 67, 0.15)';
         chBadge.style.border = '1px solid #2ea043';
         chBadge.style.color = '#3fb950';
       } else {
-        const chName = item.channel === 'pre' ? 'Pre-Release' : (item.channel === 'preview' ? 'Preview / Beta' : 'Snapshot');
+        const chName = (item.channel === 'pre' || meta.versionId.includes('-pre')) ? 'Pre-Release' :
+                       (item.channel === 'preview' || meta.versionId.includes('preview') || meta.serverType === 'bedrock') ? 'Preview / Beta' :
+                       (meta.versionId.includes('-rc') ? 'Release Candidate' : 'Snapshot');
         chBadge.textContent = '🔥 ' + chName;
         chBadge.style.background = 'rgba(210, 153, 34, 0.15)';
         chBadge.style.border = '1px solid #d29922';
@@ -724,22 +830,24 @@ const Installer = {
     }
 
     if (titleEl) {
-      titleEl.textContent = `${(data.server_type || 'Minecraft').toUpperCase()} ${item.label || selectedVersionId}`;
+      titleEl.textContent = `${meta.serverType.toUpperCase()} ${item.label || meta.versionId}`;
     }
 
     if (btnChangelog) {
-      btnChangelog.href = item.changelog_url || `https://minecraft.wiki/w/Java_Edition_${cleanVer}`;
+      btnChangelog.href = meta.changelogUrl;
       if (btnChangelogText) {
-        btnChangelogText.textContent = (typeof I18n.fmt === 'function') ? I18n.fmt('t_install_btn_view_changelog_ver', [cleanVer]) : `📖 Ver Cambios de v${cleanVer}`;
+        btnChangelogText.textContent = (typeof I18n.fmt === 'function')
+          ? I18n.fmt('t_install_btn_view_changelog_ver', [meta.cleanVer])
+          : `📖 Ver Cambios de v${meta.cleanVer}`;
       }
     }
 
     if (btnEngine) {
-      if (item.engine_url) {
+      if (meta.engineUrl) {
         btnEngine.style.display = 'inline-flex';
-        btnEngine.href = item.engine_url;
+        btnEngine.href = meta.engineUrl;
         if (btnEngineLabel) {
-          btnEngineLabel.textContent = item.engine_label || I18n.t('t_install_btn_engine_notes') || 'Notas del Motor';
+          btnEngineLabel.textContent = meta.engineLabel || I18n.t('t_install_btn_engine_notes') || 'Notas del Motor';
         }
       } else {
         btnEngine.style.display = 'none';
@@ -747,8 +855,77 @@ const Installer = {
     }
 
     if (adviceTitle && adviceText) {
-      adviceTitle.textContent = item.advice_title || (isStable ? '⭐ Compilación Estable' : '🔥 Compilación Experimental');
-      adviceText.textContent = item.advice_text || '';
+      adviceTitle.textContent = meta.adviceTitle;
+      adviceText.textContent = meta.adviceText;
+    }
+  },
+
+  onInstallVersionChange() {
+    this.updateRecommendedJava();
+    const select = document.getElementById('installer-version-select');
+    const card = document.getElementById('install-version-details-card');
+    if (!select || !card) return;
+
+    const vid = select.value;
+    if (!vid) {
+      card.style.display = 'none';
+      return;
+    }
+
+    const meta = this.buildVersionMeta(this.selectedType, vid, null);
+    card.style.display = 'block';
+
+    const chBadge = document.getElementById('install-details-channel-badge');
+    const titleEl = document.getElementById('install-details-version-title');
+    const btnChangelog = document.getElementById('btn-install-view-changelog');
+    const btnChangelogText = document.getElementById('btn-install-view-changelog-text');
+    const btnEngine = document.getElementById('btn-install-view-engine-notes');
+    const btnEngineLabel = document.getElementById('btn-install-engine-notes-label');
+    const adviceTitle = document.getElementById('install-details-advice-title');
+    const adviceText = document.getElementById('install-details-advice-text');
+
+    if (chBadge) {
+      if (meta.isStable) {
+        chBadge.textContent = '⭐ ' + (I18n.t('t_install_channel_stable') || 'Estable');
+        chBadge.style.background = 'rgba(46, 160, 67, 0.15)';
+        chBadge.style.border = '1px solid #2ea043';
+        chBadge.style.color = '#3fb950';
+      } else {
+        chBadge.textContent = '🔥 ' + (meta.versionId.includes('-pre') ? 'Pre-Release' : (meta.versionId.includes('-rc') ? 'Release Candidate' : 'Snapshot / Beta'));
+        chBadge.style.background = 'rgba(210, 153, 34, 0.15)';
+        chBadge.style.border = '1px solid #d29922';
+        chBadge.style.color = '#e3b341';
+      }
+    }
+
+    if (titleEl) {
+      titleEl.textContent = `${(meta.serverType || 'Minecraft').toUpperCase()} ${meta.versionId}`;
+    }
+
+    if (btnChangelog) {
+      btnChangelog.href = meta.changelogUrl;
+      if (btnChangelogText) {
+        btnChangelogText.textContent = (typeof I18n.fmt === 'function')
+          ? I18n.fmt('t_install_btn_view_changelog_ver', [meta.cleanVer])
+          : `📖 Ver Cambios de v${meta.cleanVer}`;
+      }
+    }
+
+    if (btnEngine) {
+      if (meta.engineUrl) {
+        btnEngine.style.display = 'inline-flex';
+        btnEngine.href = meta.engineUrl;
+        if (btnEngineLabel) {
+          btnEngineLabel.textContent = meta.engineLabel || I18n.t('t_install_btn_engine_notes') || 'Notas del Motor';
+        }
+      } else {
+        btnEngine.style.display = 'none';
+      }
+    }
+
+    if (adviceTitle && adviceText) {
+      adviceTitle.textContent = meta.adviceTitle;
+      adviceText.textContent = meta.adviceText;
     }
   },
 
