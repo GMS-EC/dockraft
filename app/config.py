@@ -29,6 +29,9 @@ class Settings:
         self.login_max_attempts: int = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
         self.login_cooldown_seconds: int = int(os.getenv("LOGIN_COOLDOWN_SECONDS", "600"))
         self.session_timeout_minutes: int = int(os.getenv("SESSION_TIMEOUT_MINUTES", "60"))
+        # Fix #1: Set to true when the panel is behind an HTTPS reverse proxy
+        # so session cookies are marked Secure and never sent over plain HTTP.
+        self.https_enabled: bool = os.getenv("HTTPS_ENABLED", "false").lower() in ("true", "1", "yes")
         
         # Ensure directories exist
         self.data_dir.mkdir(parents=True, exist_ok=True)

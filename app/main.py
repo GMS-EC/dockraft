@@ -26,7 +26,7 @@ from app.config import settings, BASE_DIR
 from app.core.security import (
     create_session_token, verify_admin_password, verify_admin_credentials,
     verify_session_token, get_current_user, login_limiter, is_authenticated,
-    get_session_max_age
+    get_session_max_age, revoke_token, get_token_from_request
 )
 from app.core.process_manager import process_manager
 from app.core.downloader import downloader
@@ -259,8 +259,9 @@ async def auth_refresh(response: Response, user: bool = Depends(get_current_user
     """Refreshes the active session token and sliding cookie timestamp."""
     new_token = create_session_token()
     max_age = get_session_max_age()
-    response.set_cookie(key="dockraft_token", value=new_token, httponly=True, max_age=max_age, samesite="lax")
-    response.set_cookie(key="litemc_token", value=new_token, httponly=True, max_age=max_age, samesite="lax")
+    _secure = settings.https_enabled
+    response.set_cookie(key="dockraft_token", value=new_token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
+    response.set_cookie(key="litemc_token", value=new_token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
     return {
         "status": "success",
         "token": new_token,
@@ -285,16 +286,18 @@ async def auth_login(req: LoginRequest, request: Request, response: Response):
     if not settings.admin_password:
         login_limiter.record_success(client_ip)
         token = create_session_token()
-        response.set_cookie(key="dockraft_token", value=token, httponly=True, max_age=max_age, samesite="lax")
-        response.set_cookie(key="litemc_token", value=token, httponly=True, max_age=max_age, samesite="lax")
+        _secure = settings.https_enabled
+        response.set_cookie(key="dockraft_token", value=token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
+        response.set_cookie(key="litemc_token", value=token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
         return {"status": "success", "token": token, "session_timeout_minutes": max_age // 60}
 
     # 3. Verify admin credentials (username + password)
     if verify_admin_credentials(req.username, req.password):
         login_limiter.record_success(client_ip)
         token = create_session_token()
-        response.set_cookie(key="dockraft_token", value=token, httponly=True, max_age=max_age, samesite="lax")
-        response.set_cookie(key="litemc_token", value=token, httponly=True, max_age=max_age, samesite="lax")
+        _secure = settings.https_enabled
+        response.set_cookie(key="dockraft_token", value=token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
+        response.set_cookie(key="litemc_token", value=token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
         try:
             activity_manager.log("security", "Inicio de sesión exitoso", f"Usuario '{req.username or 'admin'}' conectado (IP: {client_ip})", user=req.username or "admin", status="success")
         except Exception:
@@ -325,9 +328,14 @@ async def auth_login(req: LoginRequest, request: Request, response: Response):
     )
 
 @app.post("/api/auth/logout")
-async def auth_logout(response: Response):
-    response.delete_cookie(key="dockraft_token")
-    response.delete_cookie(key="litemc_token")
+async def auth_logout(request: Request, response: Response):
+    # Fix #3: Revoke the current token server-side so it is immediately invalid
+    # even if someone captured it before the user clicked logout.
+    current_token = get_token_from_request(request)
+    if current_token:
+        revoke_token(current_token)
+    response.delete_cookie(key="dockraft_token", samesite="lax")
+    response.delete_cookie(key="litemc_token", samesite="lax")
     try:
         activity_manager.log("security", "Cierre de sesión", "Sesión cerrada por el usuario", user="admin", status="info")
     except Exception:

@@ -1,10 +1,15 @@
 import hmac
 import hashlib
 import time
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, Set
 from fastapi import HTTPException, Security, Request, Query, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
+
+# --- Token Revocation Store (Fix #3) ---
+# In-memory set of revoked token strings. Tokens added here on logout
+# are rejected by verify_session_token() even if their HMAC is valid.
+_revoked_tokens: Set[str] = set()
 
 security_bearer = HTTPBearer(auto_error=False)
 
@@ -143,8 +148,13 @@ def create_session_token() -> str:
     return f"{timestamp}:{signature}"
 
 def verify_session_token(token: str, max_age_seconds: Optional[int] = None) -> bool:
-    """Verifies the authenticity and expiration of the session token."""
+    """Verifies the authenticity and expiration of the session token.
+    Returns False if the token has been explicitly revoked via revoke_token().
+    """
     if not token or ":" not in token:
+        return False
+    # Fix #3: Reject explicitly revoked tokens (e.g. after logout)
+    if token in _revoked_tokens:
         return False
     if max_age_seconds is None:
         max_age_seconds = get_session_max_age()
@@ -161,6 +171,36 @@ def verify_session_token(token: str, max_age_seconds: Optional[int] = None) -> b
         return hmac.compare_digest(signature, expected_sig)
     except Exception:
         return False
+
+
+def revoke_token(token: str) -> None:
+    """Adds a token to the revocation set so it is immediately rejected,
+    regardless of whether its HMAC signature is still valid.
+    Expired tokens are pruned from the set automatically to prevent memory growth.
+    """
+    if not token:
+        return
+    _revoked_tokens.add(token)
+    _cleanup_revoked_tokens()
+
+
+def _cleanup_revoked_tokens() -> None:
+    """Removes tokens from the revocation set that have already expired naturally,
+    so the set does not grow unbounded over time."""
+    now = time.time()
+    max_age = get_session_max_age()
+    to_remove: Set[str] = set()
+    for tok in _revoked_tokens:
+        if ":" in tok:
+            try:
+                token_time = int(tok.split(":", 1)[0])
+                if now - token_time > max_age:
+                    to_remove.add(tok)
+            except Exception:
+                to_remove.add(tok)  # malformed — drop it
+        else:
+            to_remove.add(tok)
+    _revoked_tokens.difference_update(to_remove)
 
 def verify_admin_credentials(username: Optional[str], password: str) -> bool:
     """Validates provided username and password using constant-time comparison."""
@@ -183,12 +223,14 @@ def verify_admin_password(password: str) -> bool:
 async def get_current_user(
     request: Request,
     auth: Optional[HTTPAuthorizationCredentials] = Security(security_bearer),
-    token_param: Optional[str] = Query(None, alias="token")
 ) -> bool:
     """
-    Dependency that authenticates requests.
+    Dependency that authenticates REST API requests.
     If no admin_password is configured in settings, access is open.
-    Otherwise checks Authorization header, cookie 'dockraft_token' (or legacy 'litemc_token'), or '?token=' query param.
+    Checks: Authorization Bearer header → 'dockraft_token' cookie → legacy cookies.
+    Fix #2: '?token=' query param intentionally removed — tokens must NOT appear in URLs
+    (they end up in server logs, browser history and Referer headers).
+    WebSocket connections handle ?token= separately in their own endpoint.
     """
     if not settings.admin_password:
         return True
@@ -196,8 +238,6 @@ async def get_current_user(
     token = None
     if auth and auth.credentials:
         token = auth.credentials
-    elif token_param:
-        token = token_param
     elif "dockraft_token" in request.cookies:
         token = request.cookies.get("dockraft_token")
     elif "dockraft_session" in request.cookies:
@@ -217,6 +257,7 @@ def is_authenticated(request: Request) -> bool:
     """
     Checks if a request has a valid session token without raising an exception.
     Useful for page route redirects (e.g. GET / and GET /login).
+    Fix #2: '?token=' query param removed — tokens must not appear in URLs.
     """
     if not settings.admin_password:
         return True
@@ -231,7 +272,19 @@ def is_authenticated(request: Request) -> bool:
         token = request.cookies.get("dockraft_session")
     elif "litemc_token" in request.cookies:
         token = request.cookies.get("litemc_token")
-    elif "token" in request.query_params:
-        token = request.query_params.get("token")
 
     return bool(token and verify_session_token(token))
+
+
+def get_token_from_request(request: Request) -> Optional[str]:
+    """Helper to extract the active session token from a request.
+    Used by the logout endpoint to revoke the token server-side.
+    """
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:].strip()
+    for cookie_name in ("dockraft_token", "dockraft_session", "litemc_token"):
+        tok = request.cookies.get(cookie_name)
+        if tok:
+            return tok
+    return None
