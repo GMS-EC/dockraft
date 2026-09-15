@@ -50,9 +50,6 @@ Al enfocarse exclusivamente en mantener y optimizar **una única instancia de se
 * **No tiene intermediarios pesados**: El panel corre en un único proceso asíncrono en Python con FastAPI y Uvicorn.
 * **Aprovechamiento máximo del hardware**: En un VPS o servidor con 2 GB, 4 GB u 8 GB de memoria, Dockraft consume entre **~50 y 75 MB de RAM** (según el sistema operativo) y **~0 % de CPU en reposo**. En un 2 GB quedan libres más del 96 % de la RAM y en un 8 GB más del 99 %, **todo ese resto disponible para el juego, tus mundos, mods y jugadores.**
 
-> 🏆 **¿Servidor pequeño o gigantesco? No importa.** 
-> Dockraft tiene todo lo que necesitas para administrar tu servidor Minecraft de forma profesional — sin consumir los recursos que tu mundo, jugadores y plugins necesitan.
-> Desde un servidor de amigos con 2 GB hasta una instancia de alto rendimiento con 64 GB, el panel está pensado para apenas notarse: el resto de tus recursos queda libre para el juego.
 
 ---
 
@@ -87,28 +84,16 @@ Al enfocarse exclusivamente en mantener y optimizar **una única instancia de se
 
 ---
 
+### ⚡ Rendimiento y TPS (Ticks Per Second)
 
-### ⚡ ¿Cómo entender el Rendimiento y los TPS (Ticks Per Second)?
+El servidor corre en ciclos de **20 TPS** (ticks por segundo). Cada tick procesa IA de mobs, redstone, cultivos e interacciones de jugadores. Si los TPS caen, el juego se siente con lag.
 
-En Minecraft, el bucle principal de procesamiento del servidor se ejecuta en ciclos discretos denominados **ticks**. Cada tick actualiza la inteligencia artificial de las criaturas (mobs), el crecimiento de los cultivos, los circuitos de redstone, el tiempo del día y las interacciones de los jugadores.
-
-* **Frecuencia ideal**: **20.0 TPS** (significa que el servidor procesa exactamente 20 ciclos cada segundo, es decir, **1 tick cada 50 milisegundos**).
-* **Diferencia entre FPS y TPS**: Los **FPS** (cuadros por segundo) dependen de la tarjeta gráfica de tu computadora (lado cliente). Los **TPS**, en cambio, dependen de la capacidad del procesador de tu servidor para calcular la física del mundo en tiempo real.
-
-#### 🚦 Escala de Rendimiento en el Panel:
-
-| TPS en Dockraft | Estado | Experiencia en el Juego | Qué significa |
-| :---: | :---: | :--- | :--- |
-| **20.0 TPS** | 🟢 **Óptimo** | Fluidez absoluta. Sin retrasos ni desincronizaciones. | El servidor procesa el mundo en menos de 50 ms por ciclo. |
-| **18.0 – 19.9 TPS** | 🟡 **Carga Ligera** | Prácticamente imperceptible para los jugadores. | Carga temporal normal al guardar mundos (`save-all`) o al conectarse varios usuarios a la vez. |
-| **15.0 – 17.9 TPS** | 🟠 **Degradación Moderada** | Retardo leve al interactuar con cofres, puertas o redstone; los mobs se mueven más despacio. | El servidor tarda más de 50 ms por tick. Conviene vigilar granjas masivas y generación de chunks. |
-| **< 15.0 TPS** | 🔴 **Sobrecarga (Lag)** | *Rubberbanding* (jugadores retroceden al caminar), bloques rotos reaparecen, daño retardado al golpear. | El servidor está saturado. Se recomienda optimizar entidades, reducir la distancia de simulación o auditar plugins. |
-
-#### 🛠️ Causas frecuentes de caída de TPS y cómo prevenirlas:
-1. **Acumulación excesiva de entidades**: Granjas con cientos de aldeanos o animales apiñados en pocos bloques calculando colisiones.
-2. **Generación acelerada de terreno**: Jugadores volando con Elytras a gran velocidad obligando a generar y guardar cientos de chunks nuevos en el disco.
-3. **Relojes de Redstone infinitos**: Bucles rápidos sin tolvas reguladas o pistones automáticos continuos.
-4. **Distancia de simulación muy alta**: Ajustar `simulation-distance=6` u `8` en `server.properties` reduce notablemente el uso de CPU sin perjudicar la distancia visual (`view-distance`).
+| TPS | Estado | Experiencia |
+| :---: | :---: | :--- |
+| **20.0** | 🟢 Óptimo | Sin retrasos. |
+| **18.0 – 19.9** | 🟡 Carga Ligera | Prácticamente imperceptible. |
+| **15.0 – 17.9** | 🟠 Lag Moderado | Retraso leve en cofres, redstone y mobs. |
+| **< 15.0** | 🔴 Sobrecarga | Rubberbanding y bloques que reaparecen. |
 
 ---
 
@@ -211,10 +196,6 @@ pytest tests/ -v
 
 ---
 
-<br />
-
----
-
 ## 🇬🇧 English Version
 
 ### 💡 Why Dockraft? (Single-Instance Dedicated Architecture)
@@ -228,9 +209,7 @@ By focusing strictly on managing and optimizing **a single server instance per c
 * **No bloated middleware**: Runs as a single asynchronous Python process powered by FastAPI and Uvicorn.
 * **Maximum hardware efficiency**: On a 2 GB, 4 GB, or 8 GB VPS, Dockraft consumes about **50–75 MB of RAM** (OS-dependent) and **~0% CPU at idle**. That leaves over 96% free on a 2 GB box and over 99% on 8 GB, **all of it available to Minecraft, your worlds, mods, and players.**
 
-> 🏆 **Small server or massive one? Doesn't matter.**
-> Dockraft gives you everything you need to manage a Minecraft server professionally — without eating into the resources your world, players and plugins actually need.
-> From a small 2 GB friends box to a 64 GB high-performance machine, the panel is designed to stay out of the way: the rest of your resources stay free for the game.
+
 
 ---
 
@@ -265,28 +244,16 @@ By focusing strictly on managing and optimizing **a single server instance per c
 
 ---
 
+### ⚡ Performance & TPS (Ticks Per Second)
 
-### ⚡ Understanding Server Performance & TPS (Ticks Per Second)
+The server runs at **20 TPS** (ticks per second). Each tick processes mob AI, redstone, crop growth, and player interactions. Dropping below 20 TPS causes in-game lag.
 
-In Minecraft, the server's internal simulation loop runs in discrete cycles called **ticks**. Each tick calculates mob AI, crop growth, redstone logic, time of day, and player interactions.
-
-* **Target Rate**: **20.0 TPS** (the server processes exactly 20 ticks every second, meaning **1 tick every 50 milliseconds**).
-* **FPS vs. TPS**: **FPS** (Frames Per Second) is client-side and determined by your computer's GPU and monitor. **TPS** is strictly server-side and measures the server CPU's ability to keep the world running in real time without lag.
-
-#### 🚦 Performance Interpretation Scale:
-
-| TPS in Dockraft | Status | In-Game Player Experience | Interpretation |
-| :---: | :---: | :--- | :--- |
-| **20.0 TPS** | 🟢 **Optimal** | Perfect fluidity. No block delays or desync. | The server easily finishes every tick cycle well under 50 ms. |
-| **18.0 – 19.9 TPS** | 🟡 **Light Load** | Virtually imperceptible to players. | Normal temporary dip during world saves (`save-all`) or batch player logins. |
-| **15.0 – 17.9 TPS** | 🟠 **Moderate Lag** | Slight delay opening chests, buttons, or doors; mobs move slower. | The server takes longer than 50 ms per tick. Monitor entity counts and fast exploration. |
-| **< 15.0 TPS** | 🔴 **Heavy Overload** | Severe rubberbanding, broken blocks reappearing, delayed attack registrations. | Server CPU bottleneck. Simulation distance should be lowered or heavy plugins profiled. |
-
-#### 🛠️ Common Causes of Low TPS and Optimization Tips:
-1. **Entity Stacking**: Dense farms with hundreds of villagers, cows, or zombies crowded in small pens calculating physics collisions.
-2. **Rapid Chunk Generation**: Players flying fast with Elytras forcing synchronous chunk generation and disk writes.
-3. **Unregulated Redstone Clocks**: Fast hopper loops or piston clocks running indefinitely.
-4. **High Simulation Distance**: Setting `simulation-distance=6` or `8` in `server.properties` drastically cuts CPU usage while keeping visual `view-distance` high.
+| TPS | Status | Experience |
+| :---: | :---: | :--- |
+| **20.0** | 🟢 Optimal | No delays. |
+| **18.0 – 19.9** | 🟡 Light Load | Virtually imperceptible. |
+| **15.0 – 17.9** | 🟠 Moderate Lag | Slight delays on chests, redstone, and mobs. |
+| **< 15.0** | 🔴 Overloaded | Rubberbanding and blocks reappearing. |
 
 ---
 
