@@ -703,38 +703,46 @@ const Installer = {
       isStable = !vid.includes('-pre') && !vid.includes('-rc') && !vid.toLowerCase().includes('snapshot') && !vid.toLowerCase().includes('beta') && !vid.toLowerCase().includes('preview');
     }
 
-    let changelogUrl = isBedrock
+    let officialUrl = '';
+    let officialLabel = '';
+
+    if (st === 'paper') {
+      officialUrl = 'https://papermc.io/downloads/paper';
+      officialLabel = I18n.t('t_install_official_paper') || 'Página Oficial y Descargas de PaperMC';
+    } else if (st === 'folia') {
+      officialUrl = 'https://papermc.io/downloads/folia';
+      officialLabel = I18n.t('t_install_official_folia') || 'Página Oficial y Descargas de Folia';
+    } else if (st === 'velocity') {
+      officialUrl = 'https://papermc.io/downloads/velocity';
+      officialLabel = I18n.t('t_install_official_velocity') || 'Página Oficial y Descargas de Velocity';
+    } else if (st === 'purpur') {
+      officialUrl = cleanVer ? `https://purpurmc.org/downloads?version=${cleanVer}` : 'https://purpurmc.org/downloads';
+      officialLabel = I18n.t('t_install_official_purpur') || 'Página Oficial y Descargas de Purpur';
+    } else if (st === 'fabric') {
+      officialUrl = 'https://fabricmc.net/';
+      officialLabel = I18n.t('t_install_official_fabric') || 'Portal Oficial de FabricMC';
+    } else if (st === 'forge') {
+      officialUrl = 'https://files.minecraftforge.net/net/minecraftforge/forge/';
+      officialLabel = I18n.t('t_install_official_forge') || 'Portal Oficial de Minecraft Forge';
+    } else if (st === 'bedrock') {
+      if (!isStable) {
+        officialUrl = 'https://feedback.minecraft.net/hc/en-us/sections/360001185332-Beta-and-Preview-Information-and-Changelogs';
+        officialLabel = I18n.t('t_install_official_bedrock_beta') || 'Novedades Oficiales de Betas y Previews (Bedrock)';
+      } else {
+        officialUrl = 'https://feedback.minecraft.net/hc/en-us/sections/360001186971-Release-Changelogs';
+        officialLabel = I18n.t('t_install_official_bedrock') || 'Página Oficial y Cambios de Bedrock';
+      }
+    } else {
+      officialUrl = 'https://www.minecraft.net/articles';
+      officialLabel = I18n.t('t_install_official_vanilla') || 'Artículos Oficiales de Lanzamiento en Minecraft.net';
+    }
+
+    const wikiUrl = isBedrock
       ? `https://minecraft.wiki/w/Bedrock_Edition_${cleanVer}`
       : `https://minecraft.wiki/w/Java_Edition_${cleanVer}`;
-
-    let engineUrl = '';
-    let engineLabel = '';
-
-    if (st === 'bedrock') {
-      if (!isStable) {
-        engineUrl = 'https://feedback.minecraft.net/hc/en-us/sections/360001185332-Beta-and-Preview-Information-and-Changelogs';
-        engineLabel = 'Feedback Oficial Mojang (Betas & Previews)';
-      } else {
-        engineUrl = 'https://feedback.minecraft.net/hc/en-us/sections/360001186971-Release-Changelogs';
-        engineLabel = 'Feedback Oficial Mojang (Changelogs)';
-      }
-    } else if (st === 'paper' || st === 'folia' || st === 'velocity') {
-      const cap = st.charAt(0).toUpperCase() + st.slice(1);
-      engineUrl = `https://github.com/PaperMC/${cap}/releases`;
-      engineLabel = `Releases Oficiales de ${cap}`;
-    } else if (st === 'purpur') {
-      engineUrl = `https://purpurmc.org/downloads?version=${cleanVer}`;
-      engineLabel = 'Descargas y Notas de Purpur';
-    } else if (st === 'fabric') {
-      engineUrl = 'https://fabricmc.net/';
-      engineLabel = 'Portal Oficial de Fabric';
-    } else if (st === 'forge') {
-      engineUrl = 'https://files.minecraftforge.net/net/minecraftforge/forge/';
-      engineLabel = 'Portal Oficial de Minecraft Forge';
-    } else {
-      engineUrl = 'https://www.minecraft.net/articles';
-      engineLabel = 'Artículos Oficiales de Minecraft.net';
-    }
+    const wikiLabel = (typeof I18n.fmt === 'function')
+      ? I18n.fmt('t_install_btn_wiki_ver', [cleanVer])
+      : `Wiki de Minecraft (${cleanVer})`;
 
     let adviceTitle = '';
     let adviceText = '';
@@ -756,9 +764,13 @@ const Installer = {
       versionId: vid,
       cleanVer,
       isStable,
-      changelogUrl,
-      engineUrl,
-      engineLabel,
+      officialUrl,
+      officialLabel,
+      wikiUrl,
+      wikiLabel,
+      changelogUrl: officialUrl,
+      engineUrl: wikiUrl,
+      engineLabel: wikiLabel,
       adviceTitle,
       adviceText
     };
@@ -794,9 +806,10 @@ const Installer = {
     const itemCh = item.channel || channel || 'stable';
     const meta = this.buildVersionMeta(serverType, selectedVersionId, itemCh);
 
-    if (item.changelog_url) meta.changelogUrl = item.changelog_url;
-    if (item.engine_url) meta.engineUrl = item.engine_url;
-    if (item.engine_label) meta.engineLabel = item.engine_label;
+    if (item.official_url) meta.officialUrl = item.official_url;
+    if (item.official_label) meta.officialLabel = item.official_label;
+    if (item.wiki_url) meta.wikiUrl = item.wiki_url;
+    if (item.wiki_label) meta.wikiLabel = item.wiki_label;
     if (item.advice_title) meta.adviceTitle = item.advice_title;
     if (item.advice_text) meta.adviceText = item.advice_text;
     if (item.clean_version) meta.cleanVer = item.clean_version;
@@ -805,10 +818,10 @@ const Installer = {
 
     const chBadge = document.getElementById('update-details-channel-badge');
     const titleEl = document.getElementById('update-details-version-title');
-    const btnChangelog = document.getElementById('btn-view-changelog');
-    const btnChangelogText = document.getElementById('btn-view-changelog-text');
-    const btnEngine = document.getElementById('btn-view-engine-notes');
-    const btnEngineLabel = document.getElementById('btn-engine-notes-label');
+    const btnOfficial = document.getElementById('btn-view-changelog');
+    const btnOfficialText = document.getElementById('btn-view-changelog-text');
+    const btnWiki = document.getElementById('btn-view-engine-notes');
+    const btnWikiLabel = document.getElementById('btn-engine-notes-label');
     const adviceTitle = document.getElementById('update-details-advice-title');
     const adviceText = document.getElementById('update-details-advice-text');
 
@@ -833,24 +846,22 @@ const Installer = {
       titleEl.textContent = `${meta.serverType.toUpperCase()} ${item.label || meta.versionId}`;
     }
 
-    if (btnChangelog) {
-      btnChangelog.href = meta.changelogUrl;
-      if (btnChangelogText) {
-        btnChangelogText.textContent = (typeof I18n.fmt === 'function')
-          ? I18n.fmt('t_install_btn_view_changelog_ver', [meta.cleanVer])
-          : `📖 Ver Cambios de v${meta.cleanVer}`;
+    if (btnOfficial) {
+      btnOfficial.href = meta.officialUrl;
+      if (btnOfficialText) {
+        btnOfficialText.textContent = `📖 ${meta.officialLabel || 'Web Oficial y Cambios'}`;
       }
     }
 
-    if (btnEngine) {
-      if (meta.engineUrl) {
-        btnEngine.style.display = 'inline-flex';
-        btnEngine.href = meta.engineUrl;
-        if (btnEngineLabel) {
-          btnEngineLabel.textContent = meta.engineLabel || I18n.t('t_install_btn_engine_notes') || 'Notas del Motor';
+    if (btnWiki) {
+      if (meta.wikiUrl) {
+        btnWiki.style.display = 'inline-flex';
+        btnWiki.href = meta.wikiUrl;
+        if (btnWikiLabel) {
+          btnWikiLabel.textContent = `🌐 ${meta.wikiLabel || 'Wiki de Minecraft'}`;
         }
       } else {
-        btnEngine.style.display = 'none';
+        btnWiki.style.display = 'none';
       }
     }
 
@@ -877,10 +888,10 @@ const Installer = {
 
     const chBadge = document.getElementById('install-details-channel-badge');
     const titleEl = document.getElementById('install-details-version-title');
-    const btnChangelog = document.getElementById('btn-install-view-changelog');
-    const btnChangelogText = document.getElementById('btn-install-view-changelog-text');
-    const btnEngine = document.getElementById('btn-install-view-engine-notes');
-    const btnEngineLabel = document.getElementById('btn-install-engine-notes-label');
+    const btnOfficial = document.getElementById('btn-install-view-changelog');
+    const btnOfficialText = document.getElementById('btn-install-view-changelog-text');
+    const btnWiki = document.getElementById('btn-install-view-engine-notes');
+    const btnWikiLabel = document.getElementById('btn-install-engine-notes-label');
     const adviceTitle = document.getElementById('install-details-advice-title');
     const adviceText = document.getElementById('install-details-advice-text');
 
@@ -902,24 +913,22 @@ const Installer = {
       titleEl.textContent = `${(meta.serverType || 'Minecraft').toUpperCase()} ${meta.versionId}`;
     }
 
-    if (btnChangelog) {
-      btnChangelog.href = meta.changelogUrl;
-      if (btnChangelogText) {
-        btnChangelogText.textContent = (typeof I18n.fmt === 'function')
-          ? I18n.fmt('t_install_btn_view_changelog_ver', [meta.cleanVer])
-          : `📖 Ver Cambios de v${meta.cleanVer}`;
+    if (btnOfficial) {
+      btnOfficial.href = meta.officialUrl;
+      if (btnOfficialText) {
+        btnOfficialText.textContent = `📖 ${meta.officialLabel || 'Web Oficial y Cambios'}`;
       }
     }
 
-    if (btnEngine) {
-      if (meta.engineUrl) {
-        btnEngine.style.display = 'inline-flex';
-        btnEngine.href = meta.engineUrl;
-        if (btnEngineLabel) {
-          btnEngineLabel.textContent = meta.engineLabel || I18n.t('t_install_btn_engine_notes') || 'Notas del Motor';
+    if (btnWiki) {
+      if (meta.wikiUrl) {
+        btnWiki.style.display = 'inline-flex';
+        btnWiki.href = meta.wikiUrl;
+        if (btnWikiLabel) {
+          btnWikiLabel.textContent = `🌐 ${meta.wikiLabel || 'Wiki de Minecraft'}`;
         }
       } else {
-        btnEngine.style.display = 'none';
+        btnWiki.style.display = 'none';
       }
     }
 

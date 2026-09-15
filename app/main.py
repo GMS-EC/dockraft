@@ -709,35 +709,45 @@ def get_version_changelog_info(server_type: str, version_id: str, channel: str =
     m = re.search(r'([0-9]+(?:\.[0-9]+)+(?:-[a-zA-Z0-9\.\-]+)?)', vid)
     clean_ver = m.group(1) if m else vid
 
-    # Determine canonical wiki and engine changelog URLs
+    # Determine official software portal and Minecraft wiki URLs
     if st == "bedrock":
-        changelog_url = f"https://minecraft.wiki/w/Bedrock_Edition_{clean_ver}"
         if channel in ("preview", "beta"):
-            engine_url = "https://feedback.minecraft.net/hc/en-us/sections/360001185332-Beta-and-Preview-Information-and-Changelogs"
-            engine_label = "Feedback Oficial Mojang (Betas & Previews)"
+            official_url = "https://feedback.minecraft.net/hc/en-us/sections/360001185332-Beta-and-Preview-Information-and-Changelogs"
+            official_label = "Novedades Oficiales de Betas y Previews (Bedrock)"
         else:
-            engine_url = "https://feedback.minecraft.net/hc/en-us/sections/360001186971-Release-Changelogs"
-            engine_label = "Feedback Oficial Mojang (Changelogs)"
-    elif st in ("paper", "folia", "velocity"):
-        changelog_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-        engine_url = f"https://github.com/PaperMC/{st.capitalize()}/releases"
-        engine_label = f"Releases Oficiales de {st.capitalize()}"
+            official_url = "https://feedback.minecraft.net/hc/en-us/sections/360001186971-Release-Changelogs"
+            official_label = "Página Oficial y Cambios de Bedrock"
+        wiki_url = f"https://minecraft.wiki/w/Bedrock_Edition_{clean_ver}"
+    elif st == "paper":
+        official_url = "https://papermc.io/downloads/paper"
+        official_label = "Página Oficial y Descargas de PaperMC"
+        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
+    elif st == "folia":
+        official_url = "https://papermc.io/downloads/folia"
+        official_label = "Página Oficial y Descargas de Folia"
+        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
+    elif st == "velocity":
+        official_url = "https://papermc.io/downloads/velocity"
+        official_label = "Página Oficial y Descargas de Velocity"
+        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
     elif st == "purpur":
-        changelog_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-        engine_url = f"https://purpurmc.org/downloads?version={clean_ver}"
-        engine_label = "Descargas y Notas de Purpur"
+        official_url = f"https://purpurmc.org/downloads?version={clean_ver}" if clean_ver else "https://purpurmc.org/downloads"
+        official_label = "Página Oficial y Descargas de Purpur"
+        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
     elif st == "fabric":
-        changelog_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-        engine_url = "https://fabricmc.net/"
-        engine_label = "Portal Oficial de Fabric"
+        official_url = "https://fabricmc.net/"
+        official_label = "Portal Oficial de FabricMC"
+        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
     elif st == "forge":
-        changelog_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-        engine_url = "https://files.minecraftforge.net/net/minecraftforge/forge/"
-        engine_label = "Portal Oficial de Minecraft Forge"
+        official_url = "https://files.minecraftforge.net/net/minecraftforge/forge/"
+        official_label = "Portal Oficial de Minecraft Forge"
+        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
     else:  # vanilla or custom
-        changelog_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-        engine_url = "https://www.minecraft.net/articles"
-        engine_label = "Artículos de Lanzamiento en Minecraft.net"
+        official_url = "https://www.minecraft.net/articles"
+        official_label = "Artículos Oficiales de Lanzamiento en Minecraft.net"
+        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
+
+    wiki_label = f"Wiki de Minecraft ({clean_ver})"
 
     is_stable = channel == "stable"
     if is_stable:
@@ -758,9 +768,13 @@ def get_version_changelog_info(server_type: str, version_id: str, channel: str =
 
     return {
         "clean_version": clean_ver,
-        "changelog_url": changelog_url,
-        "engine_url": engine_url,
-        "engine_label": engine_label,
+        "official_url": official_url,
+        "official_label": official_label,
+        "wiki_url": wiki_url,
+        "wiki_label": wiki_label,
+        "changelog_url": official_url,
+        "engine_url": wiki_url,
+        "engine_label": wiki_label,
         "advice_title": advice_title,
         "advice_text": advice_text,
         "is_stable": is_stable
