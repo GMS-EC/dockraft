@@ -29,13 +29,17 @@ const LoginApp = {
       expiredEl.style.display = 'flex';
     }
 
-    const userInput = document.getElementById('login-username');
-    const passInput = document.getElementById('login-password');
-    if (userInput && !userInput.value) {
-      userInput.focus();
-    } else if (passInput) {
-      passInput.focus();
-    }
+    // Delay focus so mobile password managers (Bitwarden, etc.) have time
+    // to inject credentials before we force focus on an input field.
+    setTimeout(() => {
+      const userInput = document.getElementById('login-username');
+      const passInput = document.getElementById('login-password');
+      if (userInput && !userInput.value) {
+        userInput.focus();
+      } else if (passInput && !passInput.value) {
+        passInput.focus();
+      }
+    }, 600);
   },
 
   async submitLogin(event) {
