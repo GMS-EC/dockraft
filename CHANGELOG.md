@@ -5,6 +5,37 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.3.0] - 2026-09-20
+
+### Agregado (Added)
+- **Administrador de Subidas Flotante (Upload Manager Widget):**
+  - Panel flotante moderno y minimizable en la esquina inferior derecha (estilo Google Drive/OneDrive).
+  - Visualización del progreso individual y global con contador de bytes transferidos, porcentaje en tiempo real y velocidad de transferencia en MB/s (`XMLHttpRequest.upload.onprogress`).
+  - Control de cola concurrente (hasta 2 subidas simultáneas) para no saturar la red ni la I/O del servidor.
+  - Opciones de cancelación individual (`xhr.abort()`), reintento tras fallo y limpieza de completados.
+- **Soporte de Subida Múltiple y Drag & Drop:**
+  - Atributo `multiple` habilitado en el selector de archivos del gestor de archivos.
+  - Zona de arrastre y soltar (Drag & Drop) sobre la tabla de archivos con overlay visual translúcido e indicación dinámica de la carpeta destino.
+  - Prevención global de eventos de arrastre en `window` para evitar que el navegador abra el archivo directamente o recargue la pestaña por error.
+- **Persistencia de Navegación y Scroll:**
+  - Almacenamiento y restauración automática del directorio activo en `sessionStorage` (`dockraft_files_current_path`).
+  - Refresco silencioso de la tabla (`silent: true`) al terminar de subir archivos, eliminando el parpadeo y conservando la posición exacta de scroll del usuario.
+  - Conservación de la subcarpeta actual al alternar entre pestañas (Consola, Métricas, Archivos, etc.).
+- **Internacionalización (i18n):**
+  - Nuevas cadenas de traducción en español e inglés para todos los estados de subida, badges, botones y textos de arrastre en `i18n-files.js`.
+
+### Modificado (Changed)
+- **Cache-Busting de Recursos del Cliente:**
+  - Incremento de versiones de scripts y estilos en `base.html`, `footer.html`, `index.html` y módulos correspondientes a `v1.3.0`.
+
+### Corregido (Fixed)
+- **Salto al inicio al subir archivos:**
+  - Solucionado el colapso del contenedor que restablecía el scroll a `0` y la pérdida de la ruta actual durante las recargas de la lista de archivos.
+- **Incompatibilidad en llamada a BackupManager:**
+  - Corregida llamada a `backup_manager.create_backup` en el pipeline de actualización de `app/main.py` y añadido soporte para el alias `compress` en `BackupManager.create_backup`.
+
+---
+
 ## [1.2.0] - 2026-09-15
 
 ### Agregado (Added)

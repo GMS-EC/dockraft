@@ -1,6 +1,19 @@
 <!-- TAB 5: FILE MANAGER -->
 <section class="tab-pane" id="tab-files">
-  <div class="card" id="file-manager-card" style="position: relative;">
+  <div class="card file-manager-card" id="file-manager-card" style="position: relative;">
+    <!-- Drag & Drop Visual Overlay -->
+    <div id="file-drop-overlay" class="file-drop-overlay" style="display: none;">
+      <div class="file-drop-message">
+        <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <h4 data-i18n="t_file_dropzone_title">Suelta los archivos aquí para subirlos</h4>
+        <p id="file-dropzone-target-text" data-i18n="t_file_dropzone_subtitle">Se guardarán en: /data</p>
+      </div>
+    </div>
+
     <div class="file-manager-header" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;">
       <div class="breadcrumbs" id="file-breadcrumbs" style="flex: 1; min-width: 160px;">
         <span class="crumb-item">/data</span>
@@ -12,20 +25,20 @@
       </div>
 
       <div class="file-header-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <input type="file" id="file-upload-input" multiple style="display:none;" onchange="if(this.files && this.files.length) Files.uploadFiles(this.files)">
-        <button class="btn btn-outline" onclick="document.getElementById('file-upload-input').click()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <input type="file" id="file-upload-input" style="display:none;" multiple onchange="if(this.files && this.files.length) { Files.handleUploadFiles(this.files); this.value = ''; }">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('file-upload-input').click()" style="display: inline-flex; align-items: center; gap: 6px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           <span data-i18n="t_file_upload">Subir Archivo</span>
         </button>
-        <button class="btn btn-outline" onclick="Files.openCreateFileModal()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <button type="button" class="btn btn-outline" onclick="Files.openCreateFileModal()" style="display: inline-flex; align-items: center; gap: 6px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
           <span data-i18n="t_file_new_file">Nuevo Archivo</span>
         </button>
-        <button class="btn btn-outline" onclick="Files.createNewFolder()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <button type="button" class="btn btn-outline" onclick="Files.createNewFolder()" style="display: inline-flex; align-items: center; gap: 6px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
           <span data-i18n="t_file_new_folder">Nueva Carpeta</span>
         </button>
-        <button class="btn btn-outline" onclick="Files.loadDirectory(Files.currentPath)" style="display: inline-flex; align-items: center; gap: 6px;">
+        <button type="button" class="btn btn-outline" onclick="Files.loadDirectory(Files.currentPath)" style="display: inline-flex; align-items: center; gap: 6px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           <span data-i18n="t_file_refresh">Refrescar</span>
         </button>
@@ -85,6 +98,42 @@
   <!-- Floating Context Menu -->
   <div id="file-context-menu" class="context-menu">
     <!-- Injected dynamically by Files.showContextMenu -->
+  </div>
+
+  <!-- Floating Upload Manager Widget -->
+  <div id="file-upload-widget" class="file-upload-widget" style="display: none;">
+    <div class="file-upload-widget-header" onclick="Files.toggleUploadManagerCollapse()">
+      <div class="file-upload-widget-title-area">
+        <div class="file-upload-status-icon" id="file-upload-widget-status-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="file-upload-widget-titles">
+          <span class="file-upload-widget-title" id="file-upload-widget-title" data-i18n="t_file_upload_manager_title">Subidas de Archivos</span>
+          <span class="file-upload-widget-subtitle" id="file-upload-widget-subtitle">...</span>
+        </div>
+      </div>
+      <div class="file-upload-widget-actions" onclick="event.stopPropagation()">
+        <button type="button" class="upload-widget-btn" id="btn-upload-widget-collapse" onclick="Files.toggleUploadManagerCollapse()" title="Minimizar / Expandir" aria-label="Minimizar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="icon-upload-widget-collapse"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <button type="button" class="upload-widget-btn" id="btn-upload-widget-close" onclick="Files.closeUploadManager()" title="Cerrar panel" aria-label="Cerrar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="file-upload-widget-global-progress">
+      <div class="file-upload-widget-global-bar" id="file-upload-global-bar" style="width: 0%;"></div>
+    </div>
+    <div class="file-upload-widget-body" id="file-upload-widget-body">
+      <div class="file-upload-widget-list" id="file-upload-widget-list">
+        <!-- Populated dynamically by Files.uploadManager -->
+      </div>
+      <div class="file-upload-widget-footer" id="file-upload-widget-footer" style="display: none;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="Files.clearCompletedUploads()" style="font-size: 0.76rem; padding: 4px 10px;">
+          <span data-i18n="t_file_upload_btn_clear">Limpiar completados</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Modal: Rename File or Folder -->

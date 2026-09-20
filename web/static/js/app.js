@@ -165,7 +165,12 @@ const App = {
     }
 
     if (tabId === 'files') {
-      Files.loadDirectory();
+      const targetPath = (typeof Files !== 'undefined' && Files.currentPath !== undefined)
+        ? Files.currentPath
+        : (sessionStorage.getItem('dockraft_files_current_path') || '');
+      if (typeof Files !== 'undefined' && Files.loadDirectory) {
+        Files.loadDirectory(targetPath);
+      }
     } else {
       if (typeof Files !== 'undefined' && Files.hideContextMenu) Files.hideContextMenu();
     }

@@ -22,6 +22,12 @@ const Files = {
     if (this.initialized) return;
     this.initialized = true;
 
+    // Restore path from sessionStorage if available
+    try {
+      const savedPath = sessionStorage.getItem('dockraft_files_current_path');
+      if (savedPath) this.currentPath = savedPath;
+    } catch (_) {}
+
     // Global listener: close context menu on click outside
     window.addEventListener('click', (e) => {
       if (!e.target.closest('#file-context-menu') && !e.target.closest('.mobile-more-btn')) {
@@ -46,7 +52,7 @@ const Files = {
     // Re-render the current listing (translated) when the UI language changes
     window.addEventListener('dockraft:language_changed', () => {
       if ((typeof App === 'undefined' || App.activeTab === 'files') && document.getElementById('files-table-body')) {
-        this.loadDirectory(this.currentPath);
+        this.loadDirectory(this.currentPath, { silent: true });
       }
     });
 
@@ -59,62 +65,82 @@ const Files = {
       });
     }
 
-    // Setup Drag and Drop
-    this.setupDragAndDrop();
+    // Initialize Drag & Drop functionality
+    this.initDragAndDrop();
   },
 
-  setupDragAndDrop() {
-    const card = document.getElementById('file-manager-card') || document.getElementById('tab-files');
-    const overlay = document.getElementById('file-dropzone-overlay');
-    const targetText = document.getElementById('dropzone-target-text');
-    if (!card || !overlay) return;
+  initDragAndDrop() {
+    // Prevent default drag & drop behaviors across the entire window so dropping files never reloads the browser
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      window.addEventListener(eventName, (e) => {
+        e.preventDefault();
+      }, false);
+    });
 
-    const showOverlay = (e) => {
+    const fileCard = document.getElementById('file-manager-card');
+    const dropOverlay = document.getElementById('file-drop-overlay');
+    if (!fileCard || !dropOverlay) return;
+
+    let dragCounter = 0;
+
+    fileCard.addEventListener('dragenter', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.dragTargetCounter++;
+      dragCounter++;
       if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
-        if (targetText) {
-          const dest = this.currentPath ? `/data/${this.currentPath}` : '/data';
-          targetText.textContent = this.trf('t_file_dropzone_target', [this.currentPath || ''], `Destino: ${dest}`);
+        dropOverlay.style.display = 'flex';
+        const dropTarget = document.getElementById('file-dropzone-target-text');
+        if (dropTarget) {
+          dropTarget.textContent = this.trf('t_file_dropzone_subtitle', [this.currentPath ? `/data/${this.currentPath}` : '/data'], `Se guardarán en: ${this.currentPath ? `/data/${this.currentPath}` : '/data'}`);
         }
-        overlay.style.display = 'flex';
       }
-    };
+    });
 
-    const hideOverlay = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.dragTargetCounter--;
-      if (this.dragTargetCounter <= 0) {
-        this.dragTargetCounter = 0;
-        overlay.style.display = 'none';
-      }
-    };
-
-    card.addEventListener('dragenter', showOverlay);
-    card.addEventListener('dragover', (e) => {
+    fileCard.addEventListener('dragover', (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (e.dataTransfer) {
         e.dataTransfer.dropEffect = 'copy';
       }
     });
-    card.addEventListener('dragleave', hideOverlay);
-    card.addEventListener('drop', (e) => {
+
+    fileCard.addEventListener('dragleave', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.dragTargetCounter = 0;
-      overlay.style.display = 'none';
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        dropOverlay.style.display = 'none';
+      }
+    });
 
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        this.uploadFiles(e.dataTransfer.files);
+    fileCard.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter = 0;
+      dropOverlay.style.display = 'none';
+
+      const files = e.dataTransfer ? e.dataTransfer.files : null;
+      if (files && files.length > 0) {
+        this.handleUploadFiles(files);
       }
     });
   },
 
-  async loadDirectory(path = '') {
+  async loadDirectory(path, options = {}) {
+    if (path === undefined || path === null) {
+      path = this.currentPath || '';
+      if (!path) {
+        try {
+          path = sessionStorage.getItem('dockraft_files_current_path') || '';
+        } catch (_) {}
+      }
+    }
     this.currentPath = path;
+    try {
+      sessionStorage.setItem('dockraft_files_current_path', path);
+    } catch (_) {}
+
     this.selectedPaths.clear();
     this.updateBulkBar();
 
@@ -123,12 +149,24 @@ const Files = {
     if (searchInput) searchInput.value = '';
     this.searchQuery = '';
 
+    const isSilent = Boolean(options && options.silent);
     const tbody = document.getElementById('files-table-body');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-dim);">' + this.tr('t_file_loading', 'Cargando archivos...') + '</td></tr>';
+    const scrollY = window.scrollY;
+    const tableContainer = document.querySelector('.table-responsive');
+    const tableScrollTop = tableContainer ? tableContainer.scrollTop : 0;
+
+    if (!isSilent) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-dim);">' + this.tr('t_file_loading', 'Cargando archivos...') + '</td></tr>';
+    }
     this.updateBreadcrumbs(path);
     this.hideContextMenu();
+
+    const dropTarget = document.getElementById('file-dropzone-target-text');
+    if (dropTarget) {
+      dropTarget.textContent = this.trf('t_file_dropzone_subtitle', [path ? `/data/${path}` : '/data'], `Se guardarán en: ${path ? `/data/${path}` : '/data'}`);
+    }
 
     try {
       const res = await fetch(`/api/files/list?path=${encodeURIComponent(path)}`);
@@ -136,6 +174,11 @@ const Files = {
       const data = await res.json();
       this.rawItems = Array.isArray(data.items) ? data.items : [];
       this.renderFileList(this.rawItems);
+
+      if (isSilent) {
+        window.scrollTo({ top: scrollY, behavior: 'instant' });
+        if (tableContainer) tableContainer.scrollTop = tableScrollTop;
+      }
     } catch (e) {
       tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--status-danger);">${this.escapeHtml(e.message)}</td></tr>`;
     }
@@ -1053,55 +1096,422 @@ const Files = {
     }
   },
 
-  async uploadFiles(fileList) {
+  uploadFile(file) {
+    if (file) this.handleUploadFiles([file]);
+  },
+
+  uploadFiles(fileList) {
+    if (fileList) this.handleUploadFiles(fileList);
+  },
+
+  handleUploadFiles(fileList) {
     if (!fileList || fileList.length === 0) return;
-    const files = Array.from(fileList);
-    const total = files.length;
-    let uploadedCount = 0;
+    this.hideContextMenu();
+    const targetDir = this.currentPath || '';
+    const filesArray = Array.from(fileList);
 
-    for (let i = 0; i < total; i++) {
-      const file = files[i];
-      if (typeof App !== 'undefined' && App.showToast) {
-        App.showToast(this.trf('t_file_upload_progress', [i + 1, total, file.name], `Subiendo ${i + 1} de ${total}: ${file.name}...`), 'info');
-      }
+    if (!this.uploadQueue) this.uploadQueue = [];
+    if (typeof this.maxConcurrentUploads === 'undefined') this.maxConcurrentUploads = 2;
 
-      const formData = new FormData();
-      formData.append('path', this.currentPath);
-      formData.append('file', file);
+    filesArray.forEach(file => {
+      const id = 'up_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7);
+      this.uploadQueue.push({
+        id,
+        file,
+        name: file.name,
+        size: file.size,
+        targetDir,
+        loaded: 0,
+        total: file.size || 1,
+        percent: 0,
+        speed: 0,
+        lastLoaded: 0,
+        lastTime: Date.now(),
+        status: 'queued', // queued | uploading | completed | error | cancelled
+        xhr: null,
+        error: null
+      });
+    });
 
-      try {
-        const res = await fetch('/api/files/upload', {
-          method: 'POST',
-          body: formData
-        });
-        if (res.ok) {
-          uploadedCount++;
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          if (typeof App !== 'undefined' && App.showToast) {
-            App.showToast(errData.detail || this.trf('t_file_err_upload', [file.name], `Error al subir ${file.name}`), 'danger');
-          }
-        }
-      } catch (e) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
-      }
-    }
+    this.showUploadManager();
+    this.updateUploadManagerUI();
+    this.processUploadQueue();
+  },
 
-    // Reset upload input value so same files can be re-selected if desired
-    const uploadInput = document.getElementById('file-upload-input');
-    if (uploadInput) uploadInput.value = '';
-
-    if (uploadedCount > 0) {
-      if (typeof App !== 'undefined' && App.showToast) {
-        App.showToast(this.trf('t_file_upload_complete', [uploadedCount], `${uploadedCount} archivo(s) subido(s) correctamente`), 'success');
-      }
-      this.loadDirectory(this.currentPath);
+  showUploadManager() {
+    const widget = document.getElementById('file-upload-widget');
+    if (widget) {
+      widget.style.display = 'flex';
     }
   },
 
-  async uploadFile(file) {
-    if (!file) return;
-    return this.uploadFiles([file]);
+  toggleUploadManagerCollapse() {
+    const widget = document.getElementById('file-upload-widget');
+    if (!widget) return;
+    this.isUploadManagerCollapsed = !this.isUploadManagerCollapsed;
+    widget.classList.toggle('collapsed', this.isUploadManagerCollapsed);
+    const icon = document.getElementById('icon-upload-widget-collapse');
+    if (icon) {
+      icon.innerHTML = this.isUploadManagerCollapsed 
+        ? '<polyline points="18 15 12 9 6 15"/>'
+        : '<polyline points="6 9 12 15 18 9"/>';
+    }
+  },
+
+  closeUploadManager() {
+    const activeCount = (this.uploadQueue || []).filter(item => item.status === 'uploading' || item.status === 'queued').length;
+    if (activeCount > 0) {
+      if (typeof App !== 'undefined' && App.confirm) {
+        App.confirm({
+          title: this.tr('t_file_upload_btn_cancel', 'Cancelar subida'),
+          message: this.tr('t_file_upload_cancel_confirm', 'Hay archivos subiéndose. ¿Deseas cancelar las subidas y cerrar?'),
+          confirmText: this.tr('t_file_upload_btn_cancel', 'Cancelar subidas'),
+          danger: true
+        }).then(ok => {
+          if (ok) {
+            (this.uploadQueue || []).forEach(item => {
+              if (item.status === 'uploading' && item.xhr) {
+                item.xhr.abort();
+              }
+              if (item.status === 'queued') {
+                item.status = 'cancelled';
+              }
+            });
+            const widget = document.getElementById('file-upload-widget');
+            if (widget) widget.style.display = 'none';
+          }
+        });
+        return;
+      }
+    }
+    const widget = document.getElementById('file-upload-widget');
+    if (widget) widget.style.display = 'none';
+  },
+
+  clearCompletedUploads() {
+    this.uploadQueue = (this.uploadQueue || []).filter(item => item.status === 'uploading' || item.status === 'queued');
+    if (this.uploadQueue.length === 0) {
+      const widget = document.getElementById('file-upload-widget');
+      if (widget) widget.style.display = 'none';
+    } else {
+      this.updateUploadManagerUI();
+    }
+  },
+
+  cancelUploadItem(id) {
+    const item = (this.uploadQueue || []).find(i => i.id === id);
+    if (!item) return;
+    if (item.status === 'uploading' && item.xhr) {
+      item.xhr.abort();
+    } else if (item.status === 'queued') {
+      item.status = 'cancelled';
+      this.updateUploadManagerUI();
+      this.processUploadQueue();
+    }
+  },
+
+  retryUploadItem(id) {
+    const item = (this.uploadQueue || []).find(i => i.id === id);
+    if (!item) return;
+    item.status = 'queued';
+    item.percent = 0;
+    item.loaded = 0;
+    item.error = null;
+    this.updateUploadManagerUI();
+    this.processUploadQueue();
+  },
+
+  processUploadQueue() {
+    if (!this.uploadQueue) return;
+    const active = this.uploadQueue.filter(item => item.status === 'uploading');
+    const limit = this.maxConcurrentUploads || 2;
+    if (active.length >= limit) return;
+
+    const nextItem = this.uploadQueue.find(item => item.status === 'queued');
+    if (!nextItem) {
+      this.updateUploadManagerUI();
+      return;
+    }
+
+    this.startUploadItem(nextItem);
+    if (active.length + 1 < limit) {
+      const secondItem = this.uploadQueue.find(item => item.status === 'queued');
+      if (secondItem) this.startUploadItem(secondItem);
+    }
+  },
+
+  startUploadItem(item) {
+    item.status = 'uploading';
+    item.lastLoaded = 0;
+    item.lastTime = Date.now();
+
+    const formData = new FormData();
+    formData.append('path', item.targetDir);
+    formData.append('file', item.file);
+
+    const xhr = new XMLHttpRequest();
+    item.xhr = xhr;
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        item.loaded = e.loaded;
+        item.total = e.total;
+        item.percent = Math.min(99, Math.round((e.loaded / e.total) * 100));
+
+        const now = Date.now();
+        const timeDiff = (now - item.lastTime) / 1000;
+        if (timeDiff >= 0.4) {
+          const loadedDiff = e.loaded - item.lastLoaded;
+          item.speed = loadedDiff / timeDiff;
+          item.lastLoaded = e.loaded;
+          item.lastTime = now;
+        }
+
+        this.updateUploadItemUI(item);
+        this.updateUploadManagerGlobalBar();
+      }
+    };
+
+    xhr.onload = () => {
+      item.xhr = null;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        item.status = 'completed';
+        item.percent = 100;
+        item.loaded = item.total;
+        this.updateUploadItemUI(item);
+        this.updateUploadManagerUI();
+
+        // If upload belongs to current directory, silently refresh without losing scroll or position
+        if (item.targetDir === (this.currentPath || '')) {
+          this.loadDirectory(this.currentPath, { silent: true });
+        }
+      } else {
+        item.status = 'error';
+        try {
+          const data = JSON.parse(xhr.responseText);
+          item.error = data.detail || this.tr('t_file_err_upload', 'Error al subir archivo');
+        } catch (_) {
+          item.error = this.tr('t_file_err_upload', 'Error al subir archivo');
+        }
+        this.updateUploadItemUI(item);
+        this.updateUploadManagerUI();
+      }
+      this.processUploadQueue();
+    };
+
+    xhr.onerror = () => {
+      item.xhr = null;
+      item.status = 'error';
+      item.error = this.tr('t_file_err_upload', 'Error de red al subir');
+      this.updateUploadItemUI(item);
+      this.updateUploadManagerUI();
+      this.processUploadQueue();
+    };
+
+    xhr.onabort = () => {
+      item.xhr = null;
+      item.status = 'cancelled';
+      this.updateUploadItemUI(item);
+      this.updateUploadManagerUI();
+      this.processUploadQueue();
+    };
+
+    xhr.open('POST', '/api/files/upload', true);
+    xhr.send(formData);
+    this.updateUploadItemUI(item);
+    this.updateUploadManagerUI();
+  },
+
+  updateUploadManagerUI() {
+    const listContainer = document.getElementById('file-upload-widget-list');
+    const titleEl = document.getElementById('file-upload-widget-title');
+    const subtitleEl = document.getElementById('file-upload-widget-subtitle');
+    const iconContainer = document.getElementById('file-upload-widget-status-icon');
+    const footerEl = document.getElementById('file-upload-widget-footer');
+
+    if (!listContainer) return;
+    const queue = this.uploadQueue || [];
+
+    const totalCount = queue.length;
+    const completedCount = queue.filter(i => i.status === 'completed').length;
+    const errorCount = queue.filter(i => i.status === 'error').length;
+    const uploadingCount = queue.filter(i => i.status === 'uploading' || i.status === 'queued').length;
+
+    // Header updates
+    if (uploadingCount > 0) {
+      if (iconContainer) {
+        iconContainer.className = 'file-upload-status-icon spin';
+        iconContainer.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>';
+      }
+      const activeItem = queue.find(i => i.status === 'uploading');
+      const currentPct = activeItem ? activeItem.percent : 0;
+      if (subtitleEl) {
+        subtitleEl.textContent = this.trf('t_file_upload_manager_uploading', [completedCount + 1, totalCount, currentPct], `Subiendo ${completedCount + 1} de ${totalCount} archivos (${currentPct}%)`);
+      }
+    } else if (errorCount > 0) {
+      if (iconContainer) {
+        iconContainer.className = 'file-upload-status-icon danger';
+        iconContainer.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+      }
+      if (subtitleEl) {
+        subtitleEl.textContent = this.trf('t_file_upload_manager_failed', [errorCount], `${errorCount} subidas con errores`);
+      }
+    } else {
+      if (iconContainer) {
+        iconContainer.className = 'file-upload-status-icon success';
+        iconContainer.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      }
+      if (subtitleEl) {
+        subtitleEl.textContent = this.trf('t_file_upload_manager_completed', [completedCount, totalCount], `${completedCount} de ${totalCount} archivos subidos`);
+      }
+    }
+
+    if (footerEl) {
+      footerEl.style.display = (completedCount > 0 || errorCount > 0) ? 'flex' : 'none';
+    }
+
+    // Render items in list
+    listContainer.innerHTML = '';
+    queue.forEach(item => {
+      const itemEl = this.buildUploadItemElement(item);
+      listContainer.appendChild(itemEl);
+    });
+
+    this.updateUploadManagerGlobalBar();
+  },
+
+  buildUploadItemElement(item) {
+    const ext = (item.name.split('.').pop() || '').toLowerCase();
+    const iconSvg = this.getFileIcon(ext);
+    const destName = item.targetDir ? `/${item.targetDir}` : '/data';
+
+    const div = document.createElement('div');
+    div.className = 'upload-item';
+    div.id = `upload-item-${item.id}`;
+
+    div.innerHTML = `
+      <div class="upload-item-header">
+        <div class="upload-item-info">
+          <span class="upload-item-icon">${iconSvg}</span>
+          <div class="upload-item-names">
+            <span class="upload-item-filename" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</span>
+            <span class="upload-item-dest">${this.trf('t_file_upload_to_folder', [destName], `en ${destName}`)}</span>
+          </div>
+        </div>
+        <div class="upload-item-status-ctrl">
+          <span class="upload-badge ${item.status}" id="badge-${item.id}">${this.getStatusBadgeText(item)}</span>
+          ${this.renderItemActionButton(item)}
+        </div>
+      </div>
+      <div class="upload-item-progress-row">
+        <div class="upload-item-progress-bar-bg">
+          <div class="upload-item-progress-bar-fill ${item.status === 'completed' ? 'success' : (item.status === 'error' ? 'danger' : '')}" id="bar-${item.id}" style="width: ${item.percent}%;"></div>
+        </div>
+        <div class="upload-item-meta" id="meta-${item.id}">
+          ${this.renderItemMetaText(item)}
+        </div>
+      </div>
+    `;
+    return div;
+  },
+
+  updateUploadItemUI(item) {
+    const itemEl = document.getElementById(`upload-item-${item.id}`);
+    if (!itemEl) return;
+
+    const badge = document.getElementById(`badge-${item.id}`);
+    if (badge) {
+      badge.className = `upload-badge ${item.status}`;
+      badge.textContent = this.getStatusBadgeText(item);
+    }
+
+    const bar = document.getElementById(`bar-${item.id}`);
+    if (bar) {
+      bar.style.width = `${item.percent}%`;
+      bar.className = `upload-item-progress-bar-fill ${item.status === 'completed' ? 'success' : (item.status === 'error' ? 'danger' : '')}`;
+    }
+
+    const meta = document.getElementById(`meta-${item.id}`);
+    if (meta) {
+      meta.innerHTML = this.renderItemMetaText(item);
+    }
+
+    const statusCtrl = itemEl.querySelector('.upload-item-status-ctrl');
+    if (statusCtrl) {
+      statusCtrl.innerHTML = `
+        <span class="upload-badge ${item.status}" id="badge-${item.id}">${this.getStatusBadgeText(item)}</span>
+        ${this.renderItemActionButton(item)}
+      `;
+    }
+  },
+
+  updateUploadManagerGlobalBar() {
+    const globalBar = document.getElementById('file-upload-global-bar');
+    const queue = this.uploadQueue || [];
+    if (!globalBar || queue.length === 0) return;
+
+    let totalBytes = 0;
+    let loadedBytes = 0;
+    queue.forEach(item => {
+      totalBytes += item.total;
+      loadedBytes += item.loaded;
+    });
+
+    const totalPct = totalBytes > 0 ? Math.round((loadedBytes / totalBytes) * 100) : 0;
+    globalBar.style.width = `${totalPct}%`;
+  },
+
+  getStatusBadgeText(item) {
+    switch (item.status) {
+      case 'queued':
+        return this.tr('t_file_upload_state_queued', 'En cola');
+      case 'uploading':
+        return `${item.percent}%`;
+      case 'completed':
+        return this.tr('t_file_upload_state_completed', 'Completado');
+      case 'error':
+        return this.tr('t_file_upload_state_error', 'Error');
+      case 'cancelled':
+        return this.tr('t_file_upload_state_cancelled', 'Cancelado');
+      default:
+        return '';
+    }
+  },
+
+  renderItemMetaText(item) {
+    if (item.status === 'error') {
+      return `<span style="color: #f85149;" title="${this.escapeHtml(item.error || '')}">${this.escapeHtml(item.error || this.tr('t_file_upload_state_error', 'Error'))}</span><span>${this.formatBytes(item.size)}</span>`;
+    }
+    if (item.status === 'completed') {
+      return `<span style="color: #3fb950;">${this.formatBytes(item.size)}</span><span>100%</span>`;
+    }
+    if (item.status === 'cancelled') {
+      return `<span style="color: var(--text-dim);">${this.tr('t_file_upload_state_cancelled', 'Cancelado')}</span><span>${this.formatBytes(item.size)}</span>`;
+    }
+    if (item.status === 'uploading') {
+      const speedStr = item.speed > 0 ? `${this.formatBytes(item.speed)}/s` : '';
+      const sizeStr = `${this.formatBytes(item.loaded)} / ${this.formatBytes(item.total)}`;
+      return `<span>${sizeStr}</span><span>${speedStr}</span>`;
+    }
+    return `<span>${this.formatBytes(item.size)}</span><span>${this.tr('t_file_upload_state_queued', 'En cola')}</span>`;
+  },
+
+  renderItemActionButton(item) {
+    if (item.status === 'uploading' || item.status === 'queued') {
+      return `
+        <button type="button" class="upload-item-cancel-btn" onclick="Files.cancelUploadItem('${item.id}')" title="${this.tr('t_file_upload_btn_cancel', 'Cancelar subida')}" aria-label="Cancelar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      `;
+    }
+    if (item.status === 'error') {
+      return `
+        <button type="button" class="upload-item-cancel-btn" onclick="Files.retryUploadItem('${item.id}')" title="${this.tr('t_file_upload_btn_retry', 'Reintentar')}" aria-label="Reintentar">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      `;
+    }
+    return '';
   },
 
   _buildContextActions(item, itemRelativePath) {
