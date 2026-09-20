@@ -101,6 +101,7 @@
     t_file_upload_btn_expand: 'Expandir',
     t_file_upload_btn_close: 'Cerrar panel',
     t_file_upload_to_folder: 'en {0}',
+    t_file_upload_cancel_confirm: 'Hay archivos subiéndose. ¿Deseas cancelar las subidas y cerrar el panel?',
     t_file_dropzone_subtitle: 'Se guardarán en: {0}'
   }, {
     t_file_upload: 'Upload File',
@@ -203,6 +204,7 @@
     t_file_upload_btn_expand: 'Expand',
     t_file_upload_btn_close: 'Close panel',
     t_file_upload_to_folder: 'in {0}',
+    t_file_upload_cancel_confirm: 'Files are currently uploading. Do you want to cancel the uploads and close the panel?',
     t_file_dropzone_subtitle: 'Will be saved in: {0}'
   });
 })();

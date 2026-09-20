@@ -1368,9 +1368,13 @@ const Installer = {
   },
 
   async clearAllConsoleUpdates() {
-    if (!confirm(I18n.t('t_install_plugin_clear_confirm'))) {
-      return;
-    }
+    const ok = await App.confirm({
+      title: I18n.t('t_install_btn_clear', 'Limpiar Avisos'),
+      message: I18n.t('t_install_plugin_clear_confirm', '¿Deseas descartar todos los avisos de actualización de plugins detectados?'),
+      confirmText: I18n.t('t_install_btn_clear', 'Limpiar Avisos'),
+      danger: true
+    });
+    if (!ok) return;
     try {
       const res = await fetch('/api/plugins/console-updates', { method: 'DELETE' });
       if (res.ok) {

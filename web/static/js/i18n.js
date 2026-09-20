@@ -24,7 +24,6 @@ const I18n = {
       // Banner metrics
       banner_server_title: 'Servidor',
       banner_server_label: 'Tipo y Motor',
-      banner_version_label: 'Versión',
       banner_online_players: 'Jugadores en Línea',
       banner_memory_title: 'Memoria RAM',
       banner_ram_assigned: 'Asignada',
@@ -186,6 +185,8 @@ const I18n = {
       settings_autostart_hint: 'Inicia automáticamente el servidor de Minecraft al encender el contenedor o servicio Dockraft.',
       settings_crash_label: 'Detección de crasheos y auto-reinicio',
       settings_crash_hint: 'Detecta caídas inesperadas del servidor y lo reinicia automáticamente con protección anti-bucle (máx 3 reintentos en 2 min).',
+      settings_session_timeout_label: 'Caducidad de sesión (minutos)',
+      settings_session_timeout_hint: 'Tiempo de inactividad tras el cual la sesión expira automáticamente por seguridad (por defecto: 60 min).',
 
       // Metrics Tab
       metrics_title: 'Telemetría y Rendimiento',
@@ -271,15 +272,6 @@ const I18n = {
       modal_btn_cancel: 'Cancelar',
       modal_btn_confirm: 'Confirmar',
 
-      // Settings: System behavior & Session timeout
-      settings_system_behavior_title: 'Comportamiento del Servidor y Sistema',
-      settings_autostart_label: 'Inicio automático del servidor',
-      settings_autostart_hint: 'Inicia automáticamente el servidor de Minecraft al encender el contenedor o servicio Dockraft.',
-      settings_crash_label: 'Detección de crasheos y auto-reinicio',
-      settings_crash_hint: 'Detecta caídas inesperadas del servidor y lo reinicia automáticamente con protección anti-bucle (máx 3 reintentos en 2 min).',
-      settings_session_timeout_label: 'Caducidad de sesión (minutos)',
-      settings_session_timeout_hint: 'Tiempo de inactividad tras el cual la sesión expira automáticamente por seguridad (por defecto: 60 min).',
-
       // Login
       login_title: 'Iniciar Sesión — Dockraft',
       login_heading: 'Dockraft',
@@ -323,7 +315,6 @@ const I18n = {
       // Banner metrics
       banner_server_title: 'Server',
       banner_server_label: 'Type & Engine',
-      banner_version_label: 'Version',
       banner_online_players: 'Online Players',
       banner_memory_title: 'RAM Memory',
       banner_ram_assigned: 'Allocated',
@@ -517,6 +508,8 @@ const I18n = {
       settings_autostart_hint: 'Automatically start the Minecraft server when the Dockraft container or service turns on.',
       settings_crash_label: 'Crash Detection & Auto-Restart',
       settings_crash_hint: 'Detect unexpected server exits and automatically restart with crash-loop backoff protection (max 3 retries in 2 min).',
+      settings_session_timeout_label: 'Session Timeout (minutes)',
+      settings_session_timeout_hint: 'Inactivity period after which the panel session automatically expires for security (default: 60 min).',
 
       // Metrics Tab
       metrics_title: 'Telemetry & Performance',
@@ -569,15 +562,6 @@ const I18n = {
       modal_scope_custom_desc: 'Individually choose specific files and folders to back up.',
       modal_btn_cancel: 'Cancel',
       modal_btn_confirm: 'Confirm',
-
-      // Settings: System behavior & Session timeout
-      settings_system_behavior_title: 'Server & System Behavior',
-      settings_autostart_label: 'Automatic Server Startup',
-      settings_autostart_hint: 'Automatically start the Minecraft server when Dockraft container/service starts.',
-      settings_crash_label: 'Crash Detection & Auto-Restart',
-      settings_crash_hint: 'Detects unexpected server crashes and restarts automatically with loop protection (max 3 retries in 2 min).',
-      settings_session_timeout_label: 'Session Timeout (minutes)',
-      settings_session_timeout_hint: 'Inactivity period after which the panel session automatically expires for security (default: 60 min).',
 
       // Login
       login_title: 'Sign In — Dockraft',

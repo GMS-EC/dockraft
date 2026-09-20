@@ -5,6 +5,21 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.3.1] - 2026-09-20
+
+### Corregido (Fixed)
+- **Unificación de Diálogos de Confirmación Flotantes:**
+  - Sustitución del cuadro de diálogo nativo del navegador (`confirm()`) por la ventana modal flotante del panel (`App.confirm()`) al limpiar los avisos de actualización de plugins en el Instalador (`clearAllConsoleUpdates`), garantizando una estética visual coherente y con diseño oscuro unificado.
+- **Depuración de Diccionarios y Traducciones:**
+  - Eliminación de claves redundantes en `i18n.js` (`banner_version_label` y bloque duplicado de opciones de inicio automático y caídas).
+  - Incorporación de la clave de traducción `t_file_upload_cancel_confirm` en español e inglés para la confirmación al cerrar el gestor de subidas con transferencias activas.
+
+### Modificado (Changed)
+- **Cache-Busting de Recursos del Cliente:**
+  - Actualización de parámetros de versión de recursos en `base.html`, `footer.html` e `index.html` a `v1.3.1`.
+
+---
+
 ## [1.3.0] - 2026-09-20
 
 ### Agregado (Added)
