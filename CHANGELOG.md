@@ -5,6 +5,32 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.3.2] - 2026-09-22
+
+### Corregido (Fixed)
+- **Extracción Automática de Versión de la Aplicación en Docker:**
+  - `CHANGELOG.md` ahora se copia explícitamente en la imagen Docker (`Dockerfile`), permitiendo que `_read_version_from_changelog()` lea la versión real dinámicamente tanto en local como dentro de contenedores.
+  - Se amplió la búsqueda a múltiples rutas posibles (`BASE_DIR`, `/app`, `cwd`) y se actualizó el valor de respaldo a `1.3.2` (eliminando la versión `1.0.0` que quedaba residual si el archivo no se encontraba).
+- **Detección de Avisos sin Prefijos de Corchetes (ej. CMILib) y sin Enlace Directo:**
+  - El motor de análisis de consola ahora reconoce anuncios en lenguaje natural donde el nombre del plugin está dentro del mensaje en lugar de al inicio entre corchetes (ej: `"New version of CMILib was detected. Please update it (1.5.9.9 -> 1.6.0.0)"`).
+  - Extracción de versiones en transiciones numéricas (`1.5.9.9 -> 1.6.0.0`) y enriquecimiento automático mediante la API de Spiget para localizar el recurso en SpigotMC.
+  - En la interfaz web, si un aviso no dispone de enlace oficial, se añade un botón de búsqueda alternativa (`Buscar ↗`) hacia Google/Spigot para evitar dejar enlaces muertos.
+- **Soporte para Avisos de Actualización en Español y Multilínea (ej. EssentialsX):**
+  - Reconocimiento de avisos localizados en español (`¡Estás a 1 compilación(es) de desactualización de EssentialsX!`) y en inglés (`build(s) out of date`).
+  - Fusión automática de avisos complementarios de múltiples líneas: cuando un plugin emite el aviso en una línea y el enlace en la siguiente (`Descárgala aquí: https://...` / `Download here: ...`), Dockraft combina ambos en una única tarjeta unificada con la versión y el botón de descarga.
+- **Filtro de Falsos Positivos de Plugins Actualizados (ej. RealScoreboard):**
+  - Incorporadas frases como `"The plugin is updated to the latest version"` y `"está actualizado a la última versión"` al filtro de avisos negativos (`is_negative_notice`), evitando que confirmaciones de que un plugin ya está al día se clasifiquen como actualizaciones pendientes.
+- **Avisos de Actualización de Plugins Persistentes y Cotejo en Disco:**
+  - Los avisos de actualización de plugins ya no persisten tras actualizar. `_is_false_positive_entry()` ahora coteja automáticamente la versión anunciada contra la versión instalada en el directorio de plugins (`data/plugins/*.jar`). Si el plugin ya cuenta con una versión igual o superior (ej: `CMILib 1.6.0.0` instalado), el aviso se descarta de inmediato.
+  - Al consultar actualizaciones (`get_detected_updates`), se depura la memoria en tiempo real purgando cualquier plugin que ya haya sido actualizado en disco.
+  - Al iniciar el servidor, el cache se limpia (`clear_for_server_start()`), y el escaneo de registros (`scan_console_logs()`) respeta los límites de sesión (`session_markers`), analizando exclusivamente las líneas generadas desde el último arranque del servidor para evitar procesar logs de sesiones previas al reinicio.
+  - Expandido el detector de frases negativas (`NEGATIVE_UPDATE_PATTERN` / `_NEGATIVE_EXTRA_PHRASES`) con protección contra falsos negativos cuando la frase va precedida de `NOT` (ej: `"You are NOT running the latest version"`).
+  - Añadido helper `_is_false_positive_entry()`: descarta casos donde la versión "disponible" reportada en el aviso no es numéricamente mayor que la versión actual indicada en el mismo mensaje (ej: ViaVersion en `5.12.0-SNAPSHOT` recibiendo aviso de `5.12.0`).
+- **Restauración Fiable del Botón de Escaneo:**
+  - Se implementó `_restoreScanButton()` en `installer.js` para garantizar que el botón de escaneo retorne invariablemente a su icono y texto original en reposo, evitando que quede fijado en `"Escaneando..."`, y sincronizando la notificación toast para mostrarse una vez restaurado el botón.
+
+---
+
 ## [1.3.1] - 2026-09-20
 
 ### Corregido (Fixed)

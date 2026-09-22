@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 
-from app.config import settings, BASE_DIR
+from app.config import settings, BASE_DIR, APP_VERSION
 from app.core.security import (
     create_session_token, verify_admin_password, verify_admin_credentials,
     verify_session_token, get_current_user, login_limiter, is_authenticated,
@@ -1701,6 +1701,7 @@ async def login_page(request: Request):
             "cooldown_seconds": remaining,
             "max_attempts": getattr(settings, "login_max_attempts", 5),
             "app_name": "Dockraft",
+            "app_version": APP_VERSION,
             "session_expired": session_expired
         }
     )
@@ -1735,6 +1736,7 @@ async def root(request: Request):
         context={
             "admin_user": getattr(settings, "admin_user", "admin"),
             "app_name": "Dockraft",
+            "app_version": APP_VERSION,
             "stats": stats,
             "cfg": cfg,
             "is_installed": is_installed,

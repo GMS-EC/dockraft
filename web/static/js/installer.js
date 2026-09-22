@@ -1295,13 +1295,17 @@ const Installer = {
 
       const rawUrl = String(u.url || '');
       const isSafeUrl = /^https?:\/\//i.test(rawUrl);
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(u.plugin + ' minecraft plugin download')}`;
       const downloadBtn = isSafeUrl ? `
         <a href="${escapeHtml(rawUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="padding: 5px 12px; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           ${I18n.t('t_install_plugin_download')} ↗
         </a>
       ` : `
-        <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted); font-size: 0.74rem;">${I18n.t('t_install_plugin_view_console')}</span>
+        <a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="padding: 5px 10px; font-size: 0.76rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; color: var(--text-muted); border-color: rgba(255,255,255,0.12);" title="${escapeHtml(u.message)}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Buscar ↗
+        </a>
       `;
 
       const dismissBtn = `
@@ -1389,9 +1393,14 @@ const Installer = {
     }
   },
 
+  _restoreScanButton(btn) {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> <span data-i18n="t_install_btn_scan">${I18n.t('t_install_btn_scan')}</span>`;
+  },
+
   async scanConsolePluginUpdates() {
     const btn = document.getElementById('btn-scan-console-updates');
-    const originalHtml = btn ? btn.innerHTML : '';
     if (btn) {
       btn.disabled = true;
       btn.innerHTML = `<svg class="spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> ${I18n.t('t_install_plugin_scanning')}`;
@@ -1403,21 +1412,20 @@ const Installer = {
         const data = await res.json();
         this.consolePluginUpdates = data.updates || [];
         this.renderConsolePluginUpdates(this.consolePluginUpdates);
+        this._restoreScanButton(btn);
         if (data.count > 0) {
           App.showToast(I18n.fmt('t_install_toast_plugin_found', [data.count]), 'warning');
         } else {
           App.showToast(I18n.t('t_install_toast_plugin_none'), 'info');
         }
+        return;
       } else {
         App.showToast(I18n.t('t_install_err_plugin_scan'), 'danger');
       }
     } catch (e) {
       App.showToast(I18n.t('t_install_err_plugin_scan_conn'), 'danger');
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-      }
+      this._restoreScanButton(btn);
     }
   },
 

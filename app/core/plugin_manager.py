@@ -37,6 +37,7 @@ NEGATIVE_UPDATE_PATTERN = re.compile(
     r'no\s+update\s+(?:found|available|needed)|'
     r'already\s+up[\s\-]to[\s\-]date|'
     r'up[\s\-]to[\s\-]date|'
+    r'this\s+is\s+the\s+latest\s+version|'
     r'not\s+(?:outdated|found)|'
     r'ninguna\s+actualizaci[oó]n|'
     r'ya\s+(?:está|esta)\s+actualizado|'
@@ -49,11 +50,46 @@ NEGATIVE_UPDATE_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+# Extra phrases to check as plain substrings (order matters — check the negative
+# context before concluding it's truly a "no update" notice).
+_NEGATIVE_EXTRA_PHRASES = [
+    "this is the latest version",
+    "running the latest version",
+    "you're on the latest version",
+    "you are on the latest version",
+    "you're already on the latest",
+    "you are already on the latest",
+    "updated to the latest version",
+    "is updated to the latest version",
+    "plugin is updated to the latest version",
+    "está actualizado a la última versión",
+    "esta actualizado a la ultima version",
+]
+
+UPDATE_KEYWORDS_PATTERN = re.compile(
+    r'(?:'
+    r'\b(?:new|newer|nueva|nuevas)\s+(?:plugin\s+)?(?:version|versi[oó]n|build|compilaci[oó]n(?:es)?|update|actualizaci[oó]n(?:es)?)\b|'
+    r'\b(?:update|actualizaci[oó]n)\s+(?:is\s+)?(?:available|disponible|found|encontrada)\b|'
+    r'\b(?:version|versi[oó]n)\s+(?:is\s+)?(?:available|disponible)\b|'
+    r'\b(?:outdated|desactualizad[ao]s?|desactualizaci[oó]n(?:es)?)\b|'
+    r'\bout\s+of\s+date\b|'
+    r'\b\d+\s*(?:builds?|compilaci[oó]n(?:\(es\)|es)?)\s*(?:behind|out\s+of\s+date|de\s+desactualizaci[oó]n)\b|'
+    r'\best[aá]s\s+a\s+\d+\s+compilaci|'
+    r'\byou(?:\'re|\s+are)\s+\d+\s+builds?\b|'
+    r'\b(?:was|were)\s+detected\b|'
+    r'\b(?:please|por\s+favor)\s+update\b|'
+    r'\b(?:desc[aá]rgala\s+aqu[ií]|download\s+(?:it\s+)?(?:here|at))\b'
+    r')',
+    re.IGNORECASE
+)
+
 class PluginManager:
     def __init__(self):
         self.plugins_dir: Optional[Path] = None
         self.spiget_base_url: str = "https://api.spiget.org/v2"
         self._detected_updates: Dict[str, Dict[str, Any]] = {}
+        self._cached_installed_names: Dict[str, str] = {}
+        self._cached_installed_names_time: float = 0.0
         self._load_cache()
 
     @classmethod
@@ -61,7 +97,21 @@ class PluginManager:
         """Returns True if the text indicates server is already up-to-date or has no update."""
         if not text:
             return False
-        return bool(NEGATIVE_UPDATE_PATTERN.search(str(text)))
+        lower = str(text).lower()
+        # Check compiled pattern first
+        if NEGATIVE_UPDATE_PATTERN.search(text):
+            return True
+        # Check extra phrases, but guard against "NOT running/on the latest" false-positives
+        for phrase in _NEGATIVE_EXTRA_PHRASES:
+            idx = lower.find(phrase)
+            if idx == -1:
+                continue
+            # Make sure the 3 chars before the phrase aren't "not"
+            before = lower[max(0, idx - 4):idx].strip()
+            if before.endswith("not"):
+                continue
+            return True
+        return False
 
     @property
     def cache_file(self) -> Path:
@@ -114,47 +164,140 @@ class PluginManager:
         self._save_cache()
         return count
 
+    def clear_for_server_start(self) -> None:
+        """Clears all detected plugin update notices when the server starts.
+        This prevents stale update notices from previous server sessions from
+        persisting after the user has already updated their plugins."""
+        self._detected_updates.clear()
+        self._save_cache()
+
     def get_plugins_dir(self) -> Path:
         p_dir = getattr(self, "plugins_dir", None) or (settings.data_dir / "plugins")
         p_dir.mkdir(parents=True, exist_ok=True)
         return p_dir
 
+    def get_installed_plugin_names(self) -> Dict[str, str]:
+        """Returns a mapping of lowercased plugin name to its canonical display name,
+        cached for 30 seconds to avoid repeated disk reads."""
+        now = time.time()
+        if self._cached_installed_names and (now - self._cached_installed_names_time < 30.0):
+            return self._cached_installed_names
+        names = {}
+        try:
+            for p in self.scan_installed_plugins():
+                n = (p.get("name") or "").strip()
+                if n and len(n) >= 2:
+                    names[n.lower()] = n
+        except Exception:
+            pass
+        self._cached_installed_names = names
+        self._cached_installed_names_time = now
+        return names
+
+    def get_installed_plugin_version(self, plugin_name: str) -> Optional[str]:
+        """Returns the version of an installed plugin by matching plugin name against scanned jars."""
+        if not plugin_name:
+            return None
+        low = plugin_name.strip().lower()
+        now = time.time()
+        if not hasattr(self, "_cached_installed_versions") or (now - getattr(self, "_cached_installed_versions_time", 0) > 15.0):
+            mapping = {}
+            try:
+                for p in self.scan_installed_plugins():
+                    p_name = str(p.get("name") or "").strip().lower()
+                    p_ver = str(p.get("version") or "").strip()
+                    if p_name and p_ver and p_ver != "Desconocida":
+                        mapping[p_name] = p_ver
+                    stem = re.sub(r'[-_]v?\d.*$', '', str(p.get("filename") or "")).strip().lower()
+                    if stem and stem not in mapping and p_ver and p_ver != "Desconocida":
+                        mapping[stem] = p_ver
+            except Exception:
+                pass
+            self._cached_installed_versions = mapping
+            self._cached_installed_versions_time = now
+
+        return self._cached_installed_versions.get(low)
+
     def parse_console_update_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """Parses a console output line to detect whether a plugin is announcing an update with a link."""
+        """Parses a console output line to detect whether a plugin is announcing an update."""
         if not line or not isinstance(line, str):
             return None
 
         # Strip ANSI escape codes
         clean = re.sub(r'\x1b\[[0-9;]*[mGKF]', '', line).strip()
         # Strip standard server log prefix: [12:34:56 INFO]: or [INFO]:
-        clean = re.sub(r'^\[\d{2}:\d{2}:\d{2}\s+(?:INFO|WARN|WARNING|ADVERTENCIA)\]:\s*', '', clean)
-        clean = re.sub(r'^\[(?:INFO|WARN|WARNING|ADVERTENCIA)\]\s*', '', clean)
+        clean = re.sub(r'^\[\d{2}:\d{2}:\d{2}\s+(?:INFO|WARN|WARNING|ADVERTENCIA|ERROR)\]:\s*', '', clean)
+        clean = re.sub(r'^\[(?:INFO|WARN|WARNING|ADVERTENCIA|ERROR)\]\s*', '', clean)
 
-        # Match [PluginName] at start
-        m = re.match(r'^\[([a-zA-Z0-9_\-\.]{2,35})\]\s*(.*)$', clean)
-        if not m:
+        # Reject negative phrases first (false positives: "already up to date", etc.)
+        if self.is_negative_notice(clean):
             return None
 
-        plugin_name = m.group(1).strip()
-        msg = m.group(2).strip()
+        plugin_name = None
+        msg = clean
+
+        # 1. Match [PluginName] at start
+        m = re.match(r'^\[([a-zA-Z0-9_\-\.]{2,35})\]\s*(.*)$', clean)
+        if m:
+            plugin_name = m.group(1).strip()
+            msg = m.group(2).strip()
+        else:
+            # 2. Match PluginName: msg
+            m_colon = re.match(r'^([a-zA-Z0-9_\-\.]{2,35}):\s+(.*)$', clean)
+            if m_colon and m_colon.group(1).lower() not in ("loading", "starting", "done", "warn", "info", "error"):
+                plugin_name = m_colon.group(1).strip()
+                msg = m_colon.group(2).strip()
+            else:
+                # 3. Match in-message natural language announcements:
+                # e.g. "New version of CMILib was detected..."
+                m_in = re.match(
+                    r'^(?:a\s+)?(?:new|newer|nueva|nuevas)\s+(?:plugin\s+)?(?:version|versi[oó]n|build|compilaci[oó]n|update|actualizaci[oó]n)\s+(?:of|de|for|para)\s+([a-zA-Z0-9_\-\.]{2,35})\b(.*)$',
+                    clean,
+                    re.IGNORECASE
+                )
+                if m_in:
+                    plugin_name = m_in.group(1).strip()
+                    msg = clean
+                else:
+                    m_up = re.match(
+                        r'^(?:an?\s+)?(?:update|actualizaci[oó]n)\s+(?:is\s+)?(?:available|disponible|found|encontrada)\s+(?:for|para)\s+([a-zA-Z0-9_\-\.]{2,35})\b(.*)$',
+                        clean,
+                        re.IGNORECASE
+                    )
+                    if m_up:
+                        plugin_name = m_up.group(1).strip()
+                        msg = clean
+                    else:
+                        m_out = re.match(
+                            r'^([a-zA-Z0-9_\-\.]{2,35})\s+(?:is\s+(?:outdated|out\s+of\s+date)|est[aá]\s+desactualizad[ao]|has\s+an?\s+(?:new\s+)?update|tiene\s+una\s+nueva\s+actualizaci[oó]n)\b(.*)$',
+                            clean,
+                            re.IGNORECASE
+                        )
+                        if m_out:
+                            plugin_name = m_out.group(1).strip()
+                            msg = clean
+
+        # 4. Fallback: match known installed plugin names if present in line
+        if not plugin_name:
+            installed = self.get_installed_plugin_names()
+            for p_low, p_disp in installed.items():
+                if re.search(r'\b' + re.escape(p_low) + r'\b', clean, re.IGNORECASE):
+                    plugin_name = p_disp
+                    msg = clean
+                    break
+
+        if not plugin_name:
+            return None
 
         # Ignore generic server components
         if plugin_name.lower() in ("server thread", "minecraft", "craftscheduler", "user authenticator", "main"):
             return None
 
-        # Reject negative phrases first (false positives: "No new version available", "already up to date", etc.)
-        if self.is_negative_notice(msg) or self.is_negative_notice(clean):
+        if self.is_negative_notice(msg):
             return None
 
         # Check for update keywords
-        update_kw = re.search(
-            r'\b(?:update\s+is\s+available|new\s+update|new\s+version|version\s+is\s+available|'
-            r'nueva\s+versi[oó]n|actualizaci[oó]n\s+disponible|outdated|update\s+available|'
-            r'new\s+build\s+available|update\s+found)\b',
-            msg,
-            re.IGNORECASE
-        )
-        if not update_kw:
+        if not UPDATE_KEYWORDS_PATTERN.search(msg):
             return None
 
         # Extract URL if present
@@ -166,23 +309,31 @@ class PluginManager:
             if not any(h in candidate_url.lower() for h in generic_hosts):
                 url = candidate_url
 
-        # Extract version if present (prioritize new version indicators)
+        # Extract version
         version = None
-        new_ver_m = re.search(
-            r'(?:new|nueva|latest|to|->|➔)\s*(?:version|versi[oó]n|build|update)?\s*[:\s\(]\s*v?([0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?)',
-            msg,
-            re.IGNORECASE
-        )
-        if new_ver_m:
-            version = new_ver_m.group(1)
+        trans_m = re.search(r'v?[0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?\s*(?:->|➔|to)\s*v?([0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?)', msg)
+        if trans_m:
+            version = trans_m.group(1)
         else:
-            ver_m = re.search(r'(?:version|v|\:|\#)\s*([0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?)', msg, re.IGNORECASE)
-            if ver_m:
-                version = ver_m.group(1)
+            new_ver_m = re.search(
+                r'(?:new|nueva|latest|to|->|➔)\s*(?:version|versi[oó]n|build|compilaci[oó]n|update)?\s*[:\s\(]?\s*v?([0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?)',
+                msg,
+                re.IGNORECASE
+            )
+            if new_ver_m:
+                version = new_ver_m.group(1)
             else:
-                ver_num = re.search(r'\b([0-9]+\.[0-9]+(?:\.[0-9]+)?)\b', msg)
-                if ver_num:
-                    version = ver_num.group(1)
+                build_m = re.search(r'(\d+)\s*(?:builds?|compilaci[oó]n(?:\(es\)|es)?)\s*(?:behind|out\s+of\s+date|de\s+desactualizaci[oó]n)', msg, re.IGNORECASE)
+                if build_m:
+                    version = f"+{build_m.group(1)} build"
+                else:
+                    ver_m = re.search(r'(?:version|v|\:|\#)\s*([0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?)', msg, re.IGNORECASE)
+                    if ver_m:
+                        version = ver_m.group(1)
+                    else:
+                        ver_num = re.search(r'\b([0-9]+\.[0-9]+(?:\.[0-9]+)?)\b', msg)
+                        if ver_num:
+                            version = ver_num.group(1)
 
         import time
         return {
@@ -199,6 +350,12 @@ class PluginManager:
         """Called for each line output by the server process."""
         entry = self.parse_console_update_line(line)
         if not entry:
+            return None
+
+        # Sanity check: if the "available" version is not actually newer than what
+        # the plugin itself is reporting as current (e.g. ViaVersion 5.12.0-SNAPSHOT
+        # being told 5.12.0 is "new"), skip it.
+        if self._is_false_positive_entry(entry):
             return None
 
         p_key = entry["plugin"].lower()
@@ -232,40 +389,104 @@ class PluginManager:
         else:
             if entry.get("url") and not self._detected_updates[p_key].get("url"):
                 self._detected_updates[p_key]["url"] = entry["url"]
+            if entry.get("version") and entry["version"] != "Nueva" and self._detected_updates[p_key].get("version") in (None, "", "Nueva"):
+                self._detected_updates[p_key]["version"] = entry["version"]
             self._detected_updates[p_key]["message"] = entry["message"]
 
         self._save_cache()
         return entry
 
+    def _is_false_positive_entry(self, entry: Dict[str, Any]) -> bool:
+        """Returns True if the entry is a false-positive (detected version is not actually newer
+        than the current version reported in the same message, e.g. SNAPSHOT vs release, or if
+        the installed plugin jar on disk is already equal or newer than the detected version)."""
+        detected_ver = entry.get("version") or ""
+        p_name = entry.get("plugin") or ""
+
+        # 0. Check against currently installed plugin version on disk
+        installed_ver = self.get_installed_plugin_version(p_name)
+        if installed_ver and re.search(r'\d', str(installed_ver)):
+            # If the detected version is numeric, verify whether target is strictly newer than installed
+            if detected_ver and re.search(r'\d', str(detected_ver)) and not str(detected_ver).startswith("+"):
+                if not is_newer_version(installed_ver, detected_ver):
+                    return True
+
+        if not detected_ver or detected_ver == "Nueva" or str(detected_ver).startswith("+"):
+            return False
+
+        # 1. Check "you're on / running / current / instalado" pattern
+        current_ver_m = re.search(
+            r"(?:you'?re?\s+on[:\s]+|running[:\s]+|current(?:ly)?[:\s]+|instalad[ao]?[:\s]+)v?([0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?)",
+            entry.get("message", ""),
+            re.IGNORECASE
+        )
+        if current_ver_m:
+            current_ver = current_ver_m.group(1)
+            if not is_newer_version(current_ver, detected_ver):
+                return True
+
+        # 2. Check transition pattern "X -> Y"
+        trans_m = re.search(
+            r"v?([0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?)\s*(?:->|➔|to)\s*v?([0-9]+(?:\.[0-9]+)+(?:-[A-Za-z0-9\.\-]+)?)",
+            entry.get("message", ""),
+            re.IGNORECASE
+        )
+        if trans_m:
+            curr = trans_m.group(1)
+            nxt = trans_m.group(2)
+            if not is_newer_version(curr, nxt):
+                return True
+
+        return False
+
     def scan_console_logs(self) -> List[Dict[str, Any]]:
-        """Scans in-memory console buffer and data/logs/latest.log to discover updates."""
-        # 1. Scan in-memory process_manager log_buffer
+        """Scans in-memory console buffer and data/logs/latest.log to discover updates for the current session."""
+        def _process_entry(entry):
+            if not entry or self._is_false_positive_entry(entry):
+                return
+            p_key = entry["plugin"].lower()
+            if p_key not in self._detected_updates:
+                self._detected_updates[p_key] = entry
+            else:
+                if entry.get("url") and not self._detected_updates[p_key].get("url"):
+                    self._detected_updates[p_key]["url"] = entry["url"]
+                if entry.get("version") and entry["version"] != "Nueva" and self._detected_updates[p_key].get("version") in (None, "", "Nueva"):
+                    self._detected_updates[p_key]["version"] = entry["version"]
+
+        session_markers = (
+            "[Dockraft] Starting command:",
+            "Starting org.bukkit.craftbukkit.Main",
+            "[bootstrap] Loading Paper",
+            "Starting minecraft server version",
+        )
+
+        # 1. Scan in-memory process_manager log_buffer for current session only
         try:
             from app.core.process_manager import process_manager
-            for line in list(process_manager.log_buffer):
+            buf = list(process_manager.log_buffer)
+            start_idx = 0
+            for idx, line in enumerate(buf):
+                if any(m in line for m in session_markers):
+                    start_idx = idx
+            for line in buf[start_idx:]:
                 entry = self.parse_console_update_line(line)
-                if entry:
-                    p_key = entry["plugin"].lower()
-                    if p_key not in self._detected_updates:
-                        self._detected_updates[p_key] = entry
-                    elif entry.get("url") and not self._detected_updates[p_key].get("url"):
-                        self._detected_updates[p_key]["url"] = entry["url"]
+                _process_entry(entry)
         except Exception:
             pass
 
-        # 2. Scan data/logs/latest.log
+        # 2. Scan data/logs/latest.log for current session only
         log_file = settings.data_dir / "logs" / "latest.log"
         if log_file.exists():
             try:
                 with open(log_file, "r", encoding="utf-8", errors="replace") as f:
-                    for line in f:
-                        entry = self.parse_console_update_line(line)
-                        if entry:
-                            p_key = entry["plugin"].lower()
-                            if p_key not in self._detected_updates:
-                                self._detected_updates[p_key] = entry
-                            elif entry.get("url") and not self._detected_updates[p_key].get("url"):
-                                self._detected_updates[p_key]["url"] = entry["url"]
+                    all_lines = f.readlines()
+                start_idx = 0
+                for idx, line in enumerate(all_lines):
+                    if any(m in line for m in session_markers):
+                        start_idx = idx
+                for line in all_lines[start_idx:]:
+                    entry = self.parse_console_update_line(line)
+                    _process_entry(entry)
             except Exception:
                 pass
 
@@ -281,8 +502,13 @@ class PluginManager:
             k: v for k, v in self._detected_updates.items()
             if not self.is_negative_notice(v.get("message", "")) and not self.is_negative_notice(v.get("raw_line", ""))
         }
-        if len(cleaned) != len(self._detected_updates):
-            self._detected_updates = cleaned
+        # Also purge any entries where the plugin has already been updated on disk
+        final_cleaned = {
+            k: v for k, v in cleaned.items()
+            if not self._is_false_positive_entry(v)
+        }
+        if len(final_cleaned) != len(self._detected_updates):
+            self._detected_updates = final_cleaned
             self._save_cache()
         return list(self._detected_updates.values())
 

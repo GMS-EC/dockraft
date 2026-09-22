@@ -910,6 +910,14 @@ class ProcessManager:
             self.last_start_time = self.started_at
             self.online_players.clear()
 
+            # Clear stale plugin update notices from the previous session so that
+            # plugins which were already updated don't keep appearing as outdated.
+            try:
+                from app.core.plugin_manager import plugin_manager
+                plugin_manager.clear_for_server_start()
+            except Exception:
+                pass
+
             # Start background stream reading
             asyncio.create_task(self._read_stream(self.process.stdout))
             asyncio.create_task(self._process_supervisor())

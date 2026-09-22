@@ -392,3 +392,69 @@ async def test_enrich_update_urls_fills_missing(monkeypatch):
     plugin_manager._detected_updates = {"essentialsx": updates[0]}
     out = await plugin_manager.enrich_update_urls(updates)
     assert out[0]["url"] == "https://www.spigotmc.org/resources/9089/"
+
+def test_cmilib_update_detection_without_brackets_or_link():
+    # Tests non-bracketed notice with transition version (1.5.9.9 -> 1.6.0.0)
+    line = "[11:00:37 INFO]: New version of CMILib was detected. Please update it (1.5.9.9 -> 1.6.0.0)"
+    entry = plugin_manager.parse_console_update_line(line)
+    assert entry is not None
+    assert entry["plugin"] == "CMILib"
+    assert entry["version"] == "1.6.0.0"
+    assert entry["url"] is None
+    assert "1.5.9.9 -> 1.6.0.0" in entry["message"]
+
+def test_essentials_spanish_multiline_update_detection():
+    # Tests Spanish locale Essentials update across 2 log lines
+    line1 = "[11:00:40 WARN]: [Essentials] ¡Estás a 1 compilación(es) de desactualización de EssentialsX!"
+    line2 = "[11:00:40 WARN]: [Essentials] Descárgala aquí: https://essentialsx.net/downloads.html"
+
+    # Line 1: creates the update entry
+    entry1 = plugin_manager.handle_console_line(line1)
+    assert entry1 is not None
+    assert entry1["plugin"] == "Essentials"
+    assert "+1 build" in entry1["version"]
+
+    # Line 2: merges download URL into the existing entry
+    entry2 = plugin_manager.handle_console_line(line2)
+    assert entry2 is not None
+    assert plugin_manager._detected_updates["essentials"]["url"] == "https://essentialsx.net/downloads.html"
+    assert "+1 build" in plugin_manager._detected_updates["essentials"]["version"]
+
+def test_realscoreboard_uptodate_notice_ignored():
+    line = "[11:00:36 INFO]: [RealScoreboard] The plugin is updated to the latest version."
+    assert plugin_manager.parse_console_update_line(line) is None
+
+def test_app_version_auto_read():
+    from app.config import APP_VERSION
+    assert APP_VERSION == "1.3.2"
+
+def test_installed_version_suppresses_outdated_notice(monkeypatch):
+    # When CMILib 1.6.0.0 is installed on disk, notice for 1.6.0.0 must be suppressed
+    monkeypatch.setattr(plugin_manager, "get_installed_plugin_version", lambda name: "1.6.0.0" if name.lower() == "cmilib" else None)
+    entry = {
+        "plugin": "CMILib",
+        "version": "1.6.0.0",
+        "message": "New version of CMILib was detected. Please update it (1.5.9.9 -> 1.6.0.0)"
+    }
+    assert plugin_manager._is_false_positive_entry(entry) is True
+
+def test_session_markers_ignore_previous_boot_logs(monkeypatch):
+    from collections import deque
+    mock_pm = MagicMock()
+    mock_pm.log_buffer = deque([
+        # Run 1: outdated notices emitted
+        "[11:20:40 INFO]: New version of CMILib was detected. Please update it (1.5.9.9 -> 1.6.0.0)",
+        "[11:20:44 WARN]: [Essentials] ¡Estás a 1 compilación(es) de desactualización de EssentialsX!",
+        # Restart marker
+        "[Dockraft] Starting command: java -jar paper.jar nogui",
+        # Run 2: server running cleanly without update notices
+        "[11:24:29 INFO]: [RealScoreboard] The plugin is updated to the latest version.",
+        "[11:24:29 INFO]: [Vault] No new version available"
+    ])
+    monkeypatch.setattr("app.core.process_manager.process_manager", mock_pm)
+    plugin_manager._detected_updates.clear()
+    monkeypatch.setattr(plugin_manager, "get_installed_plugin_version", lambda name: None)
+
+    # Scanning logs must ignore lines prior to the restart marker
+    updates = plugin_manager.scan_console_logs()
+    assert len(updates) == 0

@@ -35,6 +35,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source code
 COPY app/ ./app/
 COPY web/ ./web/
+COPY CHANGELOG.md ./CHANGELOG.md
 
 # Prepare server data and backups volume directories
 RUN mkdir -p /server_data /server_backups

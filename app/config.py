@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import secrets
 from pathlib import Path
@@ -7,6 +8,34 @@ from typing import Optional, Dict, Any
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = BASE_DIR / "data"
 DEFAULT_BACKUPS_DIR = BASE_DIR / "backups"
+
+def _read_version_from_changelog() -> str:
+    """Reads the latest version from CHANGELOG.md by finding the first ## [X.Y.Z] header."""
+    env_ver = os.getenv("DOCKRAFT_VERSION") or os.getenv("APP_VERSION")
+    if env_ver:
+        return env_ver.strip().lstrip("v")
+
+    candidate_paths = [
+        BASE_DIR / "CHANGELOG.md",
+        Path("/app/CHANGELOG.md"),
+        Path.cwd() / "CHANGELOG.md",
+        Path(__file__).resolve().parent.parent / "CHANGELOG.md",
+    ]
+
+    for changelog in candidate_paths:
+        try:
+            if changelog.is_file():
+                with open(changelog, "r", encoding="utf-8") as f:
+                    for line in f:
+                        m = re.match(r'^##\s+\[(\d+\.\d+\.\d+(?:-[A-Za-z0-9\.\-]+)?)\]', line.strip())
+                        if m:
+                            return m.group(1)
+        except Exception:
+            pass
+
+    return "1.3.2"
+
+APP_VERSION = _read_version_from_changelog()
 
 class Settings:
     def __init__(self):
