@@ -8,16 +8,19 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 ## [1.3.3] - 2026-10-14
 
 ### Añadido (Added)
+- **Módulo y Ventana Modal Exclusiva para Actualización y Cambio de Compilaciones (Builds):**
+  - **Tarjeta Exclusiva de Compilación (`#installer-build-card`):** Bloque visual destacado en la pestaña de Instalación, independiente del selector de versiones de Minecraft, que muestra la versión base instalada (`26.3`), la compilación activa (`#186`), y notifica de inmediato cuando hay una nueva compilación oficial disponible con el botón `Cambiar / Actualizar Build`.
+  - **Ventana Modal Dedicada (`#modal-change-build`):** Diseñada específicamente para clarificar al usuario la diferencia entre la versión base del juego y la compilación del motor:
+    - Explica que la versión de Minecraft permanece inalterada en `26.3` mientras que se actualizan el núcleo interno y los parches de estabilidad de Paper/Purpur.
+    - Comparativa visual lado a lado: Build instalada (`#186`) vs. Build de destino (`#189` recomendada).
+    - Selector dinámico de compilaciones que consulta la API de builds (`/api/installer/builds`) con resúmenes de commits/cambios.
+    - Lista de garantías de seguridad visibles (copia de seguridad preventiva automática, integridad de archivos verificada por SHA-256, datos y mundos 100% preservados, guardado con `save-all` y reinicio automático).
+  - **Endpoint Backend `/api/installer/builds` y Parámetro `build` en `/api/installer/update`:**
+    - Soporte completo para consultar el historial de builds recientes y descargar exactamente la compilación solicitada por el usuario (o la más reciente por defecto), etiquetando las copias preventivas como `pre-update-26.3-b189`.
 - **Detección y Notificación de Compilaciones Continuas (Builds) para Paper, Purpur, Folia y Velocity:**
   - `downloader.detect_server_build()`: Extracción automática del número de compilación interno (`Build #`) desde `version_history.json`, registros de arranque (`logs/latest.log`), nombres de archivo jar y metadatos del manifiesto (`META-INF/MANIFEST.MF`).
   - Persistencia de `server_build` en la configuración de runtime (`dockraft_config.json`) al instalar o actualizar servidores.
-  - Alerta inteligente de nueva compilación: cuando el servidor se encuentra en la última versión de Minecraft (ej. `26.3`), pero el portal oficial ha publicado una compilación posterior (ej. `#187` / `#188` frente a `#186`), el panel notifica `Nueva build disponible` y permite actualizar la compilación directamente.
-  - Indicador visual enriquecido en el Instalador mostrando la versión y compilación actual (`26.3 (Build #186)`).
-- **Flujo Directo e Intuitivo de Actualización de Compilaciones (Builds):**
-  - Al hacer clic en el badge `Nueva build disponible: #188 (clic para actualizar)`, se abre directamente el flujo de confirmación para instalar la compilación.
-  - El selector desplegable de versiones indica explícitamente la compilación disponible: `26.3 (Estable) — Build #188 (Nueva compilación)`.
-  - El botón de acción se actualiza dinámicamente a `Actualizar a Build #188` con un resalte visual y un banner explicativo debajo del selector.
-  - La tarjeta de detalles y el modal de confirmación informan con precisión el cambio de compilación (`#186` → `#188`) garantizando que los mundos, plugins y configuraciones se conserven intactos.
+  - Alerta inteligente de nueva compilación: cuando el servidor se encuentra en la última versión de Minecraft (ej. `26.3`), pero el portal oficial ha publicado una compilación posterior (ej. `#187` / `#188` / `#189` frente a `#186`), el panel notifica `Nueva build disponible` y abre directamente la ventana modal exclusiva para aplicar el cambio.
 
 ---
 

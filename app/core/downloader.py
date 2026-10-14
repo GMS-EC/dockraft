@@ -6,7 +6,7 @@ import asyncio
 import zipfile
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional, Callable, Union
 from app.config import settings
 from app.core.fs_utils import atomic_write_text
 
@@ -135,13 +135,8 @@ class DownloadManager:
             return result
 
 
-    async def get_paper_latest_build(self, project: str, version: str) -> Dict[str, Any]:
-        """Gets the latest build information for a Paper version using PaperMC v3 API.
-
-        NOTE: The PaperMC v3 API returns builds newest-first, so the latest build is
-        the first element. We defensively select the highest build id preferring
-        the stable/default channel so a beta build never shadows the last stable one.
-        """
+    async def get_paper_build(self, project: str, version: str, build_id: Optional[Union[int, str]] = None) -> Dict[str, Any]:
+        """Gets specific or latest build information for a Paper version using PaperMC v3 API."""
         url = f"https://fill.papermc.io/v3/projects/{project}/versions/{version}/builds"
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(url)
@@ -150,18 +145,27 @@ class DownloadManager:
             if not builds or not isinstance(builds, list):
                 raise ValueError(f"No builds found for {project} {version}")
 
-            def _build_priority(b):
-                channel = str(b.get("channel", "")).upper()
-                is_stable = channel in ("STABLE", "DEFAULT", "")
-                return (0 if is_stable else 1, -int(b.get("id") or 0))
+            target_build = None
+            if build_id is not None:
+                try:
+                    bid_int = int(build_id)
+                    target_build = next((b for b in builds if int(b.get("id", -1)) == bid_int), None)
+                except (ValueError, TypeError):
+                    pass
 
-            latest_build = min(builds, key=_build_priority)
-            build_num = latest_build.get("id")
-            downloads = latest_build.get("downloads", {})
-            # Typically 'server:default' or first download object
+            if not target_build:
+                def _build_priority(b):
+                    channel = str(b.get("channel", "")).upper()
+                    is_stable = channel in ("STABLE", "DEFAULT", "")
+                    return (0 if is_stable else 1, -int(b.get("id") or 0))
+
+                target_build = min(builds, key=_build_priority)
+
+            build_num = target_build.get("id")
+            downloads = target_build.get("downloads", {})
             dl_obj = downloads.get("server:default") or next(iter(downloads.values()), None)
             if not dl_obj:
-                raise ValueError(f"No download object found in build for {project} {version}")
+                raise ValueError(f"No download object found in build {build_num} for {project} {version}")
 
             download_name = dl_obj.get("name", f"{project}-{version}.jar")
             download_url = dl_obj.get("url")
@@ -170,6 +174,41 @@ class DownloadManager:
                 "file_name": download_name,
                 "download_url": download_url
             }
+
+    async def get_paper_latest_build(self, project: str, version: str) -> Dict[str, Any]:
+        """Gets the latest build information for a Paper version using PaperMC v3 API.
+
+        NOTE: The PaperMC v3 API returns builds newest-first, so the latest build is
+        the first element. We defensively select the highest build id preferring
+        the stable/default channel so a beta build never shadows the last stable one.
+        """
+        return await self.get_paper_build(project, version, None)
+
+    async def get_paper_build_list(self, project: str, version: str, limit: int = 30) -> List[Dict[str, Any]]:
+        """Gets list of available builds for a Paper version, with commit summaries."""
+        url = f"https://fill.papermc.io/v3/projects/{project}/versions/{version}/builds"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                builds = resp.json()
+                if not builds or not isinstance(builds, list):
+                    return []
+                sorted_builds = sorted(builds, key=lambda b: -int(b.get("id", 0)))[:limit]
+                result = []
+                for b in sorted_builds:
+                    commits = b.get("commits", [])
+                    summary = commits[0].get("message", "") if commits else ""
+                    result.append({
+                        "id": int(b.get("id", 0)),
+                        "channel": b.get("channel", "STABLE"),
+                        "time": b.get("time"),
+                        "summary": summary
+                    })
+                return result
+        except Exception as e:
+            print(f"[Downloader] Error fetching paper build list for {project} {version}: {e}")
+            return []
 
     async def get_purpur_versions(self) -> List[str]:
         """Fetches available versions for Purpur."""
@@ -180,6 +219,17 @@ class DownloadManager:
             data = resp.json()
             versions = data.get("versions", [])
             return list(reversed(versions))
+
+    async def get_purpur_build(self, version: str, build_id: Optional[Union[int, str]] = None) -> Dict[str, Any]:
+        """Gets download URL for specific or latest Purpur build."""
+        if build_id is None:
+            return await self.get_purpur_latest_build(version)
+        download_url = f"https://api.purpurmc.org/v2/purpur/{version}/{build_id}/download"
+        return {
+            "build": int(build_id) if str(build_id).isdigit() else build_id,
+            "file_name": f"purpur-{version}-{build_id}.jar",
+            "download_url": download_url
+        }
 
     async def get_purpur_latest_build(self, version: str) -> Dict[str, Any]:
         """Gets download URL for latest Purpur build."""
@@ -195,6 +245,30 @@ class DownloadManager:
                 "file_name": f"purpur-{version}-{latest}.jar",
                 "download_url": download_url
             }
+
+    async def get_purpur_build_list(self, version: str, limit: int = 30) -> List[Dict[str, Any]]:
+        """Gets list of available builds for Purpur."""
+        url = f"https://api.purpurmc.org/v2/purpur/{version}"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                data = resp.json()
+                all_builds = data.get("builds", {}).get("all", [])
+                recent = list(reversed(all_builds))[:limit]
+                result = []
+                for b in recent:
+                    bid = int(b) if str(b).isdigit() else b
+                    result.append({
+                        "id": bid,
+                        "channel": "STABLE",
+                        "time": None,
+                        "summary": ""
+                    })
+                return result
+        except Exception as e:
+            print(f"[Downloader] Error fetching purpur build list for {version}: {e}")
+            return []
 
     async def get_vanilla_versions(self) -> List[Dict[str, str]]:
         """Fetches releases from Mojang Version Manifest."""

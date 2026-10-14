@@ -557,12 +557,7 @@ const Installer = {
           statusBadge.style.color = '#e3b341';
           statusBadge.title = I18n.fmt('t_install_click_select_ver', [data.current_version]);
           statusBadge.onclick = () => {
-            this.switchUpdateChannel('stable');
-            if (selectStable && data.current_version) {
-              selectStable.value = data.current_version;
-              this.onVersionSelectChange('stable');
-            }
-            this.startUpdate();
+            this.openBuildModal();
           };
         } else if (data.update_available) {
           statusBadge.innerHTML = I18n.fmt('t_install_status_new_version_html', [escapeHtml(data.latest_stable)]);
@@ -617,11 +612,54 @@ const Installer = {
           warningBadge.style.display = 'flex';
           warningBadge.style.alignItems = 'center';
           warningBadge.style.gap = '8px';
+          warningBadge.style.cursor = 'pointer';
           const zapSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
           const currentB = data.current_build ? `#${data.current_build}` : (I18n.t('t_install_unknown') || '?');
           warningBadge.innerHTML = `${zapSvg} <span>${I18n.fmt('t_install_build_alert_banner', [data.latest_build, currentB])}</span>`;
+          warningBadge.onclick = () => this.openBuildModal();
         } else {
           warningBadge.style.display = 'none';
+          warningBadge.onclick = null;
+        }
+      }
+
+      // Update Dedicated Build Card
+      const buildCard = document.getElementById('installer-build-card');
+      const sType = String(data.server_type || '').toLowerCase();
+      const supportsBuilds = ['paper', 'purpur', 'folia', 'velocity'].includes(sType);
+      if (buildCard) {
+        if (supportsBuilds && data.is_installed) {
+          buildCard.classList.remove('d-none');
+          buildCard.style.display = 'block';
+
+          const bVer = document.getElementById('build-card-mc-ver');
+          if (bVer) bVer.textContent = data.current_version || data.latest_stable || '26.3';
+
+          const bCur = document.getElementById('build-current-display');
+          if (bCur) {
+            bCur.textContent = data.current_build ? `#${data.current_build}` : (I18n.t('t_install_unknown') || 'No detectada');
+          }
+
+          const bBadge = document.getElementById('build-server-type-badge');
+          if (bBadge) bBadge.textContent = sType.toUpperCase();
+
+          const bNotice = document.getElementById('build-new-notice-banner');
+          const bNoticeNum = document.getElementById('build-new-notice-num');
+          const bNoticeVer = document.getElementById('build-new-notice-ver');
+          const bBtnText = document.getElementById('btn-open-build-modal-text');
+
+          if (data.build_update_available && data.latest_build) {
+            if (bNotice) bNotice.style.display = 'block';
+            if (bNoticeNum) bNoticeNum.textContent = `#${data.latest_build}`;
+            if (bNoticeVer) bNoticeVer.textContent = data.current_version || data.latest_stable || '26.3';
+            if (bBtnText) bBtnText.textContent = I18n.fmt('t_install_btn_update_to_build', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`;
+          } else {
+            if (bNotice) bNotice.style.display = 'none';
+            if (bBtnText) bBtnText.textContent = I18n.t('t_install_build_btn_change') || 'Cambiar / Actualizar Build';
+          }
+        } else {
+          buildCard.classList.add('d-none');
+          buildCard.style.display = 'none';
         }
       }
 
@@ -1117,24 +1155,16 @@ const Installer = {
     const isBetaTarget = (this.currentUpdateChannel === 'beta');
     const betaNotice = isBetaTarget ? '\n\n' + I18n.t('t_install_beta_notice') : '';
 
-    let confirmTitle = I18n.t('t_install_btn_update') || 'Actualizar Servidor';
-    let confirmBtnText = I18n.t('t_install_btn_update') || 'Actualizar Servidor';
-    let confirmMessage = '';
-
     if (isBuildUpdate) {
-      confirmTitle = I18n.fmt('t_install_confirm_build_title', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`;
-      confirmBtnText = I18n.fmt('t_install_btn_update_to_build', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`;
-      const curB = data.current_build ? `#${data.current_build}` : (I18n.t('t_install_unknown') || 'anterior');
-      confirmMessage = isRunning
-        ? (I18n.fmt('t_install_confirm_build_running', [data.latest_build, curB]) ||
-           `¿Deseas actualizar el motor a la nueva Build #${data.latest_build} de Paper?\n\n• Compilación actual: ${curB}\n• Nueva compilación: #${data.latest_build}\n• El servidor se detendrá de forma segura (guardando mundos con save-all).\n• Se creará un respaldo de seguridad preventivo.\n• Se verificará la integridad del archivo para evitar corrupciones.\n• Tus mundos, plugins y configuraciones se mantendrán intactos.\n• El servidor se reiniciará automáticamente al finalizar.`)
-        : (I18n.fmt('t_install_confirm_build_stopped', [data.latest_build, curB]) ||
-           `¿Deseas actualizar el motor a la nueva Build #${data.latest_build} de Paper?\n\n• Compilación actual: ${curB}\n• Nueva compilación: #${data.latest_build}\n• Se creará un respaldo preventivo automático.\n• Se verificará la integridad del paquete contra corrupciones.\n• Tus mundos, plugins y configuraciones se mantendrán intactos.`);
-    } else {
-      confirmMessage = isRunning
-        ? I18n.fmt('t_install_update_confirm_running', [targetVer]) + betaNotice
-        : I18n.fmt('t_install_update_confirm_stopped', [targetVer]) + betaNotice;
+      this.openBuildModal(data.latest_build);
+      return;
     }
+
+    const confirmTitle = I18n.t('t_install_btn_update') || 'Actualizar Servidor';
+    const confirmBtnText = I18n.t('t_install_btn_update') || 'Actualizar Servidor';
+    const confirmMessage = isRunning
+      ? I18n.fmt('t_install_update_confirm_running', [targetVer]) + betaNotice
+      : I18n.fmt('t_install_update_confirm_stopped', [targetVer]) + betaNotice;
 
     const ok = await App.confirm({
       title: confirmTitle,
@@ -1587,6 +1617,268 @@ const Installer = {
   },
   async notifyPluginUpdates() {
     return this.notifyConsolePluginUpdates();
+  },
+
+  // --- Dedicated Server Engine Build Modal & Operations ---
+  _buildCommitMap: {},
+
+  async openBuildModal(targetBuildId) {
+    const modal = document.getElementById('modal-change-build');
+    if (!modal) return;
+
+    const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
+    const curVer = String(data.current_version || data.latest_stable || '26.3').trim();
+    const curBuild = data.current_build;
+    const latestBuild = data.latest_build;
+    const initialTarget = targetBuildId || latestBuild || curBuild;
+
+    // Fill version
+    const mcVerEl = document.getElementById('modal-build-mc-version');
+    if (mcVerEl) mcVerEl.textContent = curVer;
+
+    // Fill current build
+    const curValEl = document.getElementById('modal-build-current-val');
+    if (curValEl) curValEl.textContent = curBuild ? `#${curBuild}` : (I18n.t('t_install_unknown') || 'No detectada');
+
+    // Fill target build display
+    const targetDispEl = document.getElementById('modal-build-target-display');
+    if (targetDispEl) targetDispEl.textContent = initialTarget ? `#${initialTarget}` : '--';
+
+    const btnApply = document.getElementById('btn-modal-apply-build-text');
+    if (btnApply) {
+      btnApply.textContent = initialTarget
+        ? (I18n.fmt('t_install_btn_update_to_build', [initialTarget]) || `Instalar Build #${initialTarget}`)
+        : (I18n.t('t_install_build_modal_btn_install_generic') || 'Instalar Build');
+    }
+
+    // Open modal backdrop
+    modal.classList.add('show');
+    modal.style.display = 'flex';
+
+    // Show loading spinner
+    const spinner = document.getElementById('modal-build-loading-spinner');
+    if (spinner) spinner.style.display = 'inline-flex';
+
+    const select = document.getElementById('modal-build-select');
+    if (select) {
+      select.innerHTML = `<option value="">${I18n.t('t_install_build_modal_loading') || 'Cargando builds disponibles...'}</option>`;
+      select.disabled = true;
+    }
+
+    this._buildCommitMap = {};
+
+    try {
+      const res = await fetch(`/api/installer/builds?version=${encodeURIComponent(curVer)}`);
+      if (res.ok) {
+        const buildData = await res.json();
+        const builds = buildData.builds || [];
+        if (select) {
+          select.innerHTML = '';
+          if (builds.length === 0) {
+            select.innerHTML = `<option value="${initialTarget || ''}">Build #${initialTarget || 'Recomendada'}</option>`;
+          } else {
+            builds.forEach(b => {
+              const opt = document.createElement('option');
+              opt.value = b.id;
+              let label = `Build #${b.id}`;
+              if (b.channel && b.channel !== 'STABLE' && b.channel !== 'DEFAULT') {
+                label += ` [${b.channel}]`;
+              }
+              if (b.id === buildData.latest_build || b.id === latestBuild) {
+                label += ` (${I18n.t('t_install_build_modal_recommended') || 'Recomendada'})`;
+              } else if (b.id === curBuild) {
+                label += ` (${I18n.t('t_install_current_build_badge') || 'Instalada actual'})`;
+              }
+              opt.textContent = label;
+              select.appendChild(opt);
+
+              if (b.summary) {
+                this._buildCommitMap[b.id] = b.summary;
+              }
+            });
+          }
+          select.disabled = false;
+          if (initialTarget && builds.some(b => b.id === parseInt(initialTarget))) {
+            select.value = String(initialTarget);
+          } else if (builds.length > 0) {
+            select.value = String(builds[0].id);
+          }
+          this.onModalBuildChange();
+        }
+      } else {
+        if (select) {
+          select.disabled = false;
+          if (initialTarget) {
+            select.innerHTML = `<option value="${initialTarget}">Build #${initialTarget} (Recomendada)</option>`;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Installer] Error loading builds:', e);
+      if (select) {
+        select.disabled = false;
+        if (initialTarget) {
+          select.innerHTML = `<option value="${initialTarget}">Build #${initialTarget} (Recomendada)</option>`;
+        }
+      }
+    } finally {
+      if (spinner) spinner.style.display = 'none';
+    }
+  },
+
+  closeBuildModal() {
+    const modal = document.getElementById('modal-change-build');
+    if (modal) {
+      modal.classList.remove('show');
+      modal.style.display = 'none';
+    }
+  },
+
+  onModalBuildChange() {
+    const select = document.getElementById('modal-build-select');
+    if (!select) return;
+    const val = select.value;
+    if (!val) return;
+
+    const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
+    const latestBuild = data.latest_build;
+    const curBuild = data.current_build;
+
+    const targetDispEl = document.getElementById('modal-build-target-display');
+    if (targetDispEl) targetDispEl.textContent = `#${val}`;
+
+    const badgeEl = document.getElementById('modal-build-target-badge');
+    if (badgeEl) {
+      if (parseInt(val) === parseInt(latestBuild)) {
+        badgeEl.textContent = I18n.t('t_install_build_modal_recommended') || 'Recomendada';
+        badgeEl.style.color = '#3fb950';
+      } else if (parseInt(val) === parseInt(curBuild)) {
+        badgeEl.textContent = I18n.t('t_install_current_build_badge') || 'Instalada';
+        badgeEl.style.color = '#8b949e';
+      } else {
+        badgeEl.textContent = 'Seleccionada';
+        badgeEl.style.color = '#38bdf8';
+      }
+    }
+
+    const btnApply = document.getElementById('btn-modal-apply-build-text');
+    if (btnApply) {
+      btnApply.textContent = I18n.fmt('t_install_btn_update_to_build', [val]) || `Instalar Build #${val}`;
+    }
+
+    const changeBox = document.getElementById('modal-build-changelog-box');
+    const changeText = document.getElementById('modal-build-changelog-text');
+    if (this._buildCommitMap && this._buildCommitMap[val]) {
+      if (changeBox) changeBox.style.display = 'block';
+      if (changeText) changeText.textContent = this._buildCommitMap[val];
+    } else {
+      if (changeBox) changeBox.style.display = 'none';
+    }
+  },
+
+  async applyBuildFromModal() {
+    const select = document.getElementById('modal-build-select');
+    const targetBuild = select ? select.value : null;
+
+    const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
+    const curVer = String(data.current_version || data.latest_stable || '26.3').trim();
+
+    if (!curVer) {
+      App.showToast(I18n.t('t_install_err_update_version'), 'danger');
+      return;
+    }
+
+    // Close the build modal first
+    this.closeBuildModal();
+
+    // Now execute the install pipeline with build parameter
+    this.isInstalling = true;
+
+    // Show installer progress box
+    const pBox = document.getElementById('update-progress-box');
+    const pBar = document.getElementById('update-progress-bar');
+    const pText = document.getElementById('update-progress-text');
+    const pPct = document.getElementById('update-progress-percent');
+    if (pBox) pBox.style.display = 'block';
+    if (pBar) pBar.style.width = '0%';
+    if (pText) pText.textContent = targetBuild
+      ? (I18n.fmt('t_install_build_toast_started', [targetBuild]) || `Descargando Build #${targetBuild}...`)
+      : I18n.t('t_install_update_downloading');
+    if (pPct) pPct.textContent = '0%';
+
+    const btnApply = document.getElementById('btn-apply-update');
+    const spinnerSvg = '<svg class="spin-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+    if (btnApply) {
+      btnApply.disabled = true;
+      btnApply.innerHTML = `${spinnerSvg} <span>${I18n.t('t_install_downloading_ellipsis')}</span>`;
+    }
+
+    App.showToast(targetBuild ? I18n.fmt('t_install_build_toast_started', [targetBuild]) : I18n.t('t_install_toast_update_started'), 'info');
+
+    try {
+      const payload = { version: curVer };
+      if (targetBuild) {
+        payload.build = parseInt(targetBuild);
+      }
+      const res = await fetch('/api/installer/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const resData = await res.json();
+      if (!res.ok) {
+        throw new Error(resData.detail || I18n.t('t_install_err_update_start'));
+      }
+
+      // Poll progress
+      if (this.pollingInterval) clearInterval(this.pollingInterval);
+      this.pollingInterval = setInterval(async () => {
+        try {
+          const pRes = await fetch('/api/installer/progress');
+          const pData = await pRes.json();
+          const pct = pData.percent || 0;
+          if (pBar) pBar.style.width = `${pct}%`;
+          if (pPct) pPct.textContent = `${pct}%`;
+
+          let statusText = pData.status || '';
+          if (statusText === 'downloading') statusText = I18n.t('t_install_status_downloading');
+          else if (statusText === 'verifying') statusText = I18n.t('t_install_status_verifying');
+          else if (statusText === 'extracting') statusText = I18n.t('t_install_status_extracting');
+          else if (statusText === 'updating') statusText = I18n.t('t_install_status_updating');
+          else if (statusText === 'completed') statusText = I18n.t('t_install_status_completed');
+
+          if (pText && statusText) {
+            pText.textContent = `${statusText}...`;
+          }
+
+          if (pct >= 100 || !pData.is_downloading) {
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+            this.isInstalling = false;
+            setTimeout(() => {
+              if (pBox) pBox.style.display = 'none';
+              if (btnApply) {
+                btnApply.disabled = false;
+                btnApply.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span data-i18n="t_install_btn_update">${I18n.t('t_install_btn_update')}</span>`;
+              }
+              App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
+              this.checkUpdateInfo();
+            }, 1500);
+          }
+        } catch (err) {
+          console.error('[Installer] Poll progress error:', err);
+        }
+      }, 1000);
+
+    } catch (e) {
+      this.isInstalling = false;
+      if (pBox) pBox.style.display = 'none';
+      if (btnApply) {
+        btnApply.disabled = false;
+        btnApply.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span data-i18n="t_install_btn_update">${I18n.t('t_install_btn_update')}</span>`;
+      }
+      App.showToast(I18n.fmt('t_install_err_update_fail', [e.message]), 'danger');
+    }
   }
 };
 

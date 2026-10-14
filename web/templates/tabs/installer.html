@@ -31,6 +31,52 @@
     </div>
   </div>
 
+  <!-- Dedicated Server Engine Build Management Card (Exclusive for Paper/Purpur/Folia/Velocity builds) -->
+  <div class="card {{ '' if (is_installed and server_type|lower in ['paper', 'purpur', 'folia', 'velocity']) else 'd-none' }}" id="installer-build-card" style="border: 1px solid #30363d; margin-bottom: 16px; background: linear-gradient(180deg, rgba(22, 27, 34, 0.75) 0%, rgba(13, 17, 23, 0.9) 100%);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h4 style="margin: 0; font-size: 1rem; font-weight: 700; color: #f0f6fc;" data-i18n="t_install_build_title">Compilación del Motor (Build)</h4>
+            <span class="badge" id="build-server-type-badge" style="background: rgba(56, 139, 253, 0.15); border: 1px solid #388bfd; color: #58a6ff; font-size: 0.75rem; text-transform: uppercase;">{{ server_type if is_installed else 'PAPER' }}</span>
+          </div>
+          <div style="font-size: 0.82rem; color: #8b949e; margin-top: 2px;">
+            Versión Base de Minecraft: <strong id="build-card-mc-ver" style="color: #c9d1d9;">{{ server_version or '26.3' }}</strong> &bull; Las builds actualizan el núcleo interno del motor sin alterar la versión del juego.
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <div id="build-status-pill" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; font-size: 0.82rem;">
+          <span style="color: #8b949e;" data-i18n="t_install_build_current">Build Actual:</span>
+          <strong id="build-current-display" style="color: #f0f6fc;">#{{ cfg.server_build if cfg.server_build else 'Detectando...' }}</strong>
+        </div>
+        <button type="button" class="btn btn-primary" id="btn-open-build-modal" onclick="Installer.openBuildModal()" style="display: inline-flex; align-items: center; gap: 7px; font-weight: 600; padding: 7px 16px; box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/>
+            <polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          <span id="btn-open-build-modal-text" data-i18n="t_install_build_btn_change">Cambiar / Actualizar Build</span>
+        </button>
+      </div>
+    </div>
+    <!-- Notice banner inside build card if new build is available -->
+    <div id="build-new-notice-banner" style="display: none; margin-top: 12px; padding: 10px 14px; background: rgba(56, 189, 248, 0.1); border-left: 3px solid #38bdf8; border-radius: 6px; font-size: 0.84rem; color: #bae6fd;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Nueva compilación disponible: <strong id="build-new-notice-num" style="color: #ffffff;">#--</strong> para Minecraft <span id="build-new-notice-ver">--</span>. Corrige errores del motor y optimiza rendimiento.</span>
+        </div>
+        <a href="javascript:void(0)" onclick="Installer.openBuildModal()" style="color: #38bdf8; font-weight: 600; text-decoration: underline; font-size: 0.82rem;">Ver detalles y cambiar build &rarr;</a>
+      </div>
+    </div>
+  </div>
+
   <!-- Dedicated Server Update Section (Active when a server is already installed) -->
   <div class="card {{ '' if is_installed else 'd-none' }}" id="installer-update-card" style="border: 1px solid #30363d; margin-bottom: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">

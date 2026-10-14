@@ -10,7 +10,7 @@ import inspect
 from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from fastapi import (
     FastAPI, WebSocket, WebSocketDisconnect, Depends,
     HTTPException, UploadFile, File, Form, Query, Response, Request, status
@@ -182,6 +182,7 @@ class EulaRequest(BaseModel):
 
 class UpdateRequest(BaseModel):
     version: str
+    build: Optional[Union[int, str]] = None
 
 class PlayerActionRequest(BaseModel):
     player: str
@@ -1035,6 +1036,39 @@ async def get_update_info():
         "versions": enriched_versions
     }
 
+@app.get("/api/installer/builds", dependencies=[Depends(get_current_user)])
+async def get_installer_builds(version: Optional[str] = None):
+    """Retrieves available builds for the current server type and specified version."""
+    if not _is_server_installed():
+        raise HTTPException(status_code=400, detail="No hay servidor instalado")
+    cfg = settings.runtime_config
+    server_type = cfg.get("server_type", "paper")
+    current_ver = cfg.get("server_version", "")
+    current_build = cfg.get("server_build")
+    target_ver = version or current_ver
+
+    builds = []
+    latest_build = None
+    try:
+        if server_type in ["paper", "folia", "velocity"]:
+            builds = await downloader.get_paper_build_list(server_type, target_ver)
+            if builds:
+                latest_build = builds[0]["id"]
+        elif server_type == "purpur":
+            builds = await downloader.get_purpur_build_list(target_ver)
+            if builds:
+                latest_build = builds[0]["id"]
+    except Exception as e:
+        print(f"[BuildsAPI] Error fetching builds for {server_type} {target_ver}: {e}")
+
+    return {
+        "server_type": server_type,
+        "version": target_ver,
+        "current_build": current_build,
+        "latest_build": latest_build,
+        "builds": builds
+    }
+
 @app.post("/api/installer/update", dependencies=[Depends(get_current_user)])
 async def update_server(req: UpdateRequest):
     """Safely updates the existing server to a new version of the same software,
@@ -1051,14 +1085,20 @@ async def update_server(req: UpdateRequest):
     is_zip = False
 
     try:
-        new_build = None
+        new_build = req.build
         if server_type in ["paper", "folia", "velocity"]:
-            info = await downloader.get_paper_latest_build(server_type, req.version)
+            if req.build is not None:
+                info = await downloader.get_paper_build(server_type, req.version, req.build)
+            else:
+                info = await downloader.get_paper_latest_build(server_type, req.version)
             download_url = info["download_url"]
             target_file = "server.jar"
             new_build = info.get("build")
         elif server_type == "purpur":
-            info = await downloader.get_purpur_latest_build(req.version)
+            if req.build is not None:
+                info = await downloader.get_purpur_build(req.version, req.build)
+            else:
+                info = await downloader.get_purpur_latest_build(req.version)
             download_url = info["download_url"]
             target_file = "server.jar"
             new_build = info.get("build")
@@ -1106,12 +1146,14 @@ async def update_server(req: UpdateRequest):
                         await process_manager.kill_server()
 
                 # 2. Create pre-update backup
-                msg = f"[Dockraft] Generando copia de seguridad preventiva (pre-update-{req.version})..."
+                build_suffix = f"-b{new_build}" if new_build else ""
+                tag_name = f"pre-update-{req.version}{build_suffix}"
+                msg = f"[Dockraft] Generando copia de seguridad preventiva ({tag_name})..."
                 process_manager._append_log(msg)
                 await process_manager.broadcast_message({"type": "log", "data": msg})
                 pre_backup = backup_manager.create_backup(
                     scope="full",
-                    tag=f"pre-update-{req.version}",
+                    tag=tag_name,
                     compression=True
                 )
                 if inspect.isawaitable(pre_backup):
@@ -1125,7 +1167,8 @@ async def update_server(req: UpdateRequest):
                     return
 
                 # 3. Download and verify integrity
-                msg = f"[Dockraft] Descargando actualización {req.version} y verificando integridad anti-corrupción..."
+                build_label = f" (Build #{new_build})" if new_build else ""
+                msg = f"[Dockraft] Descargando actualización {req.version}{build_label} y verificando integridad anti-corrupción..."
                 process_manager._append_log(msg)
                 await process_manager.broadcast_message({"type": "log", "data": msg})
 
@@ -1179,7 +1222,7 @@ async def update_server(req: UpdateRequest):
                     status="success"
                 )
 
-                succ_msg = f"[Dockraft] ¡Servidor actualizado exitosamente a la versión {req.version}!"
+                succ_msg = f"[Dockraft] ¡Servidor actualizado exitosamente a la versión {req.version}{build_label}!"
                 process_manager._append_log(succ_msg)
                 await process_manager.broadcast_message({"type": "log", "data": succ_msg})
 

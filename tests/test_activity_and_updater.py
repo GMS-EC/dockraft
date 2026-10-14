@@ -244,3 +244,70 @@ async def test_send_command_offline_logging():
             user="admin",
             status="warning"
         )
+
+def test_api_installer_builds_endpoint(client):
+    with patch("app.main._is_server_installed", return_value=True), \
+         patch.object(settings, "runtime_config", {"server_type": "paper", "server_version": "1.21.4", "server_build": 186}), \
+         patch("app.main.downloader.get_paper_build_list") as mock_list:
+
+        mock_list.return_value = [
+            {"id": 188, "channel": "STABLE", "time": "2026-10-14T20:00:00Z", "summary": "Fix pod decoration"},
+            {"id": 186, "channel": "STABLE", "time": "2026-10-14T19:00:00Z", "summary": "Initial 1.21.4"}
+        ]
+
+        res = client.get("/api/installer/builds?version=1.21.4")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["server_type"] == "paper"
+        assert data["version"] == "1.21.4"
+        assert data["current_build"] == 186
+        assert data["latest_build"] == 188
+        assert len(data["builds"]) == 2
+        assert data["builds"][0]["id"] == 188
+
+@pytest.mark.asyncio
+async def test_update_server_with_explicit_build(tmp_path, client):
+    with patch("app.main.process_manager") as mock_pm, \
+         patch("app.main.backup_manager") as mock_bm, \
+         patch("app.main.downloader") as mock_dl, \
+         patch("app.main.activity_manager") as mock_act, \
+         patch("app.main._is_server_installed", return_value=True), \
+         patch.object(settings, "runtime_config", {"server_type": "paper", "server_version": "1.21.4", "server_build": 186}):
+
+        mock_pm.get_status.return_value = "OFFLINE"
+        mock_pm.is_running.return_value = False
+
+        async def fake_dl(*args, **kwargs): return tmp_path / "server.jar"
+        async def fake_broadcast(*args, **kwargs): pass
+        async def fake_paper_build(proj, ver, build_id):
+            return {"build": build_id, "download_url": f"https://example.com/paper-{ver}-{build_id}.jar"}
+
+        mock_pm.broadcast_message.side_effect = fake_broadcast
+        mock_bm.create_backup.return_value = {"filename": "pre-update-1.21.4-b188.zip"}
+        mock_dl.download_file.side_effect = fake_dl
+        mock_dl.get_paper_build.side_effect = fake_paper_build
+
+        tasks_to_run = []
+        def capture_task(coro):
+            tasks_to_run.append(coro)
+            return MagicMock()
+
+        with patch("asyncio.create_task", side_effect=capture_task), \
+             patch("asyncio.sleep", return_value=None):
+            res = client.post("/api/installer/update", json={"version": "1.21.4", "build": 188})
+            assert res.status_code == 200
+            data = res.json()
+            assert data["status"] == "started"
+
+            assert len(tasks_to_run) == 1
+            await tasks_to_run[0]
+
+            # Verify get_paper_build was called with explicit build_id 188
+            mock_dl.get_paper_build.assert_called_once_with("paper", "1.21.4", 188)
+
+            # Verify pre-backup tag has build suffix
+            mock_bm.create_backup.assert_called_once()
+            assert "pre-update-1.21.4-b188" in mock_bm.create_backup.call_args[1].get("tag")
+
+            # Verify activity logged mentions Build #188
+            assert any("Build #188" in str(call) for call in mock_act.log.call_args_list)
