@@ -27,6 +27,16 @@ const Installer = {
       if (typeof App === 'undefined' || App.activeTab !== 'installer') return;
       this.refreshLanguage();
     });
+
+    // Ensure build modal trigger button is always actively bound
+    const btnBuildModal = document.getElementById('btn-open-build-modal');
+    if (btnBuildModal && !btnBuildModal._bound) {
+      btnBuildModal._bound = true;
+      btnBuildModal.addEventListener('click', (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        this.openBuildModal();
+      });
+    }
   },
 
   // Re-applies translations to currently visible installer sections (no toasts).
@@ -656,6 +666,15 @@ const Installer = {
           } else {
             if (bNotice) bNotice.style.display = 'none';
             if (bBtnText) bBtnText.textContent = I18n.t('t_install_build_btn_change') || 'Cambiar / Actualizar Build';
+          }
+
+          const bBtn = document.getElementById('btn-open-build-modal');
+          if (bBtn && !bBtn._bound) {
+            bBtn._bound = true;
+            bBtn.addEventListener('click', (e) => {
+              if (e && e.preventDefault) e.preventDefault();
+              this.openBuildModal();
+            });
           }
         } else {
           buildCard.classList.add('d-none');
@@ -1621,116 +1640,258 @@ const Installer = {
 
   // --- Dedicated Server Engine Build Modal & Operations ---
   _buildCommitMap: {},
+  _buildEscHandler: null,
+
+  ensureBuildModal() {
+    let modal = document.getElementById('modal-change-build');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.className = 'modal-backdrop modal-dialog-backdrop';
+    modal.id = 'modal-change-build';
+    modal.style.zIndex = '1200';
+    modal.innerHTML = `
+      <div class="modal-box modal-dialog-box" style="max-width: 580px;">
+        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid #30363d;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+            </div>
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 700; color: #f0f6fc; margin: 0;" data-i18n="t_install_build_modal_title">${I18n.t('t_install_build_modal_title') || 'Cambiar Compilación del Motor (Build)'}</h3>
+              <div style="font-size: 0.8rem; color: #8b949e; margin-top: 2px;" data-i18n="t_install_build_modal_subtitle">
+                ${I18n.t('t_install_build_modal_subtitle') || 'Actualización del motor interno de Paper / Purpur'}
+              </div>
+            </div>
+          </div>
+          <button class="action-icon-btn" onclick="Installer.closeBuildModal()" type="button" aria-label="Cerrar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+          <div style="padding: 12px 14px; background: rgba(13, 17, 23, 0.85); border: 1px solid #30363d; border-radius: 8px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <strong style="color: #f0f6fc; font-size: 0.88rem;" data-i18n="t_install_build_modal_info_title">${I18n.t('t_install_build_modal_info_title') || 'Información de la Actualización de Build'}</strong>
+            </div>
+            <p style="font-size: 0.84rem; color: #8b949e; line-height: 1.5; margin: 0;">
+              La versión base de Minecraft se mantendrá en <strong id="modal-build-mc-version" style="color: #58a6ff;">--</strong>.
+              Cambiar la <em>build</em> actualiza los ejecutables internos del servidor con las últimas correcciones de rendimiento, parches de seguridad y estabilidad publicados por el equipo desarrollador.
+            </p>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 18px; padding: 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px;">
+            <div style="text-align: center; padding: 8px;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; color: #8b949e; font-weight: 600; margin-bottom: 4px;" data-i18n="t_install_build_modal_installed">${I18n.t('t_install_build_modal_installed') || 'Build Instalada'}</div>
+              <div id="modal-build-current-val" style="font-size: 1.35rem; font-weight: 700; color: #f0f6fc;">--</div>
+              <div style="font-size: 0.75rem; color: #8b949e; margin-top: 2px;">En uso actual</div>
+            </div>
+            <div style="display: flex; justify-content: center; align-items: center; color: #38bdf8;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </div>
+            <div style="text-align: center; padding: 8px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; font-weight: 600; margin-bottom: 4px;" data-i18n="t_install_build_modal_target">${I18n.t('t_install_build_modal_target') || 'Build de Destino'}</div>
+              <div id="modal-build-target-display" style="font-size: 1.35rem; font-weight: 700; color: #38bdf8;">--</div>
+              <div style="font-size: 0.75rem; color: #3fb950; font-weight: 600; margin-top: 2px;" id="modal-build-target-badge" data-i18n="t_install_build_modal_recommended">${I18n.t('t_install_build_modal_recommended') || 'Recomendada'}</div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label" for="modal-build-select" style="font-size: 0.85rem; font-weight: 600; color: #f0f6fc; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+              <span data-i18n="t_install_build_modal_select_label">${I18n.t('t_install_build_modal_select_label') || 'Seleccionar Compilación (Build):'}</span>
+              <span id="modal-build-loading-spinner" style="display: none; font-size: 0.75rem; color: #8b949e; align-items: center; gap: 4px;">
+                <svg class="spin-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                <span data-i18n="t_install_build_modal_loading">${I18n.t('t_install_build_modal_loading') || 'Cargando lista...'}</span>
+              </span>
+            </label>
+            <select class="form-select" id="modal-build-select" onchange="Installer.onModalBuildChange()" style="font-size: 0.92rem; padding: 9px 12px;">
+              <option value="">Cargando builds disponibles...</option>
+            </select>
+            <div class="field-hint" style="margin-top: 4px; font-size: 0.78rem; color: #8b949e;" data-i18n="t_install_build_modal_select_hint">
+              ${I18n.t('t_install_build_modal_select_hint') || 'Puedes seleccionar la compilación más reciente o cualquier versión anterior disponible para tu versión de Minecraft.'}
+            </div>
+          </div>
+          <div id="modal-build-changelog-box" style="display: none; padding: 10px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; margin-bottom: 16px; font-size: 0.8rem; color: #c9d1d9;">
+            <div style="font-weight: 600; color: #8b949e; margin-bottom: 4px; font-size: 0.75rem; text-transform: uppercase;">Cambios en esta Build:</div>
+            <div id="modal-build-changelog-text" style="line-height: 1.4; color: #e6edf3;"></div>
+          </div>
+          <div style="padding: 12px 14px; background: rgba(46, 160, 67, 0.08); border: 1px solid rgba(46, 160, 67, 0.3); border-radius: 8px;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #3fb950; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span data-i18n="t_install_build_modal_safety_title">${I18n.t('t_install_build_modal_safety_title') || 'Garantías de Seguridad del Proceso'}</span>
+            </div>
+            <ul style="margin: 0; padding-left: 18px; font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              <li data-i18n="t_install_build_modal_safety_1"><strong>Copia de seguridad preventiva</strong> automática antes de aplicar cualquier cambio.</li>
+              <li data-i18n="t_install_build_modal_safety_2"><strong>Tus mundos, inventarios, plugins y configuraciones</strong> quedan 100% intactos.</li>
+              <li data-i18n="t_install_build_modal_safety_3"><strong>Verificación de integridad (SHA-256)</strong> para prevenir archivos corruptos o descargas truncadas.</li>
+              <li data-i18n="t_install_build_modal_safety_4"><strong>Guardado seguro</strong> (<code>save-all</code>) y reinicio automático del servidor si estaba encendido.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid #30363d; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-outline" onclick="Installer.closeBuildModal()" data-i18n="t_install_btn_cancel">${I18n.t('t_install_btn_cancel') || 'Cancelar'}</button>
+          <button type="button" class="btn btn-primary" id="btn-modal-apply-build" onclick="Installer.applyBuildFromModal()" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            <span id="btn-modal-apply-build-text">Instalar Build</span>
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+  },
 
   async openBuildModal(targetBuildId) {
-    const modal = document.getElementById('modal-change-build');
-    if (!modal) return;
-
-    const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
-    const curVer = String(data.current_version || data.latest_stable || '26.3').trim();
-    const curBuild = data.current_build;
-    const latestBuild = data.latest_build;
-    const initialTarget = targetBuildId || latestBuild || curBuild;
-
-    // Fill version
-    const mcVerEl = document.getElementById('modal-build-mc-version');
-    if (mcVerEl) mcVerEl.textContent = curVer;
-
-    // Fill current build
-    const curValEl = document.getElementById('modal-build-current-val');
-    if (curValEl) curValEl.textContent = curBuild ? `#${curBuild}` : (I18n.t('t_install_unknown') || 'No detectada');
-
-    // Fill target build display
-    const targetDispEl = document.getElementById('modal-build-target-display');
-    if (targetDispEl) targetDispEl.textContent = initialTarget ? `#${initialTarget}` : '--';
-
-    const btnApply = document.getElementById('btn-modal-apply-build-text');
-    if (btnApply) {
-      btnApply.textContent = initialTarget
-        ? (I18n.fmt('t_install_btn_update_to_build', [initialTarget]) || `Instalar Build #${initialTarget}`)
-        : (I18n.t('t_install_build_modal_btn_install_generic') || 'Instalar Build');
-    }
-
-    // Open modal backdrop
-    modal.classList.add('show');
-    modal.style.display = 'flex';
-
-    // Show loading spinner
-    const spinner = document.getElementById('modal-build-loading-spinner');
-    if (spinner) spinner.style.display = 'inline-flex';
-
-    const select = document.getElementById('modal-build-select');
-    if (select) {
-      select.innerHTML = `<option value="">${I18n.t('t_install_build_modal_loading') || 'Cargando builds disponibles...'}</option>`;
-      select.disabled = true;
-    }
-
-    this._buildCommitMap = {};
-
     try {
-      const res = await fetch(`/api/installer/builds?version=${encodeURIComponent(curVer)}`);
-      if (res.ok) {
-        const buildData = await res.json();
-        const builds = buildData.builds || [];
-        if (select) {
-          select.innerHTML = '';
-          if (builds.length === 0) {
-            select.innerHTML = `<option value="${initialTarget || ''}">Build #${initialTarget || 'Recomendada'}</option>`;
-          } else {
-            builds.forEach(b => {
-              const opt = document.createElement('option');
-              opt.value = b.id;
-              let label = `Build #${b.id}`;
-              if (b.channel && b.channel !== 'STABLE' && b.channel !== 'DEFAULT') {
-                label += ` [${b.channel}]`;
-              }
-              if (b.id === buildData.latest_build || b.id === latestBuild) {
-                label += ` (${I18n.t('t_install_build_modal_recommended') || 'Recomendada'})`;
-              } else if (b.id === curBuild) {
-                label += ` (${I18n.t('t_install_current_build_badge') || 'Instalada actual'})`;
-              }
-              opt.textContent = label;
-              select.appendChild(opt);
+      const modal = this.ensureBuildModal();
+      if (!modal) {
+        console.error('[Installer] Could not find or instantiate #modal-change-build');
+        return;
+      }
 
-              if (b.summary) {
-                this._buildCommitMap[b.id] = b.summary;
-              }
-            });
+      // Sanitize targetBuildId if called directly from click event or string with '#'
+      let cleanTarget = null;
+      if (targetBuildId && typeof targetBuildId !== 'object') {
+        const numStr = String(targetBuildId).replace(/\D/g, '');
+        if (numStr) cleanTarget = parseInt(numStr, 10);
+      }
+
+      const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
+      const curVer = String(data.current_version || data.latest_stable || '26.3').trim();
+      const curBuild = data.current_build ? parseInt(String(data.current_build).replace(/\D/g, ''), 10) : null;
+      const latestBuild = data.latest_build ? parseInt(String(data.latest_build).replace(/\D/g, ''), 10) : null;
+      const initialTarget = cleanTarget || latestBuild || curBuild;
+
+      // Fill version
+      const mcVerEl = document.getElementById('modal-build-mc-version');
+      if (mcVerEl) mcVerEl.textContent = curVer;
+
+      // Fill current build
+      const curValEl = document.getElementById('modal-build-current-val');
+      if (curValEl) curValEl.textContent = curBuild ? `#${curBuild}` : (I18n.t('t_install_unknown') || 'No detectada');
+
+      // Fill target build display
+      const targetDispEl = document.getElementById('modal-build-target-display');
+      if (targetDispEl) targetDispEl.textContent = initialTarget ? `#${initialTarget}` : '--';
+
+      const btnApply = document.getElementById('btn-modal-apply-build-text');
+      if (btnApply) {
+        btnApply.textContent = initialTarget
+          ? (I18n.fmt('t_install_btn_update_to_build', [initialTarget]) || `Instalar Build #${initialTarget}`)
+          : (I18n.t('t_install_build_modal_btn_install_generic') || 'Instalar Build');
+      }
+
+      // Add 'open' class for system pop animation and backdrop display
+      modal.classList.add('open');
+      modal.classList.add('show');
+      modal.style.display = 'flex';
+
+      // Dismiss on backdrop click
+      modal.onclick = (e) => {
+        if (e.target === modal) this.closeBuildModal();
+      };
+
+      // Dismiss on Escape key
+      if (this._buildEscHandler) {
+        window.removeEventListener('keydown', this._buildEscHandler);
+      }
+      this._buildEscHandler = (e) => {
+        if (e.key === 'Escape') this.closeBuildModal();
+      };
+      window.addEventListener('keydown', this._buildEscHandler);
+
+      // Show loading spinner
+      const spinner = document.getElementById('modal-build-loading-spinner');
+      if (spinner) spinner.style.display = 'inline-flex';
+
+      const select = document.getElementById('modal-build-select');
+      if (select) {
+        select.innerHTML = `<option value="">${I18n.t('t_install_build_modal_loading') || 'Cargando builds disponibles...'}</option>`;
+        select.disabled = true;
+      }
+
+      this._buildCommitMap = {};
+
+      try {
+        const res = await fetch(`/api/installer/builds?version=${encodeURIComponent(curVer)}`);
+        if (res.ok) {
+          const buildData = await res.json();
+          const builds = buildData.builds || [];
+          if (select) {
+            select.innerHTML = '';
+            if (builds.length === 0) {
+              select.innerHTML = `<option value="${initialTarget || ''}">Build #${initialTarget || 'Recomendada'}</option>`;
+            } else {
+              builds.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                let label = `Build #${b.id}`;
+                if (b.channel && b.channel !== 'STABLE' && b.channel !== 'DEFAULT') {
+                  label += ` [${b.channel}]`;
+                }
+                if (b.id === buildData.latest_build || b.id === latestBuild) {
+                  label += ` (${I18n.t('t_install_build_modal_recommended') || 'Recomendada'})`;
+                } else if (b.id === curBuild) {
+                  label += ` (${I18n.t('t_install_current_build_badge') || 'Instalada actual'})`;
+                }
+                opt.textContent = label;
+                select.appendChild(opt);
+
+                if (b.summary) {
+                  this._buildCommitMap[b.id] = b.summary;
+                }
+              });
+            }
+            select.disabled = false;
+            if (initialTarget && builds.some(b => parseInt(b.id, 10) === parseInt(initialTarget, 10))) {
+              select.value = String(initialTarget);
+            } else if (builds.length > 0) {
+              select.value = String(builds[0].id);
+            }
+            this.onModalBuildChange();
           }
-          select.disabled = false;
-          if (initialTarget && builds.some(b => b.id === parseInt(initialTarget))) {
-            select.value = String(initialTarget);
-          } else if (builds.length > 0) {
-            select.value = String(builds[0].id);
+        } else {
+          if (select) {
+            select.disabled = false;
+            if (initialTarget) {
+              select.innerHTML = `<option value="${initialTarget}">Build #${initialTarget} (Recomendada)</option>`;
+            }
           }
-          this.onModalBuildChange();
         }
-      } else {
+      } catch (e) {
+        console.warn('[Installer] Error loading builds:', e);
         if (select) {
           select.disabled = false;
           if (initialTarget) {
             select.innerHTML = `<option value="${initialTarget}">Build #${initialTarget} (Recomendada)</option>`;
           }
         }
+      } finally {
+        if (spinner) spinner.style.display = 'none';
       }
-    } catch (e) {
-      console.warn('[Installer] Error loading builds:', e);
-      if (select) {
-        select.disabled = false;
-        if (initialTarget) {
-          select.innerHTML = `<option value="${initialTarget}">Build #${initialTarget} (Recomendada)</option>`;
-        }
+    } catch (err) {
+      console.error('[Installer] Error in openBuildModal:', err);
+      if (typeof App !== 'undefined' && App.showToast) {
+        App.showToast('Error al abrir compilaciones de build: ' + (err.message || err), 'danger');
       }
-    } finally {
-      if (spinner) spinner.style.display = 'none';
     }
   },
 
   closeBuildModal() {
     const modal = document.getElementById('modal-change-build');
     if (modal) {
+      modal.classList.remove('open');
       modal.classList.remove('show');
       modal.style.display = 'none';
+    }
+    if (this._buildEscHandler) {
+      window.removeEventListener('keydown', this._buildEscHandler);
+      this._buildEscHandler = null;
     }
   },
 
@@ -1749,10 +1910,11 @@ const Installer = {
 
     const badgeEl = document.getElementById('modal-build-target-badge');
     if (badgeEl) {
-      if (parseInt(val) === parseInt(latestBuild)) {
+      const parsedVal = parseInt(val, 10);
+      if (latestBuild && parsedVal === parseInt(latestBuild, 10)) {
         badgeEl.textContent = I18n.t('t_install_build_modal_recommended') || 'Recomendada';
         badgeEl.style.color = '#3fb950';
-      } else if (parseInt(val) === parseInt(curBuild)) {
+      } else if (curBuild && parsedVal === parseInt(curBuild, 10)) {
         badgeEl.textContent = I18n.t('t_install_current_build_badge') || 'Instalada';
         badgeEl.style.color = '#8b949e';
       } else {
@@ -1818,7 +1980,10 @@ const Installer = {
     try {
       const payload = { version: curVer };
       if (targetBuild) {
-        payload.build = parseInt(targetBuild);
+        const cleanBuild = parseInt(String(targetBuild).replace(/\D/g, ''), 10);
+        if (!isNaN(cleanBuild)) {
+          payload.build = cleanBuild;
+        }
       }
       const res = await fetch('/api/installer/update', {
         method: 'POST',

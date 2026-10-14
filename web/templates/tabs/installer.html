@@ -55,7 +55,7 @@
           <span style="color: #8b949e;" data-i18n="t_install_build_current">Build Actual:</span>
           <strong id="build-current-display" style="color: #f0f6fc;">#{{ cfg.server_build if cfg.server_build else 'Detectando...' }}</strong>
         </div>
-        <button type="button" class="btn btn-primary" id="btn-open-build-modal" onclick="Installer.openBuildModal()" style="display: inline-flex; align-items: center; gap: 7px; font-weight: 600; padding: 7px 16px; box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);">
+        <button type="button" class="btn btn-primary" id="btn-open-build-modal" onclick="Installer.openBuildModal(); return false;" style="display: inline-flex; align-items: center; gap: 7px; font-weight: 600; padding: 7px 16px; box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"/>
             <polyline points="1 20 1 14 7 14"/>
@@ -72,7 +72,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           <span>Nueva compilación disponible: <strong id="build-new-notice-num" style="color: #ffffff;">#--</strong> para Minecraft <span id="build-new-notice-ver">--</span>. Corrige errores del motor y optimiza rendimiento.</span>
         </div>
-        <a href="javascript:void(0)" onclick="Installer.openBuildModal()" style="color: #38bdf8; font-weight: 600; text-decoration: underline; font-size: 0.82rem;">Ver detalles y cambiar build &rarr;</a>
+        <a href="javascript:void(0)" onclick="Installer.openBuildModal(); return false;" style="color: #38bdf8; font-weight: 600; text-decoration: underline; font-size: 0.82rem;">Ver detalles y cambiar build &rarr;</a>
       </div>
     </div>
   </div>

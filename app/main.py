@@ -1780,6 +1780,10 @@ if (WEB_DIR / "static").exists():
 
 templates_dir = WEB_DIR / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
+# Dynamic cache-busting token generated at application boot
+START_TIME_TOKEN = str(int(time.time()))
+templates.env.globals["asset_v"] = START_TIME_TOKEN
+templates.env.globals["app_version"] = APP_VERSION
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
@@ -1803,6 +1807,7 @@ async def login_page(request: Request):
             "max_attempts": getattr(settings, "login_max_attempts", 5),
             "app_name": "Dockraft",
             "app_version": APP_VERSION,
+            "asset_v": START_TIME_TOKEN,
             "session_expired": session_expired
         }
     )
@@ -1838,6 +1843,7 @@ async def root(request: Request):
             "admin_user": getattr(settings, "admin_user", "admin"),
             "app_name": "Dockraft",
             "app_version": APP_VERSION,
+            "asset_v": START_TIME_TOKEN,
             "stats": stats,
             "cfg": cfg,
             "is_installed": is_installed,
