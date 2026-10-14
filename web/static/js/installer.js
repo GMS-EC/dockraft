@@ -49,8 +49,9 @@ const Installer = {
     } else {
       // Installed server: re-render locked banner, update card and plugin notices.
       const updateCard = document.getElementById('installer-update-card');
-      if (updateCard && window.__INITIAL_STATS__) {
-        this.loadUpdateInfo(window.__INITIAL_STATS__);
+      if (updateCard) {
+        this.loadUpdateInfo(this.updateData || window.__INITIAL_STATS__);
+        this.updateApplyButtonText();
       }
     }
   },
@@ -560,8 +561,8 @@ const Installer = {
             if (selectStable && data.current_version) {
               selectStable.value = data.current_version;
               this.onVersionSelectChange('stable');
-              App.showToast(I18n.fmt('t_install_toast_version_selected', [data.current_version]), 'info');
             }
+            this.startUpdate();
           };
         } else if (data.update_available) {
           statusBadge.innerHTML = I18n.fmt('t_install_status_new_version_html', [escapeHtml(data.latest_stable)]);
@@ -611,6 +612,19 @@ const Installer = {
         }
       }
 
+      if (warningBadge) {
+        if (data.build_update_available && data.latest_build) {
+          warningBadge.style.display = 'flex';
+          warningBadge.style.alignItems = 'center';
+          warningBadge.style.gap = '8px';
+          const zapSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+          const currentB = data.current_build ? `#${data.current_build}` : (I18n.t('t_install_unknown') || '?');
+          warningBadge.innerHTML = `${zapSvg} <span>${I18n.fmt('t_install_build_alert_banner', [data.latest_build, currentB])}</span>`;
+        } else {
+          warningBadge.style.display = 'none';
+        }
+      }
+
       const items = data.versions || [];
       const stables = items.filter(v => v.channel === 'stable');
       const previews = items.filter(v => v.channel !== 'stable');
@@ -621,7 +635,15 @@ const Installer = {
         stables.forEach(v => {
           const opt = document.createElement('option');
           opt.value = v.id;
-          opt.textContent = v.label || v.id;
+          let labelText = v.label || v.id;
+          if (data.latest_build && (v.id === data.latest_stable || v.id === data.current_version)) {
+            if (data.build_update_available) {
+              labelText += ` — Build #${data.latest_build} (${I18n.t('t_install_new_build_badge') || 'Nueva compilación'})`;
+            } else if (data.current_build && v.id === data.current_version) {
+              labelText += ` — Build #${data.current_build} (${I18n.t('t_install_current_build_badge') || 'Compilación actual'})`;
+            }
+          }
+          opt.textContent = labelText;
           opt.setAttribute('data-channel', 'stable');
           selectStable.appendChild(opt);
         });
@@ -664,6 +686,7 @@ const Installer = {
       }
 
       this.switchUpdateChannel(this.currentUpdateChannel || 'stable');
+      this.updateApplyButtonText();
 
     } catch (err) {
       console.warn("Could not load update info:", err);
@@ -727,6 +750,7 @@ const Installer = {
       activeSelect.value = selVal;
     }
     this.updateVersionChangelogCard(selVal, channel);
+    this.updateApplyButtonText();
   },
 
   onVersionSelectChange(channel) {
@@ -742,6 +766,39 @@ const Installer = {
       if (selectComp) selectComp.value = selVal;
     }
     this.updateVersionChangelogCard(selVal, channel);
+    this.updateApplyButtonText();
+  },
+
+  updateApplyButtonText() {
+    const btn = document.getElementById('btn-apply-update');
+    if (!btn || this.isInstalling) return;
+
+    const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
+    const selectStable = document.getElementById('update-version-select-stable');
+    const selectBeta = document.getElementById('update-version-select-beta');
+    const selectedVer = (this.currentUpdateChannel === 'beta' ? selectBeta?.value : selectStable?.value) || '';
+
+    const zapSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+
+    const isSameVersion = Boolean(selectedVer && (selectedVer === data.current_version));
+    const hasNewBuild = Boolean(data.build_update_available && data.latest_build && (isSameVersion || selectedVer === data.latest_stable));
+
+    if (hasNewBuild) {
+      const btnText = I18n.fmt('t_install_btn_update_to_build', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`;
+      btn.innerHTML = `${zapSvg} <span>${escapeHtml(btnText)}</span>`;
+      btn.style.boxShadow = '0 0 10px rgba(210, 153, 34, 0.4)';
+      btn.style.borderColor = '#d29922';
+    } else if (selectedVer && selectedVer !== data.current_version) {
+      const btnText = I18n.fmt('t_install_btn_update_to_ver', [selectedVer]) || `Actualizar a ${selectedVer}`;
+      btn.innerHTML = `${zapSvg} <span>${escapeHtml(btnText)}</span>`;
+      btn.style.boxShadow = '';
+      btn.style.borderColor = '';
+    } else {
+      const btnText = I18n.t('t_install_btn_update') || 'Actualizar Servidor';
+      btn.innerHTML = `${zapSvg} <span>${escapeHtml(btnText)}</span>`;
+      btn.style.boxShadow = '';
+      btn.style.borderColor = '';
+    }
   },
 
   buildVersionMeta(serverType, versionId, channel) {
@@ -897,8 +954,15 @@ const Installer = {
       }
     }
 
+    const isSameVersion = Boolean(selectedVersionId && (selectedVersionId === data.current_version));
+    const hasNewBuild = Boolean(data.build_update_available && data.latest_build && (isSameVersion || selectedVersionId === data.latest_stable));
+
     if (titleEl) {
-      titleEl.textContent = `${meta.serverType.toUpperCase()} ${item.label || meta.versionId}`;
+      let titleStr = `${meta.serverType.toUpperCase()} ${item.label || meta.versionId}`;
+      if (hasNewBuild) {
+        titleStr += ` — Build #${data.latest_build}`;
+      }
+      titleEl.textContent = titleStr;
     }
 
     if (btnOfficial) {
@@ -918,6 +982,16 @@ const Installer = {
       } else {
         btnWiki.style.display = 'none';
       }
+    }
+
+    if (hasNewBuild) {
+      const curB = data.current_build ? `#${data.current_build}` : (I18n.t('t_install_unknown') || '?');
+      meta.adviceTitle = I18n.fmt('t_install_advice_build_update_title', [data.latest_build]) || `Nueva Compilación Disponible: Build #${data.latest_build}`;
+      meta.adviceText = I18n.fmt('t_install_advice_build_update_text', [
+        data.latest_build,
+        curB,
+        meta.cleanVer
+      ]) || `PaperMC ha publicado la Build #${data.latest_build} (actualmente tu servidor tiene la compilación ${curB}). Esta actualización incluye parches recientes y correcciones de estabilidad para Minecraft ${meta.cleanVer}. Tus mundos, plugins y configuraciones se conservarán intactos.`;
     }
 
     if (adviceTitle && adviceText) {
@@ -1023,26 +1097,45 @@ const Installer = {
 
     if (select) select.value = targetVer;
 
+    const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
+    const isSameVersion = (targetVer === data.current_version);
+    const isBuildUpdate = Boolean(data.build_update_available && (isSameVersion || targetVer === data.latest_stable) && data.latest_build);
     const isBetaTarget = (this.currentUpdateChannel === 'beta');
     const betaNotice = isBetaTarget ? '\n\n' + I18n.t('t_install_beta_notice') : '';
-    const confirmMessage = isRunning
-      ? I18n.fmt('t_install_update_confirm_running', [targetVer]) + betaNotice
-      : I18n.fmt('t_install_update_confirm_stopped', [targetVer]) + betaNotice;
+
+    let confirmTitle = I18n.t('t_install_btn_update') || 'Actualizar Servidor';
+    let confirmBtnText = I18n.t('t_install_btn_update') || 'Actualizar Servidor';
+    let confirmMessage = '';
+
+    if (isBuildUpdate) {
+      confirmTitle = I18n.fmt('t_install_confirm_build_title', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`;
+      confirmBtnText = I18n.fmt('t_install_btn_update_to_build', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`;
+      const curB = data.current_build ? `#${data.current_build}` : (I18n.t('t_install_unknown') || 'anterior');
+      confirmMessage = isRunning
+        ? (I18n.fmt('t_install_confirm_build_running', [data.latest_build, curB]) ||
+           `¿Deseas actualizar el motor a la nueva Build #${data.latest_build} de Paper?\n\n• Compilación actual: ${curB}\n• Nueva compilación: #${data.latest_build}\n• El servidor se detendrá de forma segura (guardando mundos con save-all).\n• Se creará un respaldo de seguridad preventivo.\n• Se verificará la integridad del archivo para evitar corrupciones.\n• Tus mundos, plugins y configuraciones se mantendrán intactos.\n• El servidor se reiniciará automáticamente al finalizar.`)
+        : (I18n.fmt('t_install_confirm_build_stopped', [data.latest_build, curB]) ||
+           `¿Deseas actualizar el motor a la nueva Build #${data.latest_build} de Paper?\n\n• Compilación actual: ${curB}\n• Nueva compilación: #${data.latest_build}\n• Se creará un respaldo preventivo automático.\n• Se verificará la integridad del paquete contra corrupciones.\n• Tus mundos, plugins y configuraciones se mantendrán intactos.`);
+    } else {
+      confirmMessage = isRunning
+        ? I18n.fmt('t_install_update_confirm_running', [targetVer]) + betaNotice
+        : I18n.fmt('t_install_update_confirm_stopped', [targetVer]) + betaNotice;
+    }
 
     const ok = await App.confirm({
-      title: I18n.t('t_install_btn_update'),
+      title: confirmTitle,
       message: confirmMessage,
-      confirmText: I18n.t('t_install_btn_update'),
+      confirmText: confirmBtnText,
       type: isBetaTarget ? 'warning' : 'info'
     });
     if (!ok) return;
 
     this.isInstalling = true;
     const btn = document.getElementById('btn-apply-update');
-    const updateIconSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ' + I18n.t('t_install_btn_update');
+    const spinnerSvg = '<svg class="spin-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="spin-icon" style="display:inline-block;">↻</span> ' + I18n.t('t_install_downloading_ellipsis');
+      btn.innerHTML = `${spinnerSvg} <span>${I18n.t('t_install_downloading_ellipsis')}</span>`;
     }
 
     const pBox = document.getElementById('update-progress-box');
@@ -1083,8 +1176,8 @@ const Installer = {
             this.isInstalling = false;
             if (btn) {
               btn.disabled = false;
-              btn.innerHTML = updateIconSvg;
             }
+            this.updateApplyButtonText();
             App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
             await this.checkLockState();
           } else if (pData.status && pData.status.startsWith('error')) {
@@ -1093,8 +1186,8 @@ const Installer = {
             this.isInstalling = false;
             if (btn) {
               btn.disabled = false;
-              btn.innerHTML = updateIconSvg;
             }
+            this.updateApplyButtonText();
             App.showToast(I18n.fmt('t_install_err_update_fail', [pData.status]), 'danger');
           }
         } catch (err) {
@@ -1103,8 +1196,8 @@ const Installer = {
           this.isInstalling = false;
           if (btn) {
             btn.disabled = false;
-            btn.innerHTML = updateIconSvg;
           }
+          this.updateApplyButtonText();
         }
       }, 800);
 
@@ -1112,8 +1205,8 @@ const Installer = {
       this.isInstalling = false;
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = updateIconSvg;
       }
+      this.updateApplyButtonText();
       if (pBox) pBox.style.display = 'none';
       App.showToast(e.message, 'danger');
     }

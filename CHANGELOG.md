@@ -13,6 +13,11 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Persistencia de `server_build` en la configuración de runtime (`dockraft_config.json`) al instalar o actualizar servidores.
   - Alerta inteligente de nueva compilación: cuando el servidor se encuentra en la última versión de Minecraft (ej. `26.3`), pero el portal oficial ha publicado una compilación posterior (ej. `#187` frente a `#186`), el panel notifica `Nueva build disponible: #187` y permite actualizar la compilación directamente.
   - Indicador visual enriquecido en el Instalador mostrando la versión y compilación actual (`26.3 (Build #186)`).
+- **Flujo Directo de Actualización de Compilaciones (Builds):**
+  - Al hacer clic en el badge `Nueva build disponible: #187 (clic para actualizar)`, se abre directamente el flujo de confirmación para instalar la compilación.
+  - El selector desplegable de versiones indica explícitamente la compilación disponible: `26.3 (Estable) — Build #187 (Nueva compilación)`.
+  - El botón de acción se actualiza dinámicamente a `Actualizar a Build #187` con un resalte visual y un banner explicativo debajo del selector.
+  - La tarjeta de detalles y el modal de confirmación informan con precisión el cambio de compilación (`#186` → `#187`) garantizando que los mundos, plugins y configuraciones se conserven intactos.
 
 ---
 
