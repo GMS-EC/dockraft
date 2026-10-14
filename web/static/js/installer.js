@@ -520,7 +520,11 @@ const Installer = {
         if (data.current_version === 'importado') {
           curBadge.innerHTML = I18n.fmt('t_install_current_imported_html', [escapeHtml((data.server_type || 'Paper').toUpperCase())]);
         } else {
-          curBadge.innerHTML = I18n.fmt('t_install_current_version_html', [escapeHtml(data.current_version || I18n.t('t_install_unknown'))]);
+          let verDisplay = escapeHtml(data.current_version || I18n.t('t_install_unknown'));
+          if (data.current_build) {
+            verDisplay += ` (Build #${escapeHtml(String(data.current_build))})`;
+          }
+          curBadge.innerHTML = I18n.fmt('t_install_current_version_html', [verDisplay]);
           const chSpan = document.createElement('span');
           chSpan.style.cssText = 'font-size:0.75rem; opacity:0.85; margin-left:4px;';
           chSpan.textContent = `(${chName})`;
@@ -544,6 +548,21 @@ const Installer = {
               App.showToast(I18n.fmt('t_install_toast_version_selected', [data.latest_stable]), 'info');
             }
           };
+        } else if (data.build_update_available && (data.current_version === data.latest_stable || !data.latest_stable)) {
+          const zapSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -1px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+          statusBadge.innerHTML = zapSvg + I18n.fmt('t_install_new_build_available_html', [escapeHtml(String(data.latest_build || ''))]);
+          statusBadge.style.background = 'rgba(210, 153, 34, 0.15)';
+          statusBadge.style.borderColor = '#d29922';
+          statusBadge.style.color = '#e3b341';
+          statusBadge.title = I18n.fmt('t_install_click_select_ver', [data.current_version]);
+          statusBadge.onclick = () => {
+            this.switchUpdateChannel('stable');
+            if (selectStable && data.current_version) {
+              selectStable.value = data.current_version;
+              this.onVersionSelectChange('stable');
+              App.showToast(I18n.fmt('t_install_toast_version_selected', [data.current_version]), 'info');
+            }
+          };
         } else if (data.update_available) {
           statusBadge.innerHTML = I18n.fmt('t_install_status_new_version_html', [escapeHtml(data.latest_stable)]);
           statusBadge.style.background = 'rgba(56, 139, 253, 0.15)';
@@ -559,7 +578,11 @@ const Installer = {
             }
           };
         } else {
-          statusBadge.textContent = I18n.fmt('t_install_status_up_to_date', [data.latest_stable || data.current_version]);
+          let upToDateText = data.latest_stable || data.current_version;
+          if (data.current_build) {
+            upToDateText += ` (Build #${data.current_build})`;
+          }
+          statusBadge.textContent = I18n.fmt('t_install_status_up_to_date', [upToDateText]);
           statusBadge.style.background = 'rgba(46, 160, 67, 0.15)';
           statusBadge.style.borderColor = '#2ea043';
           statusBadge.style.color = '#3fb950';

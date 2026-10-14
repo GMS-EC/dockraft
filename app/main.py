@@ -644,14 +644,17 @@ async def install_server(req: InstallRequest):
             if not req.java_path or req.java_path == "java":
                 req.java_path = await asyncio.to_thread(JavaManager.get_best_java_path, req.version)
 
+        server_build = None
         if req.server_type in ["paper", "folia", "velocity"]:
             info = await downloader.get_paper_latest_build(req.server_type, req.version)
             download_url = info["download_url"]
             target_file = "server.jar"
+            server_build = info.get("build")
         elif req.server_type == "purpur":
             info = await downloader.get_purpur_latest_build(req.version)
             download_url = info["download_url"]
             target_file = "server.jar"
+            server_build = info.get("build")
         elif req.server_type == "vanilla":
             versions = await downloader.get_vanilla_versions()
             match = next((v for v in versions if v["id"] == req.version), None)
@@ -697,7 +700,7 @@ async def install_server(req: InstallRequest):
             else ("run.sh" if req.server_type == "forge" else "server.jar")
         )
 
-        settings.save_runtime_config({
+        cfg_to_save = {
             "server_type": req.server_type,
             "server_version": req.version,
             "server_file": resolved_server_file,
@@ -708,7 +711,14 @@ async def install_server(req: InstallRequest):
             "aikar_flags": req.aikar_flags if req.aikar_flags is not None else True,
             "cpu_cores": req.cpu_cores if req.cpu_cores is not None else 2,
             "disk_limit_gb": req.disk_limit_gb if req.disk_limit_gb is not None else 10.0
-        })
+        }
+        if server_build is not None:
+            try:
+                cfg_to_save["server_build"] = int(server_build)
+            except (ValueError, TypeError):
+                pass
+
+        settings.save_runtime_config(cfg_to_save)
 
         return {"status": "started", "target_file": target_file, "download_url": download_url}
     except HTTPException:
@@ -816,6 +826,7 @@ async def get_update_info():
     cfg = settings.runtime_config
     server_type = cfg.get("server_type", "paper")
     current_version = cfg.get("server_version", "")
+    current_build = cfg.get("server_build")
     server_file = cfg.get("server_file")
 
     # If version is generic, missing, or imported, attempt auto-detection from local files
@@ -826,6 +837,13 @@ async def get_update_info():
             settings.save_runtime_config({"server_version": detected_ver})
         else:
             current_version = "importado"
+
+    # If build is not stored yet, attempt detection from logs or version_history
+    if current_build is None and server_type in ["paper", "folia", "velocity", "purpur"]:
+        detected_build = downloader.detect_server_build(server_file=server_file)
+        if detected_build:
+            current_build = detected_build
+            settings.save_runtime_config({"server_build": detected_build})
     
     latest_stable = ""
     latest_preview = ""
@@ -945,6 +963,29 @@ async def get_update_info():
     curr_m = re.search(r'([0-9]+\.[0-9]+(?:\.[0-9]+)+)', current_version)
     curr_clean = curr_m.group(1) if curr_m else current_version
 
+    # Query latest build for Paper/Purpur/Folia/Velocity
+    latest_build = None
+    build_update_available = False
+    try:
+        target_v = current_version if (current_version and current_version != "importado") else latest_stable
+        if target_v and server_type in ["paper", "folia", "velocity"]:
+            b_info = await downloader.get_paper_latest_build(server_type, target_v)
+            if b_info and b_info.get("build"):
+                latest_build = int(b_info["build"])
+        elif target_v and server_type == "purpur":
+            b_info = await downloader.get_purpur_latest_build(target_v)
+            if b_info and b_info.get("build"):
+                latest_build = int(b_info["build"])
+    except Exception as ex:
+        print(f"[UpdateInfo] Warning querying latest build for {server_type}: {ex}")
+
+    if current_build is not None and latest_build is not None:
+        try:
+            if int(latest_build) > int(current_build):
+                build_update_available = True
+        except (ValueError, TypeError):
+            pass
+
     # Update available:
     update_available = False
     if current_version == "importado":
@@ -952,9 +993,13 @@ async def get_update_info():
     elif current_channel == "stable":
         if latest_stable and curr_clean and latest_stable != curr_clean:
             update_available = True
+        elif build_update_available:
+            update_available = True
     else:
-        # If on pre or snapshot, notify if latest preview is different
+        # If on pre or snapshot, notify if latest preview is different or new build available
         if latest_preview and current_version != latest_preview:
+            update_available = True
+        elif build_update_available:
             update_available = True
 
     preview_available = bool(latest_preview and latest_preview != current_version and latest_preview != latest_stable)
@@ -975,9 +1020,12 @@ async def get_update_info():
         "is_installed": True,
         "server_type": server_type,
         "current_version": current_version,
+        "current_build": current_build,
         "current_channel": current_channel,
         "latest_stable": latest_stable,
         "latest_preview": latest_preview,
+        "latest_build": latest_build,
+        "build_update_available": build_update_available,
         "latest_stable_info": latest_stable_info,
         "latest_preview_info": latest_preview_info,
         "current_version_info": current_version_info,
@@ -1003,14 +1051,17 @@ async def update_server(req: UpdateRequest):
     is_zip = False
 
     try:
+        new_build = None
         if server_type in ["paper", "folia", "velocity"]:
             info = await downloader.get_paper_latest_build(server_type, req.version)
             download_url = info["download_url"]
             target_file = "server.jar"
+            new_build = info.get("build")
         elif server_type == "purpur":
             info = await downloader.get_purpur_latest_build(req.version)
             download_url = info["download_url"]
             target_file = "server.jar"
+            new_build = info.get("build")
         elif server_type == "vanilla":
             versions = await downloader.get_vanilla_versions()
             match = next((v for v in versions if v["id"] == req.version), None)
@@ -1044,11 +1095,14 @@ async def update_server(req: UpdateRequest):
                     await process_manager.send_command("save-all", echo=False)
                     await process_manager.stop_server()
                     # Wait for offline status
-                    for _ in range(30):
+                    for _ in range(45):
                         await asyncio.sleep(1)
                         if process_manager.get_status() == "OFFLINE":
                             break
                     if process_manager.get_status() != "OFFLINE":
+                        kill_msg = "[Dockraft] El servidor tardó más de 45s en cerrar; forzando detención para proceder con la actualización de forma segura..."
+                        process_manager._append_log(kill_msg)
+                        await process_manager.broadcast_message({"type": "log", "data": kill_msg})
                         await process_manager.kill_server()
 
                 # 2. Create pre-update backup
@@ -1104,16 +1158,23 @@ async def update_server(req: UpdateRequest):
                             except Exception:
                                 pass
 
-                    settings.save_runtime_config({
+                    upd_cfg = {
                         "server_file": target_file if not is_zip else old_server_file or "bedrock_server",
                         "server_version": req.version
-                    })
+                    }
+                    if new_build is not None:
+                        try:
+                            upd_cfg["server_build"] = int(new_build)
+                        except (ValueError, TypeError):
+                            pass
+                    settings.save_runtime_config(upd_cfg)
 
                 # Log activity
+                build_label = f" (Build #{new_build})" if new_build else ""
                 activity_manager.log(
                     category="update",
                     action="Servidor actualizado",
-                    details=f"Actualizado con éxito a versión {req.version} ({server_type.upper()}). Respaldo preventivo: {pre_backup.get('filename')}",
+                    details=f"Actualizado con éxito a versión {req.version}{build_label} ({server_type.upper()}). Respaldo preventivo: {pre_backup.get('filename')}",
                     user="admin",
                     status="success"
                 )
@@ -1145,9 +1206,6 @@ async def update_server(req: UpdateRequest):
                     await process_manager.start_server()
 
         asyncio.create_task(safe_update_pipeline())
-
-        # Update saved version in runtime config optimistically
-        settings.save_runtime_config({"server_version": req.version})
 
         return {
             "status": "started",

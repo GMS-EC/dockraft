@@ -5,6 +5,17 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.3.3] - 2026-10-14
+
+### Añadido (Added)
+- **Detección y Notificación de Compilaciones Continuas (Builds) para Paper, Purpur, Folia y Velocity:**
+  - `downloader.detect_server_build()`: Extracción automática del número de compilación interno (`Build #`) desde `version_history.json`, registros de arranque (`logs/latest.log`), nombres de archivo jar y metadatos del manifiesto (`META-INF/MANIFEST.MF`).
+  - Persistencia de `server_build` en la configuración de runtime (`dockraft_config.json`) al instalar o actualizar servidores.
+  - Alerta inteligente de nueva compilación: cuando el servidor se encuentra en la última versión de Minecraft (ej. `26.3`), pero el portal oficial ha publicado una compilación posterior (ej. `#187` frente a `#186`), el panel notifica `Nueva build disponible: #187` y permite actualizar la compilación directamente.
+  - Indicador visual enriquecido en el Instalador mostrando la versión y compilación actual (`26.3 (Build #186)`).
+
+---
+
 ## [1.3.2] - 2026-09-22
 
 ### Corregido (Fixed)

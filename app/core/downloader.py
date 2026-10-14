@@ -544,6 +544,7 @@ class DownloadManager:
         permissions.json, allowlist.json, and worlds/ folder.
         """
         dest_path = settings.data_dir / target_filename
+        temp_download_path = settings.data_dir / f".{target_filename}.download.tmp"
         self.active_download = {
             "file": target_filename,
             "total": 0,
@@ -564,7 +565,7 @@ class DownloadManager:
                     self.active_download["total"] = total_size
                     downloaded = 0
 
-                    with open(dest_path, "wb") as f:
+                    with open(temp_download_path, "wb") as f:
                         async for chunk in response.aiter_bytes(chunk_size=65536):
                             f.write(chunk)
                             downloaded += len(chunk)
@@ -576,12 +577,12 @@ class DownloadManager:
                                 progress_callback(downloaded, total_size)
 
             if verify_integrity:
-                self.verify_file_integrity(dest_path, "zip" if (is_zip or target_filename.endswith(".zip")) else "jar")
+                self.verify_file_integrity(temp_download_path, "zip" if (is_zip or target_filename.endswith(".zip")) else "jar")
 
             # If it's a zip (Bedrock or modpack), extract it
             if is_zip or target_filename.endswith(".zip"):
                 self.active_download["status"] = "extracting"
-                with zipfile.ZipFile(dest_path, 'r') as zip_ref:
+                with zipfile.ZipFile(temp_download_path, 'r') as zip_ref:
                     if preserve_existing_configs:
                         protected_files = {"server.properties", "permissions.json", "allowlist.json", "whitelist.json"}
                         for member in zip_ref.infolist():
@@ -605,14 +606,29 @@ class DownloadManager:
                     except Exception:
                         pass
 
+                # Clean up temporary zip
+                if temp_download_path.exists():
+                    try:
+                        temp_download_path.unlink()
+                    except Exception:
+                        pass
+            else:
+                # Atomically replace destination jar/file only AFTER download & verification succeed
+                if dest_path.exists():
+                    try:
+                        dest_path.unlink()
+                    except Exception:
+                        pass
+                temp_download_path.replace(dest_path)
+
             self.active_download["status"] = "completed"
             self.active_download["percent"] = 100
             return dest_path
 
         except Exception as e:
-            if dest_path.exists() and (is_zip or target_filename.endswith(".tmp") or target_filename.startswith(".")):
+            if temp_download_path.exists():
                 try:
-                    dest_path.unlink()
+                    temp_download_path.unlink()
                 except Exception:
                     pass
             if self.active_download:
@@ -740,6 +756,90 @@ class DownloadManager:
                         m2 = re.search(r'Implementation-Version:\s*.*?([0-9]+\.[0-9]+(?:\.[0-9]+)?)', mf)
                         if m2:
                             return m2.group(1)
+            except Exception:
+                pass
+
+        return None
+
+    def detect_server_build(self, data_dir: Optional[Path] = None, server_file: Optional[str] = None) -> Optional[int]:
+        """
+        Attempts to detect the Minecraft server build number for Paper/Purpur/Folia/Velocity:
+        1. version_history.json (git-Paper-186)
+        2. logs/latest.log (Paper 26.3-186 or .build.186)
+        3. Jar filename (e.g. paper-26.3-186.jar)
+        4. Jar manifest inside archive (Build-Number / Implementation-Version)
+        """
+        dir_path = data_dir or settings.data_dir
+        if not dir_path.exists():
+            return None
+
+        # 1. Check version_history.json
+        vh = dir_path / "version_history.json"
+        if vh.exists():
+            try:
+                content = vh.read_text(encoding="utf-8", errors="ignore")
+                m = re.search(r'git-(?:Paper|Purpur|Folia|Velocity)-([0-9]+)', content, re.IGNORECASE)
+                if m:
+                    return int(m.group(1))
+                m2 = re.search(r'"version":\s*"([0-9]+)"', content)
+                if m2:
+                    return int(m2.group(1))
+            except Exception:
+                pass
+
+        # 2. Check logs/latest.log
+        latest_log = dir_path / "logs" / "latest.log"
+        if latest_log.exists():
+            try:
+                with open(latest_log, "r", encoding="utf-8", errors="ignore") as lf:
+                    for _ in range(150):
+                        line = lf.readline()
+                        if not line:
+                            break
+                        # Paper 26.3-186-main
+                        m = re.search(r'(?:Paper|Purpur|Folia|Velocity)\s+[0-9.]+-([0-9]+)', line, re.IGNORECASE)
+                        if m:
+                            return int(m.group(1))
+                        # Implementing API version 26.3.build.186-stable
+                        m2 = re.search(r'\.build\.([0-9]+)', line, re.IGNORECASE)
+                        if m2:
+                            return int(m2.group(1))
+                        # git-Paper-186
+                        m3 = re.search(r'git-(?:Paper|Purpur|Folia|Velocity)-([0-9]+)', line, re.IGNORECASE)
+                        if m3:
+                            return int(m3.group(1))
+            except Exception:
+                pass
+
+        # 3. Check candidate jar files
+        candidates = []
+        if server_file and (dir_path / server_file).exists():
+            candidates.append(dir_path / server_file)
+
+        try:
+            for f in dir_path.iterdir():
+                if f.is_file() and f.suffix == ".jar" and f not in candidates:
+                    candidates.append(f)
+        except Exception:
+            pass
+
+        for jar_path in candidates:
+            # Check filename regex (e.g. paper-26.3-186.jar or purpur-1.20.4-2150.jar)
+            fn_m = re.search(r'(?:paper|purpur|folia|velocity)-[0-9.]+-([0-9]+)\.jar', jar_path.name, re.IGNORECASE)
+            if fn_m:
+                return int(fn_m.group(1))
+
+            # Check inside jar archive
+            try:
+                with zipfile.ZipFile(jar_path, 'r') as zf:
+                    if "META-INF/MANIFEST.MF" in zf.namelist():
+                        mf = zf.read("META-INF/MANIFEST.MF").decode("utf-8", errors="ignore")
+                        m = re.search(r'Build-Number:\s*([0-9]+)', mf)
+                        if m:
+                            return int(m.group(1))
+                        m2 = re.search(r'Implementation-Version:\s*.*?-([0-9]+)', mf)
+                        if m2:
+                            return int(m2.group(1))
             except Exception:
                 pass
 

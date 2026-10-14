@@ -426,7 +426,7 @@ def test_realscoreboard_uptodate_notice_ignored():
 
 def test_app_version_auto_read():
     from app.config import APP_VERSION
-    assert APP_VERSION == "1.3.2"
+    assert APP_VERSION == "1.3.3"
 
 def test_installed_version_suppresses_outdated_notice(monkeypatch):
     # When CMILib 1.6.0.0 is installed on disk, notice for 1.6.0.0 must be suppressed

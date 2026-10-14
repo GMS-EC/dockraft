@@ -310,10 +310,18 @@
             
             <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;">
               <button type="button" class="prop-cat-btn active" data-cat="all" onclick="Settings.setPropertiesCategory('all')" data-i18n="t_setting_cat_all">Todas</button>
-              <button type="button" class="prop-cat-btn" data-cat="game" onclick="Settings.setPropertiesCategory('game')" data-i18n="t_setting_cat_game">🎮 Partida</button>
-              <button type="button" class="prop-cat-btn" data-cat="world" onclick="Settings.setPropertiesCategory('world')" data-i18n="t_setting_cat_world">🌍 Mundo</button>
-              <button type="button" class="prop-cat-btn" data-cat="performance" onclick="Settings.setPropertiesCategory('performance')" data-i18n="t_setting_cat_performance">⚡ Rendimiento</button>
-              <button type="button" class="prop-cat-btn" data-cat="security" onclick="Settings.setPropertiesCategory('security')" data-i18n="t_setting_cat_security">🛡️ Seguridad</button>
+              <button type="button" class="prop-cat-btn" data-cat="game" onclick="Settings.setPropertiesCategory('game')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4m-2-2v4m10-2h.01m-3 0h.01"/></svg><span data-i18n="t_setting_cat_game">Partida</span>
+              </button>
+              <button type="button" class="prop-cat-btn" data-cat="world" onclick="Settings.setPropertiesCategory('world')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span data-i18n="t_setting_cat_world">Mundo</span>
+              </button>
+              <button type="button" class="prop-cat-btn" data-cat="performance" onclick="Settings.setPropertiesCategory('performance')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span data-i18n="t_setting_cat_performance">Rendimiento</span>
+              </button>
+              <button type="button" class="prop-cat-btn" data-cat="security" onclick="Settings.setPropertiesCategory('security')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span data-i18n="t_setting_cat_security">Seguridad</span>
+              </button>
             </div>
           </div>
 

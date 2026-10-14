@@ -218,17 +218,17 @@ const Logs = {
   formatCategoryBadge(cat) {
     switch (cat) {
       case 'console':
-        return `<span class="badge" style="background: rgba(163, 113, 247, 0.15); border: 1px solid #8957e5; color: #d2a8ff; font-size: 0.74rem;">⌨️ Consola</span>`;
+        return `<span class="badge" style="background: rgba(163, 113, 247, 0.15); border: 1px solid #8957e5; color: #d2a8ff; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>Consola</span>`;
       case 'server':
-        return `<span class="badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; font-size: 0.74rem;">⚡ Servidor</span>`;
+        return `<span class="badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>Servidor</span>`;
       case 'backup':
-        return `<span class="badge" style="background: rgba(56, 139, 253, 0.15); border: 1px solid #388bfd; color: #58a6ff; font-size: 0.74rem;">💾 Respaldo</span>`;
+        return `<span class="badge" style="background: rgba(56, 139, 253, 0.15); border: 1px solid #388bfd; color: #58a6ff; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Respaldo</span>`;
       case 'update':
-        return `<span class="badge" style="background: rgba(45, 212, 191, 0.15); border: 1px solid #2dd4bf; color: #5eead4; font-size: 0.74rem;">🔄 Actualización</span>`;
+        return `<span class="badge" style="background: rgba(45, 212, 191, 0.15); border: 1px solid #2dd4bf; color: #5eead4; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Actualización</span>`;
       case 'security':
-        return `<span class="badge" style="background: rgba(248, 81, 73, 0.15); border: 1px solid #f85149; color: #ff7b72; font-size: 0.74rem;">🛡️ Seguridad</span>`;
+        return `<span class="badge" style="background: rgba(248, 81, 73, 0.15); border: 1px solid #f85149; color: #ff7b72; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Seguridad</span>`;
       case 'tasks':
-        return `<span class="badge" style="background: rgba(227, 179, 65, 0.15); border: 1px solid #d29922; color: #f2cc60; font-size: 0.74rem;">⏱️ Tarea</span>`;
+        return `<span class="badge" style="background: rgba(227, 179, 65, 0.15); border: 1px solid #d29922; color: #f2cc60; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Tarea</span>`;
       default:
         return `<span class="badge" style="font-size: 0.74rem;">${escapeHtml(cat || 'general')}</span>`;
     }
