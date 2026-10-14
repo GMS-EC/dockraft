@@ -632,14 +632,17 @@ const Installer = {
       // Populate Stable Select
       if (selectStable) {
         selectStable.innerHTML = '';
+        const curVerClean = String(data.current_version || '').trim();
+        const latStClean = String(data.latest_stable || '').trim();
         stables.forEach(v => {
           const opt = document.createElement('option');
           opt.value = v.id;
           let labelText = v.label || v.id;
-          if (data.latest_build && (v.id === data.latest_stable || v.id === data.current_version)) {
+          const vidClean = String(v.id || '').trim();
+          if (data.latest_build && (vidClean === latStClean || vidClean === curVerClean)) {
             if (data.build_update_available) {
               labelText += ` — Build #${data.latest_build} (${I18n.t('t_install_new_build_badge') || 'Nueva compilación'})`;
-            } else if (data.current_build && v.id === data.current_version) {
+            } else if (data.current_build && vidClean === curVerClean) {
               labelText += ` — Build #${data.current_build} (${I18n.t('t_install_current_build_badge') || 'Compilación actual'})`;
             }
           }
@@ -776,12 +779,15 @@ const Installer = {
     const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
     const selectStable = document.getElementById('update-version-select-stable');
     const selectBeta = document.getElementById('update-version-select-beta');
-    const selectedVer = (this.currentUpdateChannel === 'beta' ? selectBeta?.value : selectStable?.value) || '';
+    const selectedVer = String((this.currentUpdateChannel === 'beta' ? selectBeta?.value : selectStable?.value) || '').trim();
+    const curVerClean = String(data.current_version || '').trim();
+    const latStClean = String(data.latest_stable || '').trim();
 
     const zapSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
 
-    const isSameVersion = Boolean(selectedVer && (selectedVer === data.current_version));
-    const hasNewBuild = Boolean(data.build_update_available && data.latest_build && (isSameVersion || selectedVer === data.latest_stable));
+    const isSameVersion = Boolean(selectedVer && (selectedVer === curVerClean));
+    const isLatestStable = Boolean(selectedVer && (selectedVer === latStClean));
+    const hasNewBuild = Boolean(data.build_update_available && data.latest_build && (isSameVersion || isLatestStable));
 
     if (hasNewBuild) {
       const btnText = I18n.fmt('t_install_btn_update_to_build', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`;
@@ -954,8 +960,12 @@ const Installer = {
       }
     }
 
-    const isSameVersion = Boolean(selectedVersionId && (selectedVersionId === data.current_version));
-    const hasNewBuild = Boolean(data.build_update_available && data.latest_build && (isSameVersion || selectedVersionId === data.latest_stable));
+    const curVerClean = String(data.current_version || '').trim();
+    const latStClean = String(data.latest_stable || '').trim();
+    const selVerClean = String(selectedVersionId || '').trim();
+    const isSameVersion = Boolean(selVerClean && (selVerClean === curVerClean));
+    const isLatestStable = Boolean(selVerClean && (selVerClean === latStClean));
+    const hasNewBuild = Boolean(data.build_update_available && data.latest_build && (isSameVersion || isLatestStable));
 
     if (titleEl) {
       let titleStr = `${meta.serverType.toUpperCase()} ${item.label || meta.versionId}`;
@@ -1098,8 +1108,12 @@ const Installer = {
     if (select) select.value = targetVer;
 
     const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
-    const isSameVersion = (targetVer === data.current_version);
-    const isBuildUpdate = Boolean(data.build_update_available && (isSameVersion || targetVer === data.latest_stable) && data.latest_build);
+    const curVerClean = String(data.current_version || '').trim();
+    const latStClean = String(data.latest_stable || '').trim();
+    const targetVerClean = String(targetVer || '').trim();
+    const isSameVersion = (targetVerClean === curVerClean);
+    const isLatestStable = (targetVerClean === latStClean);
+    const isBuildUpdate = Boolean(data.build_update_available && (isSameVersion || isLatestStable) && data.latest_build);
     const isBetaTarget = (this.currentUpdateChannel === 'beta');
     const betaNotice = isBetaTarget ? '\n\n' + I18n.t('t_install_beta_notice') : '';
 
