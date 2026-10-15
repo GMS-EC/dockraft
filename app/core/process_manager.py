@@ -9,7 +9,6 @@ import psutil
 from collections import deque
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from pathlib import Path
 from typing import Set, List, Deque, Dict, Any, Optional
 from fastapi import WebSocket
 from app.config import settings
@@ -1050,18 +1049,15 @@ class ProcessManager:
             self._stop_task.cancel()
             self._stop_task = None
 
-        killed_any = False
         if self.process and self.process.returncode is None:
             try:
                 self.process.kill()
-                killed_any = True
             except Exception:
                 pass
 
         for p in self.find_running_server_processes():
             try:
                 p.kill()
-                killed_any = True
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
 

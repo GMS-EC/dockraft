@@ -22,6 +22,13 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Persistencia de `server_build` en la configuración de runtime (`dockraft_config.json`) al instalar o actualizar servidores.
   - Alerta inteligente de nueva compilación: cuando el servidor se encuentra en la última versión de Minecraft (ej. `26.3`), pero el portal oficial ha publicado una compilación posterior (ej. `#187` / `#188` / `#189` frente a `#186`), el panel notifica `Nueva build disponible` y abre directamente la ventana modal exclusiva para aplicar el cambio.
 
+- **Rediseño y Separación Clara de Actualizadores en el Instalador:**
+  - **Estructura Visual Unificada e Intuitiva:** Se unificó la sección de actualizaciones del servidor en un panel principal subdividido en 2 bloques independientes y numerados:
+    - **1. Parches del Motor (Compilación / Build):** Exclusivo para optimizaciones internas, parches de estabilidad y seguridad de Paper/Purpur manteniendo la misma versión del juego (sin impacto en los clientes de los jugadores). Cuenta con su propio indicador de build activa, aviso de nueva build y acceso directo a la ventana modal de selección de build.
+    - **2. Versión del Juego (Minecraft):** Exclusivo para ascensos o descensos de la versión mayor del juego (ej. de 26.3 a 26.4 o 26.2), aclarando explícitamente que requiere que los clientes de los jugadores usen esa misma versión para conectarse.
+  - **Desacoplamiento Funcional Completo:** Se eliminó la inyección cruzada donde las compilaciones de build sobrescribían el selector de versiones y el botón de versión de Minecraft, así como la redirección forzada que abría la modal de builds al pulsar "Actualizar Servidor". El botón de la versión mayor ahora indica de manera precisa `Cambiar a Minecraft {versión}` o `Reinstalar Minecraft {versión}`.
+  - **Depuración de Código Muerto y Redundancias:** Limpieza de importaciones no utilizadas y variables huérfanas en el backend (`process_manager.py`, `file_manager.py`, `task_scheduler.py`, etc.), eliminación de selectores de compatibilidad obsoletos en JavaScript y remoción de bloques de barra de progreso duplicados en la plantilla HTML.
+
 ---
 
 ## [1.3.2] - 2026-09-22

@@ -6,7 +6,6 @@ import threading
 import time
 import uuid
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, Any, List, Optional, Set
 
 from app.config import settings

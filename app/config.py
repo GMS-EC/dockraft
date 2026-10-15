@@ -3,7 +3,7 @@ import re
 import json
 import secrets
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = BASE_DIR / "data"

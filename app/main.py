@@ -9,13 +9,12 @@ import asyncio
 import inspect
 from datetime import datetime
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
 from fastapi import (
     FastAPI, WebSocket, WebSocketDisconnect, Depends,
     HTTPException, UploadFile, File, Form, Query, Response, Request, status
 )
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, HTMLResponse
+from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,7 +23,7 @@ from pydantic import BaseModel
 
 from app.config import settings, BASE_DIR, APP_VERSION
 from app.core.security import (
-    create_session_token, verify_admin_password, verify_admin_credentials,
+    create_session_token, verify_admin_credentials,
     verify_session_token, get_current_user, login_limiter, is_authenticated,
     get_session_max_age, revoke_token, get_token_from_request
 )

@@ -31,61 +31,27 @@
     </div>
   </div>
 
-  <!-- Dedicated Server Engine Build Management Card (Exclusive for Paper/Purpur/Folia/Velocity builds) -->
-  <div class="card {{ '' if (is_installed and server_type|lower in ['paper', 'purpur', 'folia', 'velocity']) else 'd-none' }}" id="installer-build-card" style="border: 1px solid #30363d; margin-bottom: 16px; background: linear-gradient(180deg, rgba(22, 27, 34, 0.75) 0%, rgba(13, 17, 23, 0.9) 100%);">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-          </svg>
-        </div>
-        <div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <h4 style="margin: 0; font-size: 1rem; font-weight: 700; color: #f0f6fc;" data-i18n="t_install_build_title">Compilación del Motor (Build)</h4>
-            <span class="badge" id="build-server-type-badge" style="background: rgba(56, 139, 253, 0.15); border: 1px solid #388bfd; color: #58a6ff; font-size: 0.75rem; text-transform: uppercase;">{{ server_type if is_installed else 'PAPER' }}</span>
-          </div>
-          <div style="font-size: 0.82rem; color: #8b949e; margin-top: 2px;">
-            Versión Base de Minecraft: <strong id="build-card-mc-ver" style="color: #c9d1d9;">{{ server_version or '26.3' }}</strong> &bull; Las builds actualizan el núcleo interno del motor sin alterar la versión del juego.
-          </div>
-        </div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <div id="build-status-pill" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; font-size: 0.82rem;">
-          <span style="color: #8b949e;" data-i18n="t_install_build_current">Build Actual:</span>
-          <strong id="build-current-display" style="color: #f0f6fc;">#{{ cfg.server_build if cfg.server_build else 'Detectando...' }}</strong>
-        </div>
-        <button type="button" class="btn btn-primary" id="btn-open-build-modal" onclick="Installer.openBuildModal(); return false;" style="display: inline-flex; align-items: center; gap: 7px; font-weight: 600; padding: 7px 16px; box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Unified Server Updates Section (Active when a server is already installed) -->
+  <div class="card {{ '' if is_installed else 'd-none' }}" id="installer-update-card" style="border: 1px solid #30363d; margin-bottom: 16px;">
+    
+    <!-- Header of the Updates Hub -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid #21262d;">
+      <div>
+        <div class="card-title" style="margin-bottom: 3px; display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"/>
             <polyline points="1 20 1 14 7 14"/>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
           </svg>
-          <span id="btn-open-build-modal-text" data-i18n="t_install_build_btn_change">Cambiar / Actualizar Build</span>
-        </button>
-      </div>
-    </div>
-    <!-- Notice banner inside build card if new build is available -->
-    <div id="build-new-notice-banner" style="display: none; margin-top: 12px; padding: 10px 14px; background: rgba(56, 189, 248, 0.1); border-left: 3px solid #38bdf8; border-radius: 6px; font-size: 0.84rem; color: #bae6fd;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>Nueva compilación disponible: <strong id="build-new-notice-num" style="color: #ffffff;">#--</strong> para Minecraft <span id="build-new-notice-ver">--</span>. Corrige errores del motor y optimiza rendimiento.</span>
+          <span data-i18n="t_install_update_section_title">Actualizaciones del Servidor</span>
+          <span id="update-server-type-badge" style="text-transform: uppercase; color: #58a6ff; font-weight: 700; font-size: 0.85rem;">{{ server_type if is_installed else '' }}</span>
         </div>
-        <a href="javascript:void(0)" onclick="Installer.openBuildModal(); return false;" style="color: #38bdf8; font-weight: 600; text-decoration: underline; font-size: 0.82rem;">Ver detalles y cambiar build &rarr;</a>
-      </div>
-    </div>
-  </div>
-
-  <!-- Dedicated Server Update Section (Active when a server is already installed) -->
-  <div class="card {{ '' if is_installed else 'd-none' }}" id="installer-update-card" style="border: 1px solid #30363d; margin-bottom: 16px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-      <div class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        <span data-i18n="t_install_update_title">Actualizar Servidor</span> <span id="update-server-type-badge" style="text-transform: uppercase; color: #58a6ff;">{{ server_type if is_installed else '' }}</span>
+        <div style="font-size: 0.82rem; color: #8b949e;" data-i18n="t_install_update_section_desc">
+          Tus mundos, plugins, inventarios y configuraciones (<code>server.properties</code>) se conservan intactos en cualquier actualización.
+        </div>
       </div>
       <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <span id="update-current-version-badge" style="background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
+        <span id="update-current-version-badge" style="background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;">
           Versión Actual: {{ ((server_type|upper ~ ' ' ~ server_version) if is_installed and server_version else '...') }}
         </span>
         <span id="update-status-badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; padding: 4px 10px; font-size: 0.8rem; border-radius: 6px;" data-i18n="t_install_update_checking">
@@ -96,93 +62,159 @@
       </div>
     </div>
 
-    <p style="color: #8b949e; font-size: 0.88rem; margin-bottom: 16px; line-height: 1.5;">
-      <span data-i18n="t_install_update_desc_a">Esta función actualiza el motor y ejecutables de tu servidor a la versión seleccionada.</span>
-      <strong style="color: #c9d1d9;"><span data-i18n="t_install_update_desc_b">Tus mundos, plugins, mods y configuraciones</span> (<code>server.properties</code>) <span data-i18n="t_install_update_desc_c">se conservan intactos.</span></strong>
-    </p>
-
-    <!-- Channel Tabs / Pill Switcher -->
-    <div style="margin-bottom: 14px;">
-      <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; font-weight: 500;">
-        <span data-i18n="t_install_update_channel_label">Canal de actualización:</span>
-      </div>
-      <div class="channel-pills" style="display: inline-flex; background: #0d1117; padding: 3px; border-radius: 8px; border: 1px solid var(--border-color); gap: 4px; flex-wrap: wrap;">
-        <button type="button" class="channel-pill-btn active" id="btn-channel-stable" onclick="Installer.switchUpdateChannel('stable')" style="background: var(--accent-primary); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span data-i18n="t_install_update_channel_stable">Versiones Estables (Recomendado)</span>
-        </button>
-        <button type="button" class="channel-pill-btn" id="btn-channel-beta" onclick="Installer.switchUpdateChannel('beta')" style="background: transparent; border: none; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31M14 9.3V1.99M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"/></svg>
-          <span data-i18n="t_install_update_channel_beta">Betas, Snapshots & Pre-releases</span>
-        </button>
-      </div>
-    </div>
-
-    <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
-      <!-- Stable List Container -->
-      <div class="form-group" id="update-group-stable" style="flex: 1; min-width: 240px; margin-bottom: 0;">
-        <label class="form-label" for="update-version-select-stable" data-i18n="t_install_update_select_stable">Selecciona Versión Estable</label>
-        <select class="form-select" id="update-version-select-stable" onchange="Installer.onVersionSelectChange('stable')">
-          <option value="" data-i18n="t_install_update_loading_stable">Cargando versiones estables...</option>
-        </select>
-      </div>
-
-      <!-- Beta List Container (Hidden by default) -->
-      <div class="form-group" id="update-group-beta" style="display: none; flex: 1; min-width: 240px; margin-bottom: 0;">
-        <label class="form-label" for="update-version-select-beta" style="color: #e3b341;" data-i18n="t_install_update_select_beta">Selecciona Versión Beta / Snapshot</label>
-        <select class="form-select" id="update-version-select-beta" style="border-color: rgba(210, 153, 34, 0.4);" onchange="Installer.onVersionSelectChange('beta')">
-          <option value="" data-i18n="t_install_update_loading_beta">Cargando versiones beta...</option>
-        </select>
-      </div>
-
-      <!-- Hidden compatibility select for any automated code expecting update-version-select -->
-      <select id="update-version-select" style="display: none;"></select>
-
-      <button class="btn btn-primary" id="btn-apply-update" onclick="Installer.startUpdate()" style="white-space: nowrap; height: 42px; display: flex; align-items: center; gap: 8px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        <span data-i18n="t_install_btn_update">Actualizar Servidor</span>
-      </button>
-    </div>
-
-    <div id="update-warning-badge" style="display: none; margin-top: 10px; padding: 8px 12px; background: rgba(210, 153, 34, 0.1); border-left: 3px solid #d29922; color: #e3b341; font-size: 0.82rem; border-radius: 4px;">
-    </div>
-
-    <!-- Dynamic Version Changelog & Advice Box -->
-    <div id="update-version-details-card" style="display: none; margin-top: 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px 14px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span id="update-details-channel-badge" style="font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;"></span>
-          <span id="update-details-version-title" style="font-weight: 700; font-size: 0.92rem; color: #f0f6fc;"></span>
-        </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="update-details-links-group">
-          <a id="btn-view-changelog" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; text-decoration: none; padding: 4px 10px; border-color: #388bfd; color: #58a6ff;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            <span id="btn-view-changelog-text" data-i18n="t_install_btn_view_changelog">Web Oficial y Cambios</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </a>
-          <a id="btn-view-engine-notes" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="display: none; align-items: center; gap: 6px; font-size: 0.78rem; text-decoration: none; padding: 4px 10px; color: #8b949e; border-color: #30363d;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            <span id="btn-engine-notes-label" data-i18n="t_install_btn_engine_notes">Wiki de Minecraft</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </a>
-        </div>
-      </div>
-      <div id="update-details-advice-box" style="font-size: 0.82rem; color: #8b949e; line-height: 1.45; border-top: 1px solid rgba(48, 54, 61, 0.4); padding-top: 8px;">
-        <strong id="update-details-advice-title" style="display: block; margin-bottom: 2px; color: #c9d1d9;"></strong>
-        <span id="update-details-advice-text"></span>
-      </div>
-    </div>
-
-    <!-- Update Progress Bar -->
-    <div id="update-progress-box" style="display: none; margin-top: 16px;">
-      <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #8b949e; margin-bottom: 6px;">
+    <!-- Update Progress Bar (Shared for both operations) -->
+    <div id="update-progress-box" style="display: none; margin-bottom: 16px; padding: 12px 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: #c9d1d9; margin-bottom: 6px;">
         <span id="update-progress-text" data-i18n="t_install_update_downloading">Descargando actualización...</span>
-        <span id="update-progress-percent">0%</span>
+        <strong id="update-progress-percent" style="color: #38bdf8;">0%</strong>
       </div>
-      <div style="width: 100%; height: 8px; background: #21262d; border-radius: 4px; overflow: hidden;">
-        <div id="update-progress-bar" style="width: 0%; height: 100%; background: #238636; transition: width 0.3s ease;"></div>
+      <div style="height: 7px; background: #21262d; border-radius: 4px; overflow: hidden;">
+        <div id="update-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #38bdf8, #2ea043); transition: width 0.3s ease;"></div>
       </div>
     </div>
+
+    <!-- The 2 Distinct Modules: (1) Engine Build Patches vs (2) Minecraft Game Version -->
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+
+      <!-- Block 1: Engine Build (Patches & Fixes) -->
+      <div id="installer-build-card" class="{{ '' if (is_installed and server_type|lower in ['paper', 'purpur', 'folia', 'velocity']) else 'd-none' }}" style="background: rgba(13, 17, 23, 0.7); border: 1px solid #30363d; border-radius: 8px; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 260px;">
+            <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <h4 style="margin: 0; font-size: 0.96rem; font-weight: 700; color: #f0f6fc;" data-i18n="t_install_build_card_title">
+                  1. Parches del Motor (Compilación / Build)
+                </h4>
+                <span class="badge" id="build-server-type-badge" style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; font-size: 0.72rem; text-transform: uppercase;">{{ server_type if is_installed else 'PAPER' }}</span>
+              </div>
+              <div style="font-size: 0.82rem; color: #8b949e; margin-top: 4px; line-height: 1.45;">
+                Actualiza el núcleo interno de Paper para Minecraft <strong id="build-card-mc-ver" style="color: #f0f6fc;">{{ server_version or '26.3' }}</strong>. Corrige bugs de rendimiento y seguridad <strong>sin alterar la versión del juego</strong> (tus jugadores no necesitan actualizar nada).
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div id="build-status-pill" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; font-size: 0.82rem;">
+              <span style="color: #8b949e;" data-i18n="t_install_build_current">Build Actual:</span>
+              <strong id="build-current-display" style="color: #f0f6fc;">#{{ cfg.server_build if cfg.server_build else 'Detectando...' }}</strong>
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-open-build-modal" onclick="Installer.openBuildModal(); return false;" style="display: inline-flex; align-items: center; gap: 7px; font-weight: 600; padding: 7px 16px; box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              <span id="btn-open-build-modal-text" data-i18n="t_install_build_btn_change">Cambiar / Actualizar Build</span>
+            </button>
+          </div>
+        </div>
+        <!-- Notice banner inside build card if new build is available -->
+        <div id="build-new-notice-banner" style="display: none; margin-top: 12px; padding: 10px 14px; background: rgba(56, 189, 248, 0.1); border-left: 3px solid #38bdf8; border-radius: 6px; font-size: 0.83rem; color: #bae6fd;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>Nueva compilación disponible: <strong id="build-new-notice-num" style="color: #ffffff;">#--</strong> para Minecraft <span id="build-new-notice-ver">--</span>. Corrige errores del motor y optimiza rendimiento.</span>
+            </div>
+            <a href="javascript:void(0)" onclick="Installer.openBuildModal(); return false;" style="color: #38bdf8; font-weight: 600; text-decoration: underline; font-size: 0.82rem;">Ver detalles y cambiar build &rarr;</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Block 2: Minecraft Game Version (Full Game Version Upgrade / Downgrade) -->
+      <div style="background: rgba(13, 17, 23, 0.7); border: 1px solid #30363d; border-radius: 8px; padding: 16px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+          <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(56, 139, 253, 0.15); border: 1px solid rgba(56, 139, 253, 0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+              <line x1="12" y1="22.08" x2="12" y2="12"/>
+            </svg>
+          </div>
+          <div>
+            <h4 style="margin: 0; font-size: 0.96rem; font-weight: 700; color: #f0f6fc;" data-i18n="t_install_mc_ver_card_title">
+              2. Versión del Juego (Minecraft)
+            </h4>
+            <div style="font-size: 0.82rem; color: #8b949e; margin-top: 4px; line-height: 1.45;" data-i18n="t_install_mc_ver_card_desc">
+              Cambia la versión mayor de Minecraft de tu servidor (ej. 26.3, 26.2, 1.21). <strong>Requiere que los jugadores utilicen esa misma versión de Minecraft</strong> en su cliente para conectarse.
+            </div>
+          </div>
+        </div>
+
+        <!-- Channel Pills -->
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+          <div class="channel-pills" style="display: inline-flex; background: #0d1117; padding: 3px; border-radius: 8px; border: 1px solid var(--border-color); gap: 4px;">
+            <button type="button" class="channel-pill-btn active" id="btn-channel-stable" onclick="Installer.switchUpdateChannel('stable')" style="background: var(--accent-primary); border: none; color: #fff; padding: 5px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span data-i18n="t_install_update_channel_stable">Versiones Estables (Recomendado)</span>
+            </button>
+            <button type="button" class="channel-pill-btn" id="btn-channel-beta" onclick="Installer.switchUpdateChannel('beta')" style="background: transparent; border: none; color: var(--text-muted); padding: 5px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31M14 9.3V1.99M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"/></svg>
+              <span data-i18n="t_install_update_channel_beta">Betas, Snapshots & Pre-releases</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Version Select & Action Button -->
+        <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+          <div class="form-group" id="update-group-stable" style="flex: 1; min-width: 240px; margin-bottom: 0;">
+            <label class="form-label" for="update-version-select-stable" style="font-size: 0.82rem; margin-bottom: 4px;" data-i18n="t_install_update_select_stable">Selecciona Versión Estable:</label>
+            <select class="form-select" id="update-version-select-stable" onchange="Installer.onVersionSelectChange('stable')">
+              <option value="" data-i18n="t_install_update_loading_stable">Cargando versiones estables...</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="update-group-beta" style="display: none; flex: 1; min-width: 240px; margin-bottom: 0;">
+            <label class="form-label" for="update-version-select-beta" style="color: #e3b341; font-size: 0.82rem; margin-bottom: 4px;" data-i18n="t_install_update_select_beta">Selecciona Versión Beta / Snapshot:</label>
+            <select class="form-select" id="update-version-select-beta" style="border-color: rgba(210, 153, 34, 0.4);" onchange="Installer.onVersionSelectChange('beta')">
+              <option value="" data-i18n="t_install_update_loading_beta">Cargando versiones beta...</option>
+            </select>
+          </div>
+
+          <select id="update-version-select" style="display: none;"></select>
+
+          <button class="btn btn-outline" id="btn-apply-update" onclick="Installer.startUpdate()" style="white-space: nowrap; height: 38px; display: flex; align-items: center; gap: 8px; font-weight: 600; border-color: #388bfd; color: #58a6ff;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <span id="btn-apply-update-text" data-i18n="t_install_btn_change_generic">Cambiar Versión de Minecraft</span>
+          </button>
+        </div>
+
+        <div id="update-warning-badge" style="display: none; margin-top: 10px; padding: 8px 12px; background: rgba(210, 153, 34, 0.1); border-left: 3px solid #d29922; color: #e3b341; font-size: 0.82rem; border-radius: 4px;">
+        </div>
+
+        <!-- Dynamic Version Changelog & Advice Box -->
+        <div id="update-version-details-card" style="display: none; margin-top: 12px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="update-details-channel-badge" style="font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;"></span>
+              <span id="update-details-version-title" style="font-weight: 700; font-size: 0.92rem; color: #f0f6fc;"></span>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="update-details-links-group">
+              <a id="btn-view-changelog" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; text-decoration: none; padding: 4px 10px; border-color: #388bfd; color: #58a6ff;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span id="btn-view-changelog-text" data-i18n="t_install_btn_view_changelog">Web Oficial y Cambios</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+              <a id="btn-view-engine-notes" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="display: none; align-items: center; gap: 6px; font-size: 0.78rem; text-decoration: none; padding: 4px 10px; color: #8b949e; border-color: #30363d;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span id="btn-engine-notes-label" data-i18n="t_install_btn_engine_notes">Wiki de Minecraft</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            </div>
+          </div>
+          <div id="update-details-advice-box" style="font-size: 0.82rem; color: #8b949e; line-height: 1.45; border-top: 1px solid rgba(48, 54, 61, 0.4); padding-top: 8px;">
+            <strong id="update-details-advice-title" style="display: block; margin-bottom: 2px; color: #c9d1d9;"></strong>
+            <span id="update-details-advice-text"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 
     <!-- Dedicated Sub-section: Plugin Updates (Detected from Console) -->
     <div id="update-plugins-subsection" class="{{ 'd-none' if (not is_installed or server_type|lower == 'bedrock') else '' }}" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(48, 54, 61, 0.6);">

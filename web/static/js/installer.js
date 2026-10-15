@@ -562,10 +562,10 @@ const Installer = {
         } else if (data.build_update_available && (data.current_version === data.latest_stable || !data.latest_stable)) {
           const zapSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -1px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
           statusBadge.innerHTML = zapSvg + I18n.fmt('t_install_new_build_available_html', [escapeHtml(String(data.latest_build || ''))]);
-          statusBadge.style.background = 'rgba(210, 153, 34, 0.15)';
-          statusBadge.style.borderColor = '#d29922';
-          statusBadge.style.color = '#e3b341';
-          statusBadge.title = I18n.fmt('t_install_click_select_ver', [data.current_version]);
+          statusBadge.style.background = 'rgba(56, 189, 248, 0.15)';
+          statusBadge.style.borderColor = '#38bdf8';
+          statusBadge.style.color = '#38bdf8';
+          statusBadge.title = I18n.t('t_install_build_btn_change') || 'Cambiar / Actualizar Build';
           statusBadge.onclick = () => {
             this.openBuildModal();
           };
@@ -618,19 +618,9 @@ const Installer = {
       }
 
       if (warningBadge) {
-        if (data.build_update_available && data.latest_build) {
-          warningBadge.style.display = 'flex';
-          warningBadge.style.alignItems = 'center';
-          warningBadge.style.gap = '8px';
-          warningBadge.style.cursor = 'pointer';
-          const zapSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
-          const currentB = data.current_build ? `#${data.current_build}` : (I18n.t('t_install_unknown') || '?');
-          warningBadge.innerHTML = `${zapSvg} <span>${I18n.fmt('t_install_build_alert_banner', [data.latest_build, currentB])}</span>`;
-          warningBadge.onclick = () => this.openBuildModal();
-        } else {
-          warningBadge.style.display = 'none';
-          warningBadge.onclick = null;
-        }
+        // Dedicated build notice banner is handled inside Block 1 (#installer-build-card)
+        warningBadge.style.display = 'none';
+        warningBadge.onclick = null;
       }
 
       // Update Dedicated Build Card
@@ -689,21 +679,10 @@ const Installer = {
       // Populate Stable Select
       if (selectStable) {
         selectStable.innerHTML = '';
-        const curVerClean = String(data.current_version || '').trim();
-        const latStClean = String(data.latest_stable || '').trim();
         stables.forEach(v => {
           const opt = document.createElement('option');
           opt.value = v.id;
-          let labelText = v.label || v.id;
-          const vidClean = String(v.id || '').trim();
-          if (data.latest_build && (vidClean === latStClean || vidClean === curVerClean)) {
-            if (data.build_update_available) {
-              labelText += ` — Build #${data.latest_build} (${I18n.t('t_install_new_build_badge') || 'Nueva compilación'})`;
-            } else if (data.current_build && vidClean === curVerClean) {
-              labelText += ` — Build #${data.current_build} (${I18n.t('t_install_current_build_badge') || 'Compilación actual'})`;
-            }
-          }
-          opt.textContent = labelText;
+          opt.textContent = v.label || v.id;
           opt.setAttribute('data-channel', 'stable');
           selectStable.appendChild(opt);
         });
@@ -838,29 +817,27 @@ const Installer = {
     const selectBeta = document.getElementById('update-version-select-beta');
     const selectedVer = String((this.currentUpdateChannel === 'beta' ? selectBeta?.value : selectStable?.value) || '').trim();
     const curVerClean = String(data.current_version || '').trim();
-    const latStClean = String(data.latest_stable || '').trim();
 
-    const zapSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+    const cubeSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
 
-    const isSameVersion = Boolean(selectedVer && (selectedVer === curVerClean));
-    const isLatestStable = Boolean(selectedVer && (selectedVer === latStClean));
-    const hasNewBuild = Boolean(data.build_update_available && data.latest_build && (isSameVersion || isLatestStable));
-
-    if (hasNewBuild) {
-      const btnText = I18n.fmt('t_install_btn_update_to_build', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`;
-      btn.innerHTML = `${zapSvg} <span>${escapeHtml(btnText)}</span>`;
-      btn.style.boxShadow = '0 0 10px rgba(210, 153, 34, 0.4)';
-      btn.style.borderColor = '#d29922';
-    } else if (selectedVer && selectedVer !== data.current_version) {
-      const btnText = I18n.fmt('t_install_btn_update_to_ver', [selectedVer]) || `Actualizar a ${selectedVer}`;
-      btn.innerHTML = `${zapSvg} <span>${escapeHtml(btnText)}</span>`;
+    if (selectedVer && curVerClean && selectedVer === curVerClean) {
+      const btnText = I18n.fmt('t_install_btn_reinstall_mc_ver', [selectedVer]) || `Reinstalar Minecraft ${selectedVer}`;
+      btn.innerHTML = `${cubeSvg} <span>${escapeHtml(btnText)}</span>`;
       btn.style.boxShadow = '';
-      btn.style.borderColor = '';
+      btn.style.borderColor = '#388bfd';
+      btn.style.color = '#58a6ff';
+    } else if (selectedVer) {
+      const btnText = I18n.fmt('t_install_btn_change_mc_ver', [selectedVer]) || `Cambiar a Minecraft ${selectedVer}`;
+      btn.innerHTML = `${cubeSvg} <span>${escapeHtml(btnText)}</span>`;
+      btn.style.boxShadow = '0 0 10px rgba(56, 139, 253, 0.3)';
+      btn.style.borderColor = '#388bfd';
+      btn.style.color = '#58a6ff';
     } else {
-      const btnText = I18n.t('t_install_btn_update') || 'Actualizar Servidor';
-      btn.innerHTML = `${zapSvg} <span>${escapeHtml(btnText)}</span>`;
+      const btnText = I18n.t('t_install_btn_change_generic') || 'Cambiar Versión de Minecraft';
+      btn.innerHTML = `${cubeSvg} <span>${escapeHtml(btnText)}</span>`;
       btn.style.boxShadow = '';
-      btn.style.borderColor = '';
+      btn.style.borderColor = '#388bfd';
+      btn.style.color = '#58a6ff';
     }
   },
 
@@ -1017,19 +994,8 @@ const Installer = {
       }
     }
 
-    const curVerClean = String(data.current_version || '').trim();
-    const latStClean = String(data.latest_stable || '').trim();
-    const selVerClean = String(selectedVersionId || '').trim();
-    const isSameVersion = Boolean(selVerClean && (selVerClean === curVerClean));
-    const isLatestStable = Boolean(selVerClean && (selVerClean === latStClean));
-    const hasNewBuild = Boolean(data.build_update_available && data.latest_build && (isSameVersion || isLatestStable));
-
     if (titleEl) {
-      let titleStr = `${meta.serverType.toUpperCase()} ${item.label || meta.versionId}`;
-      if (hasNewBuild) {
-        titleStr += ` — Build #${data.latest_build}`;
-      }
-      titleEl.textContent = titleStr;
+      titleEl.textContent = `${meta.serverType.toUpperCase()} ${item.label || meta.versionId}`;
     }
 
     if (btnOfficial) {
@@ -1049,16 +1015,6 @@ const Installer = {
       } else {
         btnWiki.style.display = 'none';
       }
-    }
-
-    if (hasNewBuild) {
-      const curB = data.current_build ? `#${data.current_build}` : (I18n.t('t_install_unknown') || '?');
-      meta.adviceTitle = I18n.fmt('t_install_advice_build_update_title', [data.latest_build]) || `Nueva Compilación Disponible: Build #${data.latest_build}`;
-      meta.adviceText = I18n.fmt('t_install_advice_build_update_text', [
-        data.latest_build,
-        curB,
-        meta.cleanVer
-      ]) || `PaperMC ha publicado la Build #${data.latest_build} (actualmente tu servidor tiene la compilación ${curB}). Esta actualización incluye parches recientes y correcciones de estabilidad para Minecraft ${meta.cleanVer}. Tus mundos, plugins y configuraciones se conservarán intactos.`;
     }
 
     if (adviceTitle && adviceText) {
@@ -1166,21 +1122,15 @@ const Installer = {
 
     const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
     const curVerClean = String(data.current_version || '').trim();
-    const latStClean = String(data.latest_stable || '').trim();
     const targetVerClean = String(targetVer || '').trim();
     const isSameVersion = (targetVerClean === curVerClean);
-    const isLatestStable = (targetVerClean === latStClean);
-    const isBuildUpdate = Boolean(data.build_update_available && (isSameVersion || isLatestStable) && data.latest_build);
     const isBetaTarget = (this.currentUpdateChannel === 'beta');
     const betaNotice = isBetaTarget ? '\n\n' + I18n.t('t_install_beta_notice') : '';
 
-    if (isBuildUpdate) {
-      this.openBuildModal(data.latest_build);
-      return;
-    }
-
-    const confirmTitle = I18n.t('t_install_btn_update') || 'Actualizar Servidor';
-    const confirmBtnText = I18n.t('t_install_btn_update') || 'Actualizar Servidor';
+    const confirmTitle = isSameVersion
+      ? (I18n.fmt('t_install_btn_reinstall_mc_ver', [targetVer]) || `Reinstalar Minecraft ${targetVer}`)
+      : (I18n.fmt('t_install_btn_change_mc_ver', [targetVer]) || `Cambiar a Minecraft ${targetVer}`);
+    const confirmBtnText = confirmTitle;
     const confirmMessage = isRunning
       ? I18n.fmt('t_install_update_confirm_running', [targetVer]) + betaNotice
       : I18n.fmt('t_install_update_confirm_stopped', [targetVer]) + betaNotice;
@@ -1625,17 +1575,6 @@ const Installer = {
     } finally {
       if (btn) btn.disabled = false;
     }
-  },
-
-  // Compatibility helpers
-  async loadInstalledPlugins(stats) {
-    return this.loadConsolePluginUpdates();
-  },
-  async checkPluginUpdates() {
-    return this.scanConsolePluginUpdates();
-  },
-  async notifyPluginUpdates() {
-    return this.notifyConsolePluginUpdates();
   },
 
   // --- Dedicated Server Engine Build Modal & Operations ---

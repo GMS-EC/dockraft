@@ -2,7 +2,7 @@ import hmac
 import hashlib
 import time
 from typing import Optional, Dict, Any, Tuple, Set
-from fastapi import HTTPException, Security, Request, Query, status
+from fastapi import HTTPException, Security, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
 

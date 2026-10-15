@@ -5,7 +5,7 @@ import shutil
 import time
 import zipfile
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from fastapi import HTTPException, UploadFile
 from app.config import settings
 from app.core.fs_utils import atomic_write_text

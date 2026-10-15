@@ -1,8 +1,7 @@
 import re
-import os
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 import httpx
 from app.config import settings
 

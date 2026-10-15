@@ -1,6 +1,5 @@
 import os
 import stat
-import time
 import zipfile
 import shutil
 from datetime import datetime
