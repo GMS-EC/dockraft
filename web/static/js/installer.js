@@ -437,40 +437,25 @@ const Installer = {
 
       App.showToast(I18n.t('t_install_toast_download_bg'), 'success');
 
-      // Poll progress
-      this.pollingInterval = setInterval(async () => {
-        try {
-          const pRes = await fetch('/api/installer/progress');
-          const pData = await pRes.json();
-          if (progressBar) progressBar.style.width = `${pData.percent || 0}%`;
-          const st = pData.status || 'Downloading';
-          const stText = this.mapStatusText(st);
-          if (progressText) progressText.textContent = `${stText} (${pData.percent || 0}%)`;
-
-          if (pData.status === 'completed') {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = null;
-            this.isInstalling = false;
-            App.showToast(I18n.t('t_install_toast_installed_ok'), 'success');
-            await this.checkLockState();
-            setTimeout(() => {
-              App.switchTab('console');
-            }, 1200);
-          } else if (pData.status && pData.status.startsWith('error')) {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = null;
-            this.isInstalling = false;
-            btn.disabled = false;
-            btn.textContent = I18n.t('t_install_btn_install');
-            App.showToast(I18n.fmt('t_install_err_download', [pData.status]), 'danger');
-          }
-        } catch (err) {
-          clearInterval(this.pollingInterval);
-          this.pollingInterval = null;
-          this.isInstalling = false;
+      this._pollInstallerProgress({
+        barEl: progressBar,
+        textEl: progressText,
+        defaultStatus: 'Downloading',
+        onComplete: async () => {
+          App.showToast(I18n.t('t_install_toast_installed_ok'), 'success');
+          await this.checkLockState();
+          setTimeout(() => {
+            App.switchTab('console');
+          }, 1200);
+        },
+        onError: (statusMsg) => {
           btn.disabled = false;
+          btn.textContent = I18n.t('t_install_btn_install');
+          if (statusMsg) {
+            App.showToast(I18n.fmt('t_install_err_download', [statusMsg]), 'danger');
+          }
         }
-      }, 800);
+      });
 
     } catch (e) {
       if (this.pollingInterval) {
@@ -928,6 +913,66 @@ const Installer = {
     };
   },
 
+  _renderVersionDetailsCard(ids, meta, item = {}) {
+    const card = document.getElementById(ids.card);
+    if (!card) return;
+    card.style.display = 'block';
+
+    const chBadge = document.getElementById(ids.badge);
+    const titleEl = document.getElementById(ids.title);
+    const btnOfficial = document.getElementById(ids.btnOfficial);
+    const btnOfficialText = document.getElementById(ids.btnOfficialText);
+    const btnWiki = document.getElementById(ids.btnWiki);
+    const btnWikiLabel = document.getElementById(ids.btnWikiLabel);
+    const adviceTitle = document.getElementById(ids.adviceTitle);
+    const adviceText = document.getElementById(ids.adviceText);
+
+    if (chBadge) {
+      if (meta.isStable) {
+        chBadge.textContent = I18n.t('t_install_channel_stable') || 'Estable';
+        chBadge.style.background = 'rgba(46, 160, 67, 0.15)';
+        chBadge.style.border = '1px solid #2ea043';
+        chBadge.style.color = '#3fb950';
+      } else {
+        const chName = (item.channel === 'pre' || meta.versionId.includes('-pre')) ? 'Pre-Release' :
+                       (item.channel === 'preview' || meta.versionId.includes('preview') || meta.serverType === 'bedrock') ? 'Preview / Beta' :
+                       (meta.versionId.includes('-rc') ? 'Release Candidate' : 'Snapshot');
+        chBadge.textContent = chName;
+        chBadge.style.background = 'rgba(210, 153, 34, 0.15)';
+        chBadge.style.border = '1px solid #d29922';
+        chBadge.style.color = '#e3b341';
+      }
+    }
+
+    if (titleEl) {
+      titleEl.textContent = `${(meta.serverType || 'Minecraft').toUpperCase()} ${item.label || meta.versionId}`;
+    }
+
+    if (btnOfficial) {
+      btnOfficial.href = meta.officialUrl;
+      if (btnOfficialText) {
+        btnOfficialText.textContent = meta.officialLabel || I18n.t('t_install_btn_view_changelog') || 'Web Oficial y Cambios';
+      }
+    }
+
+    if (btnWiki) {
+      if (meta.wikiUrl) {
+        btnWiki.style.display = 'inline-flex';
+        btnWiki.href = meta.wikiUrl;
+        if (btnWikiLabel) {
+          btnWikiLabel.textContent = meta.wikiLabel || I18n.t('t_install_btn_engine_notes') || 'Wiki de Minecraft';
+        }
+      } else {
+        btnWiki.style.display = 'none';
+      }
+    }
+
+    if (adviceTitle && adviceText) {
+      adviceTitle.textContent = meta.adviceTitle;
+      adviceText.textContent = meta.adviceText;
+    }
+  },
+
   updateVersionChangelogCard(selectedVersionId, channel) {
     const card = document.getElementById('update-version-details-card');
     if (!card) return;
@@ -966,61 +1011,17 @@ const Installer = {
     if (item.advice_text) meta.adviceText = item.advice_text;
     if (item.clean_version) meta.cleanVer = item.clean_version;
 
-    card.style.display = 'block';
-
-    const chBadge = document.getElementById('update-details-channel-badge');
-    const titleEl = document.getElementById('update-details-version-title');
-    const btnOfficial = document.getElementById('btn-view-changelog');
-    const btnOfficialText = document.getElementById('btn-view-changelog-text');
-    const btnWiki = document.getElementById('btn-view-engine-notes');
-    const btnWikiLabel = document.getElementById('btn-engine-notes-label');
-    const adviceTitle = document.getElementById('update-details-advice-title');
-    const adviceText = document.getElementById('update-details-advice-text');
-
-    if (chBadge) {
-      if (meta.isStable) {
-        chBadge.textContent = I18n.t('t_install_channel_stable') || 'Estable';
-        chBadge.style.background = 'rgba(46, 160, 67, 0.15)';
-        chBadge.style.border = '1px solid #2ea043';
-        chBadge.style.color = '#3fb950';
-      } else {
-        const chName = (item.channel === 'pre' || meta.versionId.includes('-pre')) ? 'Pre-Release' :
-                       (item.channel === 'preview' || meta.versionId.includes('preview') || meta.serverType === 'bedrock') ? 'Preview / Beta' :
-                       (meta.versionId.includes('-rc') ? 'Release Candidate' : 'Snapshot');
-        chBadge.textContent = chName;
-        chBadge.style.background = 'rgba(210, 153, 34, 0.15)';
-        chBadge.style.border = '1px solid #d29922';
-        chBadge.style.color = '#e3b341';
-      }
-    }
-
-    if (titleEl) {
-      titleEl.textContent = `${meta.serverType.toUpperCase()} ${item.label || meta.versionId}`;
-    }
-
-    if (btnOfficial) {
-      btnOfficial.href = meta.officialUrl;
-      if (btnOfficialText) {
-        btnOfficialText.textContent = meta.officialLabel || I18n.t('t_install_btn_view_changelog') || 'Web Oficial y Cambios';
-      }
-    }
-
-    if (btnWiki) {
-      if (meta.wikiUrl) {
-        btnWiki.style.display = 'inline-flex';
-        btnWiki.href = meta.wikiUrl;
-        if (btnWikiLabel) {
-          btnWikiLabel.textContent = meta.wikiLabel || I18n.t('t_install_btn_engine_notes') || 'Wiki de Minecraft';
-        }
-      } else {
-        btnWiki.style.display = 'none';
-      }
-    }
-
-    if (adviceTitle && adviceText) {
-      adviceTitle.textContent = meta.adviceTitle;
-      adviceText.textContent = meta.adviceText;
-    }
+    this._renderVersionDetailsCard({
+      card: 'update-version-details-card',
+      badge: 'update-details-channel-badge',
+      title: 'update-details-version-title',
+      btnOfficial: 'btn-view-changelog',
+      btnOfficialText: 'btn-view-changelog-text',
+      btnWiki: 'btn-view-engine-notes',
+      btnWikiLabel: 'btn-engine-notes-label',
+      adviceTitle: 'update-details-advice-title',
+      adviceText: 'update-details-advice-text'
+    }, meta, item);
   },
 
   onInstallVersionChange() {
@@ -1036,58 +1037,17 @@ const Installer = {
     }
 
     const meta = this.buildVersionMeta(this.selectedType, vid, null);
-    card.style.display = 'block';
-
-    const chBadge = document.getElementById('install-details-channel-badge');
-    const titleEl = document.getElementById('install-details-version-title');
-    const btnOfficial = document.getElementById('btn-install-view-changelog');
-    const btnOfficialText = document.getElementById('btn-install-view-changelog-text');
-    const btnWiki = document.getElementById('btn-install-view-engine-notes');
-    const btnWikiLabel = document.getElementById('btn-install-engine-notes-label');
-    const adviceTitle = document.getElementById('install-details-advice-title');
-    const adviceText = document.getElementById('install-details-advice-text');
-
-    if (chBadge) {
-      if (meta.isStable) {
-        chBadge.textContent = I18n.t('t_install_channel_stable') || 'Estable';
-        chBadge.style.background = 'rgba(46, 160, 67, 0.15)';
-        chBadge.style.border = '1px solid #2ea043';
-        chBadge.style.color = '#3fb950';
-      } else {
-        chBadge.textContent = (meta.versionId.includes('-pre') ? 'Pre-Release' : (meta.versionId.includes('-rc') ? 'Release Candidate' : 'Snapshot / Beta'));
-        chBadge.style.background = 'rgba(210, 153, 34, 0.15)';
-        chBadge.style.border = '1px solid #d29922';
-        chBadge.style.color = '#e3b341';
-      }
-    }
-
-    if (titleEl) {
-      titleEl.textContent = `${(meta.serverType || 'Minecraft').toUpperCase()} ${meta.versionId}`;
-    }
-
-    if (btnOfficial) {
-      btnOfficial.href = meta.officialUrl;
-      if (btnOfficialText) {
-        btnOfficialText.textContent = meta.officialLabel || I18n.t('t_install_btn_view_changelog') || 'Web Oficial y Cambios';
-      }
-    }
-
-    if (btnWiki) {
-      if (meta.wikiUrl) {
-        btnWiki.style.display = 'inline-flex';
-        btnWiki.href = meta.wikiUrl;
-        if (btnWikiLabel) {
-          btnWikiLabel.textContent = meta.wikiLabel || I18n.t('t_install_btn_engine_notes') || 'Wiki de Minecraft';
-        }
-      } else {
-        btnWiki.style.display = 'none';
-      }
-    }
-
-    if (adviceTitle && adviceText) {
-      adviceTitle.textContent = meta.adviceTitle;
-      adviceText.textContent = meta.adviceText;
-    }
+    this._renderVersionDetailsCard({
+      card: 'install-version-details-card',
+      badge: 'install-details-channel-badge',
+      title: 'install-details-version-title',
+      btnOfficial: 'btn-install-view-changelog',
+      btnOfficialText: 'btn-install-view-changelog-text',
+      btnWiki: 'btn-install-view-engine-notes',
+      btnWikiLabel: 'btn-install-engine-notes-label',
+      adviceTitle: 'install-details-advice-title',
+      adviceText: 'install-details-advice-text'
+    }, meta);
   },
 
   async startUpdate() {
@@ -1170,49 +1130,25 @@ const Installer = {
 
       App.showToast(I18n.t('t_install_toast_update_started'), 'info');
 
-      // Poll progress
-      if (this.pollingInterval) clearInterval(this.pollingInterval);
-      this.pollingInterval = setInterval(async () => {
-        try {
-          const pRes = await fetch('/api/installer/progress');
-          const pData = await pRes.json();
-          const pct = pData.percent || 0;
-          if (pBar) pBar.style.width = `${pct}%`;
-          if (pPct) pPct.textContent = `${pct}%`;
-          const st = pData.status || 'Updating';
-          const stText = this.mapStatusText(st);
-          if (pText) pText.textContent = `${stText} (${pct}%)`;
-
-          if (pData.status === 'completed') {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = null;
-            this.isInstalling = false;
-            if (btn) {
-              btn.disabled = false;
-            }
-            this.updateApplyButtonText();
-            App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
-            await this.checkLockState();
-          } else if (pData.status && pData.status.startsWith('error')) {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = null;
-            this.isInstalling = false;
-            if (btn) {
-              btn.disabled = false;
-            }
-            this.updateApplyButtonText();
-            App.showToast(I18n.fmt('t_install_err_update_fail', [pData.status]), 'danger');
-          }
-        } catch (err) {
-          clearInterval(this.pollingInterval);
-          this.pollingInterval = null;
-          this.isInstalling = false;
-          if (btn) {
-            btn.disabled = false;
-          }
+      this._pollInstallerProgress({
+        barEl: pBar,
+        pctEl: pPct,
+        textEl: pText,
+        defaultStatus: 'Updating',
+        onComplete: async () => {
+          if (btn) btn.disabled = false;
           this.updateApplyButtonText();
+          App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
+          await this.checkLockState();
+        },
+        onError: (statusMsg) => {
+          if (btn) btn.disabled = false;
+          this.updateApplyButtonText();
+          if (statusMsg) {
+            App.showToast(I18n.fmt('t_install_err_update_fail', [statusMsg]), 'danger');
+          }
         }
-      }, 800);
+      });
 
     } catch (e) {
       this.isInstalling = false;
@@ -1581,108 +1517,41 @@ const Installer = {
   _buildCommitMap: {},
   _buildEscHandler: null,
 
-  ensureBuildModal() {
-    let modal = document.getElementById('modal-change-build');
-    if (modal) return modal;
+  _pollInstallerProgress({ barEl, pctEl, textEl, defaultStatus = 'Downloading', onComplete, onError }) {
+    if (this.pollingInterval) clearInterval(this.pollingInterval);
+    this.pollingInterval = setInterval(async () => {
+      try {
+        const pRes = await fetch('/api/installer/progress');
+        const pData = await pRes.json();
+        const pct = pData.percent || 0;
+        if (barEl) barEl.style.width = `${pct}%`;
+        if (pctEl) pctEl.textContent = `${pct}%`;
+        const st = pData.status || defaultStatus;
+        const stText = this.mapStatusText(st);
+        if (textEl) textEl.textContent = `${stText} (${pct}%)`;
 
-    modal = document.createElement('div');
-    modal.className = 'modal-backdrop modal-dialog-backdrop';
-    modal.id = 'modal-change-build';
-    modal.style.zIndex = '1200';
-    modal.innerHTML = `
-      <div class="modal-box modal-dialog-box" style="max-width: 580px;">
-        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid #30363d;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-              </svg>
-            </div>
-            <div>
-              <h3 style="font-size: 1.05rem; font-weight: 700; color: #f0f6fc; margin: 0;" data-i18n="t_install_build_modal_title">${I18n.t('t_install_build_modal_title') || 'Cambiar Compilación del Motor (Build)'}</h3>
-              <div style="font-size: 0.8rem; color: #8b949e; margin-top: 2px;" data-i18n="t_install_build_modal_subtitle">
-                ${I18n.t('t_install_build_modal_subtitle') || 'Actualización del motor interno de Paper / Purpur'}
-              </div>
-            </div>
-          </div>
-          <button class="action-icon-btn" onclick="Installer.closeBuildModal()" type="button" aria-label="Cerrar">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        <div class="modal-body" style="padding: 20px;">
-          <div style="padding: 12px 14px; background: rgba(13, 17, 23, 0.85); border: 1px solid #30363d; border-radius: 8px; margin-bottom: 16px;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <strong style="color: #f0f6fc; font-size: 0.88rem;" data-i18n="t_install_build_modal_info_title">${I18n.t('t_install_build_modal_info_title') || 'Información de la Actualización de Build'}</strong>
-            </div>
-            <p style="font-size: 0.84rem; color: #8b949e; line-height: 1.5; margin: 0;">
-              La versión base de Minecraft se mantendrá en <strong id="modal-build-mc-version" style="color: #58a6ff;">--</strong>.
-              Cambiar la <em>build</em> actualiza los ejecutables internos del servidor con las últimas correcciones de rendimiento, parches de seguridad y estabilidad publicados por el equipo desarrollador.
-            </p>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 18px; padding: 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px;">
-            <div style="text-align: center; padding: 8px;">
-              <div style="font-size: 0.75rem; text-transform: uppercase; color: #8b949e; font-weight: 600; margin-bottom: 4px;" data-i18n="t_install_build_modal_installed">${I18n.t('t_install_build_modal_installed') || 'Build Instalada'}</div>
-              <div id="modal-build-current-val" style="font-size: 1.35rem; font-weight: 700; color: #f0f6fc;">--</div>
-              <div style="font-size: 0.75rem; color: #8b949e; margin-top: 2px;">En uso actual</div>
-            </div>
-            <div style="display: flex; justify-content: center; align-items: center; color: #38bdf8;">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"/>
-                <polyline points="12 5 19 12 12 19"/>
-              </svg>
-            </div>
-            <div style="text-align: center; padding: 8px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px;">
-              <div style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; font-weight: 600; margin-bottom: 4px;" data-i18n="t_install_build_modal_target">${I18n.t('t_install_build_modal_target') || 'Build de Destino'}</div>
-              <div id="modal-build-target-display" style="font-size: 1.35rem; font-weight: 700; color: #38bdf8;">--</div>
-              <div style="font-size: 0.75rem; color: #3fb950; font-weight: 600; margin-top: 2px;" id="modal-build-target-badge" data-i18n="t_install_build_modal_recommended">${I18n.t('t_install_build_modal_recommended') || 'Recomendada'}</div>
-            </div>
-          </div>
-          <div class="form-group" style="margin-bottom: 16px;">
-            <label class="form-label" for="modal-build-select" style="font-size: 0.85rem; font-weight: 600; color: #f0f6fc; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
-              <span data-i18n="t_install_build_modal_select_label">${I18n.t('t_install_build_modal_select_label') || 'Seleccionar Compilación (Build):'}</span>
-              <span id="modal-build-loading-spinner" style="display: none; font-size: 0.75rem; color: #8b949e; align-items: center; gap: 4px;">
-                <svg class="spin-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                <span data-i18n="t_install_build_modal_loading">${I18n.t('t_install_build_modal_loading') || 'Cargando lista...'}</span>
-              </span>
-            </label>
-            <select class="form-select" id="modal-build-select" onchange="Installer.onModalBuildChange()" style="font-size: 0.92rem; padding: 9px 12px;">
-              <option value="">Cargando builds disponibles...</option>
-            </select>
-            <div class="field-hint" style="margin-top: 4px; font-size: 0.78rem; color: #8b949e;" data-i18n="t_install_build_modal_select_hint">
-              ${I18n.t('t_install_build_modal_select_hint') || 'Puedes seleccionar la compilación más reciente o cualquier versión anterior disponible para tu versión de Minecraft.'}
-            </div>
-          </div>
-          <div id="modal-build-changelog-box" style="display: none; padding: 10px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; margin-bottom: 16px; font-size: 0.8rem; color: #c9d1d9;">
-            <div style="font-weight: 600; color: #8b949e; margin-bottom: 4px; font-size: 0.75rem; text-transform: uppercase;">Cambios en esta Build:</div>
-            <div id="modal-build-changelog-text" style="line-height: 1.4; color: #e6edf3;"></div>
-          </div>
-          <div style="padding: 12px 14px; background: rgba(46, 160, 67, 0.08); border: 1px solid rgba(46, 160, 67, 0.3); border-radius: 8px;">
-            <div style="font-size: 0.82rem; font-weight: 700; color: #3fb950; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              <span data-i18n="t_install_build_modal_safety_title">${I18n.t('t_install_build_modal_safety_title') || 'Garantías de Seguridad del Proceso'}</span>
-            </div>
-            <ul style="margin: 0; padding-left: 18px; font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
-              <li data-i18n="t_install_build_modal_safety_1"><strong>Copia de seguridad preventiva</strong> automática antes de aplicar cualquier cambio.</li>
-              <li data-i18n="t_install_build_modal_safety_2"><strong>Tus mundos, inventarios, plugins y configuraciones</strong> quedan 100% intactos.</li>
-              <li data-i18n="t_install_build_modal_safety_3"><strong>Verificación de integridad (SHA-256)</strong> para prevenir archivos corruptos o descargas truncadas.</li>
-              <li data-i18n="t_install_build_modal_safety_4"><strong>Guardado seguro</strong> (<code>save-all</code>) y reinicio automático del servidor si estaba encendido.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid #30363d; display: flex; justify-content: flex-end; gap: 10px;">
-          <button type="button" class="btn btn-outline" onclick="Installer.closeBuildModal()" data-i18n="t_install_btn_cancel">${I18n.t('t_install_btn_cancel') || 'Cancelar'}</button>
-          <button type="button" class="btn btn-primary" id="btn-modal-apply-build" onclick="Installer.applyBuildFromModal()" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-            </svg>
-            <span id="btn-modal-apply-build-text">Instalar Build</span>
-          </button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    return modal;
+        if (pData.status === 'completed' || (pct >= 100 && pData.is_downloading === false)) {
+          clearInterval(this.pollingInterval);
+          this.pollingInterval = null;
+          this.isInstalling = false;
+          if (onComplete) await onComplete(pData);
+        } else if (pData.status && pData.status.startsWith('error')) {
+          clearInterval(this.pollingInterval);
+          this.pollingInterval = null;
+          this.isInstalling = false;
+          if (onError) onError(pData.status);
+        }
+      } catch (err) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+        this.isInstalling = false;
+        if (onError) onError(null);
+      }
+    }, 800);
+  },
+
+  ensureBuildModal() {
+    return document.getElementById('modal-change-build');
   },
 
   async openBuildModal(targetBuildId) {
@@ -1934,45 +1803,33 @@ const Installer = {
         throw new Error(resData.detail || I18n.t('t_install_err_update_start'));
       }
 
-      // Poll progress
-      if (this.pollingInterval) clearInterval(this.pollingInterval);
-      this.pollingInterval = setInterval(async () => {
-        try {
-          const pRes = await fetch('/api/installer/progress');
-          const pData = await pRes.json();
-          const pct = pData.percent || 0;
-          if (pBar) pBar.style.width = `${pct}%`;
-          if (pPct) pPct.textContent = `${pct}%`;
-
-          let statusText = pData.status || '';
-          if (statusText === 'downloading') statusText = I18n.t('t_install_status_downloading');
-          else if (statusText === 'verifying') statusText = I18n.t('t_install_status_verifying');
-          else if (statusText === 'extracting') statusText = I18n.t('t_install_status_extracting');
-          else if (statusText === 'updating') statusText = I18n.t('t_install_status_updating');
-          else if (statusText === 'completed') statusText = I18n.t('t_install_status_completed');
-
-          if (pText && statusText) {
-            pText.textContent = `${statusText}...`;
+      this._pollInstallerProgress({
+        barEl: pBar,
+        pctEl: pPct,
+        textEl: pText,
+        defaultStatus: 'Updating',
+        onComplete: () => {
+          setTimeout(() => {
+            if (pBox) pBox.style.display = 'none';
+            if (btnApply) {
+              btnApply.disabled = false;
+              btnApply.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span data-i18n="t_install_btn_update">${I18n.t('t_install_btn_update')}</span>`;
+            }
+            App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
+            this.checkUpdateInfo();
+          }, 1500);
+        },
+        onError: (statusMsg) => {
+          if (pBox) pBox.style.display = 'none';
+          if (btnApply) {
+            btnApply.disabled = false;
+            btnApply.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span data-i18n="t_install_btn_update">${I18n.t('t_install_btn_update')}</span>`;
           }
-
-          if (pct >= 100 || !pData.is_downloading) {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = null;
-            this.isInstalling = false;
-            setTimeout(() => {
-              if (pBox) pBox.style.display = 'none';
-              if (btnApply) {
-                btnApply.disabled = false;
-                btnApply.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span data-i18n="t_install_btn_update">${I18n.t('t_install_btn_update')}</span>`;
-              }
-              App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
-              this.checkUpdateInfo();
-            }, 1500);
+          if (statusMsg) {
+            App.showToast(I18n.fmt('t_install_err_update_fail', [statusMsg]), 'danger');
           }
-        } catch (err) {
-          console.error('[Installer] Poll progress error:', err);
         }
-      }, 1000);
+      });
 
     } catch (e) {
       this.isInstalling = false;

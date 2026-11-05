@@ -66,11 +66,22 @@ class WebhookManager:
                 print(f"[Dockraft] Error loading webhooks.json: {e}")
         return config
 
+    SECRET_MASK = "••••••••••••"
+
     def save_config(self, new_config: Dict[str, Any]) -> Dict[str, Any]:
         """Updates and persists webhook configuration to webhooks.json."""
+        secret_fields = {
+            "discord": ("webhook_url",),
+            "telegram": ("bot_token",),
+            "email": ("smtp_password",),
+        }
         for section in ["discord", "telegram", "email", "events"]:
             if section in new_config and isinstance(new_config[section], dict):
-                self.config[section].update(new_config[section])
+                incoming = dict(new_config[section])
+                for field in secret_fields.get(section, ()):
+                    if incoming.get(field) == self.SECRET_MASK:
+                        incoming.pop(field, None)
+                self.config[section].update(incoming)
         
         try:
             atomic_write_json(self.config_file, self.config, indent=2)
@@ -78,7 +89,14 @@ class WebhookManager:
             print(f"[Dockraft] Error saving webhooks.json: {e}")
             raise RuntimeError(f"Error saving webhook configuration: {e}")
             
-        return self.config
+        return self.get_sanitized_config()
+
+    def get_sanitized_config(self) -> Dict[str, Any]:
+        """Returns a copy of the webhook configuration with sensitive passwords masked."""
+        sanitized = json.loads(json.dumps(self.config))
+        if sanitized.get("email", {}).get("smtp_password"):
+            sanitized["email"]["smtp_password"] = self.SECRET_MASK
+        return sanitized
 
     def _get_server_info(self) -> Dict[str, Any]:
         """Retrieves server name, type, version, and formatted label."""
@@ -434,20 +452,20 @@ class WebhookManager:
         tasks = []
 
         if self.config.get("discord", {}).get("enabled"):
-            tasks.append(self._safe_call(self.send_discord(title, message, color, fields), "Discord"))
+            tasks.append(self._safe_call(self.send_discord, "Discord", title, message, color, fields))
 
         if self.config.get("telegram", {}).get("enabled"):
-            tasks.append(self._safe_call(self.send_telegram(title, message, fields), "Telegram"))
+            tasks.append(self._safe_call(self.send_telegram, "Telegram", title, message, fields))
 
         if self.config.get("email", {}).get("enabled"):
-            tasks.append(self._safe_call(self.send_email(title, message, color, fields), "Email"))
+            tasks.append(self._safe_call(self.send_email, "Email", title, message, color, fields))
 
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _safe_call(self, coro, name: str) -> None:
+    async def _safe_call(self, fn, name: str, *args) -> None:
         try:
-            await coro
+            await fn(*args)
         except Exception as e:
             print(f"[Dockraft Webhooks] Failed to send to {name}: {e}")
 

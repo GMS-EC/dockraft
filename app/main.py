@@ -7,6 +7,7 @@ import shutil
 import zipfile
 import asyncio
 import inspect
+from pathlib import Path
 from datetime import datetime
 from contextlib import asynccontextmanager
 from typing import Dict, Any, Optional, List, Union
@@ -19,13 +20,13 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.config import settings, BASE_DIR, APP_VERSION
 from app.core.security import (
     create_session_token, verify_admin_credentials,
     verify_session_token, get_current_user, login_limiter, is_authenticated,
-    get_session_max_age, revoke_token, get_token_from_request
+    get_session_max_age, revoke_token, get_token_from_request, get_client_ip
 )
 from app.core.process_manager import process_manager
 from app.core.downloader import downloader
@@ -36,7 +37,7 @@ from app.core.task_scheduler import task_scheduler
 from app.core.webhook_manager import webhook_manager
 from app.core.metrics_manager import metrics_manager
 from app.core.player_manager import player_manager
-from app.core.fs_utils import atomic_write_text
+from app.core.fs_utils import atomic_write_text, PROTECTED_INTERNAL_FILES, safe_extract_zip
 from app.core.diagnostic_manager import diagnostic_manager
 from app.core.activity_manager import activity_manager
 
@@ -89,7 +90,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Dockraft",
     description="Ultra-lightweight Minecraft Server Panel",
-    version="1.1.0",
+    version=APP_VERSION,
     lifespan=lifespan
 )
 
@@ -243,6 +244,55 @@ class TaskToggleRequest(BaseModel):
 class RawPropertiesRequest(BaseModel):
     content: str
 
+
+class RuntimeConfigUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    server_name: Optional[str] = None
+    server_type: Optional[str] = None
+    server_version: Optional[str] = None
+    server_build: Optional[Union[str, int]] = None
+    server_file: Optional[str] = None
+    java_path: Optional[str] = None
+    java_version: Optional[int] = None
+    min_ram: Optional[str] = None
+    max_ram: Optional[str] = None
+    aikar_flags: Optional[bool] = None
+    custom_jvm_flags: Optional[str] = None
+    eula_accepted: Optional[bool] = None
+    auto_restart: Optional[bool] = None
+    disk_limit_gb: Optional[float] = Field(default=None, ge=0.0, le=10240.0)
+    cpu_cores: Optional[int] = Field(default=None, ge=0, le=128)
+    auto_backup: Optional[bool] = None
+    backup_interval_hours: Optional[int] = Field(default=None, ge=1, le=720)
+    backup_max_count: Optional[int] = Field(default=None, ge=1, le=500)
+    backup_scope: Optional[str] = None
+    backup_targets: Optional[List[str]] = None
+    backup_compression: Optional[bool] = None
+    backup_stop_server: Optional[bool] = None
+    backup_pre_command: Optional[str] = None
+    autostart_server: Optional[bool] = None
+    crash_detection: Optional[bool] = None
+    session_timeout_minutes: Optional[int] = Field(default=None, ge=1, le=10080)
+
+    @field_validator("min_ram", "max_ram")
+    @classmethod
+    def validate_ram_format(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not re.match(r"^\d+[MGmg]$", v):
+                raise ValueError("El formato de RAM debe ser numérico seguido de M o G (ej: 1G, 2048M)")
+        return v
+
+    @field_validator("server_file")
+    @classmethod
+    def validate_server_file(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v or ".." in v or "/" in v or "\\" in v or v in PROTECTED_INTERNAL_FILES:
+                raise ValueError("Nombre de archivo ejecutable del servidor no válido")
+        return v
+
 # --- Authentication Endpoints ---
 @app.get("/api/auth/status")
 async def auth_status(user: bool = Depends(get_current_user)):
@@ -270,7 +320,7 @@ async def auth_refresh(response: Response, user: bool = Depends(get_current_user
 
 @app.post("/api/auth/login")
 async def auth_login(req: LoginRequest, request: Request, response: Response):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     max_age = get_session_max_age()
 
     # 1. Rate limiting check: check if this IP is currently locked out
@@ -343,10 +393,13 @@ async def auth_logout(request: Request, response: Response):
     return {"status": "success", "message": "Sesión cerrada"}
 
 @app.get("/logout")
-async def logout_page():
+async def logout_page(request: Request):
+    current_token = get_token_from_request(request)
+    if current_token:
+        revoke_token(current_token)
     redirect_resp = RedirectResponse(url="/login", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-    redirect_resp.delete_cookie(key="dockraft_token")
-    redirect_resp.delete_cookie(key="litemc_token")
+    redirect_resp.delete_cookie(key="dockraft_token", samesite="lax")
+    redirect_resp.delete_cookie(key="litemc_token", samesite="lax")
     return redirect_resp
 
 # --- Health & Status Endpoints ---
@@ -442,8 +495,8 @@ async def get_config():
     return settings.runtime_config
 
 @app.post("/api/config", dependencies=[Depends(get_current_user)])
-async def update_config(config: Dict[str, Any]):
-    settings.save_runtime_config(config)
+async def update_config(config: RuntimeConfigUpdate):
+    settings.save_runtime_config(config.model_dump(exclude_unset=True))
     return {"status": "saved", "config": settings.runtime_config}
 
 # --- Performance Telemetry & Metrics ---
@@ -461,39 +514,9 @@ async def reset_metrics():
     metrics_manager.reset()
     return {"status": "reset", "summary": metrics_manager.get_summary()}
 
-# --- Player Management Endpoints ---
-@app.get("/api/players/list", dependencies=[Depends(get_current_user)])
-async def get_players_list():
-    """Returns unified player directory, active connections, and ban list."""
-    return player_manager.get_all_data()
-
-@app.post("/api/players/kick", dependencies=[Depends(get_current_user)])
-async def kick_player(req: PlayerActionRequest):
-    return await player_manager.kick_player(req.player, req.reason or "")
-
-@app.post("/api/players/kick-all", dependencies=[Depends(get_current_user)])
-async def kick_all_players(req: KickAllRequest = KickAllRequest()):
-    return await player_manager.kick_all_players(req.reason or "Mantenimiento del servidor")
-
-@app.post("/api/players/ban", dependencies=[Depends(get_current_user)])
-async def ban_player(req: PlayerActionRequest):
-    return await player_manager.ban_player(req.player, req.reason or "")
-
-@app.post("/api/players/pardon", dependencies=[Depends(get_current_user)])
-async def pardon_player(req: PlayerActionRequest):
-    return await player_manager.pardon_player(req.player)
-
-@app.post("/api/players/op", dependencies=[Depends(get_current_user)])
-async def op_player(req: PlayerActionRequest):
-    return await player_manager.set_op(req.player, True)
-
-@app.post("/api/players/deop", dependencies=[Depends(get_current_user)])
-async def deop_player(req: PlayerActionRequest):
-    return await player_manager.set_op(req.player, False)
-
-@app.post("/api/players/add", dependencies=[Depends(get_current_user)])
-async def add_player(req: PlayerActionRequest):
-    return player_manager.add_player(req.player)
+# --- Player Management Endpoints (Modular Router) ---
+from app.routers import players as players_router
+app.include_router(players_router.router)
 
 @app.get("/api/server/properties", dependencies=[Depends(get_current_user)])
 async def get_properties():
@@ -1303,69 +1326,9 @@ async def export_activity_logs(format: str = Query("csv", pattern="^(txt|json|cs
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
-# --- File Manager Endpoints ---
-@app.get("/api/files/list", dependencies=[Depends(get_current_user)])
-async def file_list(path: str = Query("")):
-    return file_manager.list_directory(path)
-
-@app.get("/api/files/content", dependencies=[Depends(get_current_user)])
-async def file_content(path: str = Query(...)):
-    return file_manager.read_file(path)
-
-@app.post("/api/files/save", dependencies=[Depends(get_current_user)])
-async def file_save(req: FileSaveRequest):
-    return file_manager.write_file(req.path, req.content)
-
-@app.post("/api/files/folder", dependencies=[Depends(get_current_user)])
-async def file_folder(req: FolderCreateRequest):
-    return file_manager.create_folder(req.path)
-
-@app.delete("/api/files/delete", dependencies=[Depends(get_current_user)])
-async def file_delete(path: str = Query(...)):
-    return file_manager.delete_item(path)
-
-@app.post("/api/files/upload", dependencies=[Depends(get_current_user)])
-async def file_upload(path: str = Form(""), file: UploadFile = File(...)):
-    return await file_manager.save_upload(path, file)
-
-@app.post("/api/files/unzip", dependencies=[Depends(get_current_user)])
-async def file_unzip(req: UnzipRequest):
-    return file_manager.extract_zip(req.path, req.target_dir)
-
-@app.get("/api/files/download", dependencies=[Depends(get_current_user)])
-async def file_download(path: str = Query(...)):
-    safe_path = file_manager._resolve_safe_path(path)
-    if not safe_path.exists() or not safe_path.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(
-        str(safe_path),
-        filename=safe_path.name,
-        media_type="application/octet-stream"
-    )
-
-@app.post("/api/files/rename", dependencies=[Depends(get_current_user)])
-async def file_rename(req: FileRenameRequest):
-    return file_manager.rename_item(req.path, req.new_name)
-
-@app.post("/api/files/duplicate", dependencies=[Depends(get_current_user)])
-async def file_duplicate(req: FileDuplicateRequest):
-    return file_manager.duplicate_item(req.path)
-
-@app.post("/api/files/compress", dependencies=[Depends(get_current_user)])
-async def file_compress(req: FileCompressRequest):
-    return file_manager.compress_item(req.path)
-
-@app.post("/api/files/create", dependencies=[Depends(get_current_user)])
-async def file_create(req: FileCreateRequest):
-    return file_manager.create_file(req.path)
-
-@app.post("/api/files/bulk-delete", dependencies=[Depends(get_current_user)])
-async def file_bulk_delete(req: BulkDeleteRequest):
-    return file_manager.bulk_delete(req.paths)
-
-@app.post("/api/files/bulk-compress", dependencies=[Depends(get_current_user)])
-async def file_bulk_compress(req: BulkCompressRequest):
-    return file_manager.bulk_compress(req.paths, req.target_dir or "", req.archive_name or "")
+# --- File Manager Endpoints (Modular Router) ---
+from app.routers import files as files_router
+app.include_router(files_router.router)
 
 # --- Server Import Endpoint ---
 @app.post("/api/server/import", dependencies=[Depends(get_current_user)])
@@ -1382,13 +1345,21 @@ async def import_server(file: UploadFile = File(...), accept_eula: bool = Form(T
         with open(temp_zip, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # ZipSlip check
+        # Validate disk quota and extract safely (ZipSlip + symlink + protected files check)
         with zipfile.ZipFile(temp_zip, 'r') as zf:
-            for member in zf.namelist():
-                dest = (settings.data_dir / member).resolve()
-                if not dest.is_relative_to(settings.data_dir.resolve()):
-                    raise HTTPException(status_code=400, detail="Archivo zip no seguro (ZipSlip detectado)")
-            zf.extractall(settings.data_dir)
+            total_uncompressed = sum(info.file_size for info in zf.infolist())
+            file_manager._check_disk_quota(extra_bytes=total_uncompressed)
+
+        try:
+            await asyncio.to_thread(
+                safe_extract_zip,
+                temp_zip,
+                settings.data_dir,
+                lambda member: Path(member.filename).parts[0] in PROTECTED_INTERNAL_FILES if Path(member.filename).parts else False,
+            )
+            file_manager.invalidate_quota_cache()
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
 
         # Detect server type from extracted contents
         detected_type = "paper"
@@ -1461,247 +1432,19 @@ async def import_server(file: UploadFile = File(...), accept_eula: bool = Form(T
             except Exception:
                 pass
 
-# --- Backup Management Endpoints ---
-@app.get("/api/backups/list", dependencies=[Depends(get_current_user)])
-async def get_backups():
-    return backup_manager.list_backups()
-
-@app.get("/api/backups/targets", dependencies=[Depends(get_current_user)])
-async def get_backup_targets():
-    return backup_manager.get_available_targets()
-
-@app.post("/api/backups/create", dependencies=[Depends(get_current_user)])
-async def create_backup(req: BackupCreateRequest):
-    cfg = settings.runtime_config
-    compression = req.compression if req.compression is not None else cfg.get("backup_compression", True)
-    stop_server = req.stop_server if req.stop_server is not None else cfg.get("backup_stop_server", False)
-    pre_cmd = req.pre_command if req.pre_command is not None else cfg.get("backup_pre_command", "")
-
-    was_running = process_manager.get_status() != "OFFLINE"
-
-    if was_running and pre_cmd and pre_cmd.strip():
-        await process_manager.send_command(pre_cmd.strip())
-        await asyncio.sleep(2)
-
-    if was_running and stop_server:
-        await process_manager.stop_server()
-        for _ in range(25):
-            await asyncio.sleep(1)
-            if process_manager.get_status() == "OFFLINE":
-                break
-        if process_manager.get_status() != "OFFLINE":
-            await process_manager.kill_server()
-            await asyncio.sleep(1)
-
-    try:
-        res = backup_manager.create_backup(
-            tag=req.tag or "manual",
-            scope=req.scope or "full",
-            targets=req.targets,
-            compression=compression
-        )
-        if res.get("status") == "success":
-            try:
-                activity_manager.log("backup", "Copia creada", f"Archivo: {res.get('filename')} | Tamaño: {res.get('size_human', 'N/A')}", user="admin", status="success")
-            except Exception:
-                pass
-        return res
-    finally:
-        if was_running and stop_server:
-            await asyncio.sleep(1)
-            await process_manager.start_server()
-
-@app.post("/api/backups/restore", dependencies=[Depends(get_current_user)])
-async def restore_backup(req: BackupRestoreRequest):
-    if process_manager.get_status() != "OFFLINE":
-        raise HTTPException(status_code=400, detail="Por favor detén el servidor antes de restaurar una copia de seguridad")
-    res = backup_manager.restore_backup(req.filename)
-    if res.get("status") == "success":
-        try:
-            activity_manager.log("backup", "Copia restaurada", f"Restaurada copia '{req.filename}'", user="admin", status="warning")
-        except Exception:
-            pass
-    return res
-
-@app.delete("/api/backups/{filename}", dependencies=[Depends(get_current_user)])
-async def delete_backup(filename: str):
-    res = backup_manager.delete_backup(filename)
-    if res.get("status") == "success":
-        try:
-            activity_manager.log("backup", "Copia eliminada", f"Eliminada copia '{filename}'", user="admin", status="info")
-        except Exception:
-            pass
-    return res
-
-@app.get("/api/backups/download/{filename}", dependencies=[Depends(get_current_user)])
-async def download_backup(filename: str):
-    target_path = backup_manager.get_backup_path(filename)
-    return FileResponse(
-        str(target_path),
-        filename=target_path.name,
-        media_type="application/zip"
-    )
-
-@app.get("/api/backups/config", dependencies=[Depends(get_current_user)])
-async def get_backup_config():
-    cfg = settings.runtime_config
-    return {
-        "auto_backup": cfg.get("auto_backup", False),
-        "backup_interval_hours": cfg.get("backup_interval_hours", 24),
-        "backup_max_count": cfg.get("backup_max_count", 5),
-        "backup_scope": cfg.get("backup_scope", "full"),
-        "backup_targets": cfg.get("backup_targets", []),
-        "backup_compression": cfg.get("backup_compression", True),
-        "backup_stop_server": cfg.get("backup_stop_server", False),
-        "backup_pre_command": cfg.get("backup_pre_command", "save-all")
-    }
-
-@app.post("/api/backups/config", dependencies=[Depends(get_current_user)])
-async def save_backup_config(req: BackupConfigRequest):
-    update_data = {
-        "backup_max_count": req.backup_max_count,
-        "backup_scope": req.backup_scope or "full",
-        "backup_targets": req.backup_targets if req.backup_targets is not None else [],
-        "backup_compression": req.backup_compression if req.backup_compression is not None else True,
-        "backup_stop_server": req.backup_stop_server if req.backup_stop_server is not None else False,
-        "backup_pre_command": req.backup_pre_command if req.backup_pre_command is not None else "save-all"
-    }
-    if req.auto_backup is not None:
-        update_data["auto_backup"] = req.auto_backup
-    if req.backup_interval_hours is not None:
-        update_data["backup_interval_hours"] = req.backup_interval_hours
-    settings.save_runtime_config(update_data)
-    return {"status": "saved", "config": settings.runtime_config}
-
-# --- Webhook Management Endpoints ---
-@app.get("/api/webhooks/config", dependencies=[Depends(get_current_user)])
-async def get_webhooks_config():
-    return webhook_manager.load_config()
-
-@app.post("/api/webhooks/config", dependencies=[Depends(get_current_user)])
-async def save_webhooks_config(req: WebhookConfigRequest):
-    saved = webhook_manager.save_config(req.model_dump(exclude_unset=True))
-    return {"status": "saved", "config": saved}
-
-@app.post("/api/webhooks/test/{channel}", dependencies=[Depends(get_current_user)])
-async def test_webhook_channel(channel: str):
-    res = await webhook_manager.test_channel(channel.lower())
-    if res.get("status") == "error":
-        raise HTTPException(status_code=400, detail=res.get("message", "Error enviando notificación de prueba"))
-    return res
-
-# --- Scheduled Tasks Endpoints ---
-@app.get("/api/tasks", dependencies=[Depends(get_current_user)])
-async def list_tasks():
-    return task_scheduler.list_tasks()
-
-@app.post("/api/tasks", dependencies=[Depends(get_current_user)])
-async def create_task(req: TaskCreateRequest):
-    return task_scheduler.create_task(req.model_dump())
-
-@app.get("/api/tasks/{task_id}", dependencies=[Depends(get_current_user)])
-async def get_task(task_id: str):
-    t = task_scheduler.get_task(task_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tarea no encontrada")
-    return t
-
-@app.put("/api/tasks/{task_id}", dependencies=[Depends(get_current_user)])
-async def update_task(task_id: str, req: TaskUpdateRequest):
-    t = task_scheduler.update_task(task_id, req.model_dump(exclude_unset=True))
-    if not t:
-        raise HTTPException(status_code=404, detail="Tarea no encontrada")
-    return t
-
-@app.delete("/api/tasks/{task_id}", dependencies=[Depends(get_current_user)])
-async def delete_task(task_id: str):
-    success = task_scheduler.delete_task(task_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Tarea no encontrada")
-    return {"status": "deleted", "id": task_id}
-
-@app.post("/api/tasks/{task_id}/toggle", dependencies=[Depends(get_current_user)])
-async def toggle_task(task_id: str, req: Optional[TaskToggleRequest] = None):
-    enabled = req.enabled if req else None
-    t = task_scheduler.toggle_task(task_id, enabled)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tarea no encontrada")
-    return t
-
-@app.post("/api/tasks/{task_id}/run", dependencies=[Depends(get_current_user)])
-async def run_task(task_id: str):
-    try:
-        return await task_scheduler.run_task_now(task_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error ejecutando tarea: {str(e)}")
-
-# --- Scheduled Background Tasks Loop (now handled by lifespan above) ---
-
-# --- Diagnostics & Log Sharing Endpoints ---
-class ShareLogRequest(BaseModel):
-    content: Optional[str] = None
-
-@app.get("/api/diagnostics/analyze", dependencies=[Depends(get_current_user)])
-async def analyze_diagnostics():
-    """Analyzes logs and crash-reports to identify issues and actionable solutions."""
-    return diagnostic_manager.analyze_diagnostics()
-
-@app.post("/api/diagnostics/share", dependencies=[Depends(get_current_user)])
-async def share_log(req: Optional[ShareLogRequest] = None):
-    """Uploads sanitized logs to mclo.gs and returns a clean shareable URL."""
-    custom_content = req.content if req else None
-    res = await diagnostic_manager.share_to_mclogs(custom_content)
-    if not res.get("success"):
-        raise HTTPException(status_code=500, detail=res.get("error", "Error al compartir log en mclo.gs"))
-    return res
-
-# --- Plugins & SpigotMC Update Checker Endpoints ---
+# --- Backups, Webhooks, Scheduled Tasks, Diagnostics & Plugins (Modular Routers) ---
+from app.routers import (
+    backups as backups_router,
+    webhooks as webhooks_router,
+    tasks as tasks_router,
+    plugins as plugins_router,
+)
 from app.core.plugin_manager import plugin_manager
 
-@app.get("/api/plugins/list", dependencies=[Depends(get_current_user)])
-async def list_installed_plugins():
-    """Returns all installed plugins detected in data/plugins/*.jar."""
-    plugins = plugin_manager.scan_installed_plugins()
-    return {"status": "success", "plugins": plugins, "count": len(plugins)}
-
-@app.post("/api/plugins/check-updates", dependencies=[Depends(get_current_user)])
-async def check_plugin_updates():
-    """Queries Spiget API to check for available updates of installed plugins."""
-    results = await plugin_manager.check_plugin_updates()
-    outdated = [p for p in results if p.get("has_update")]
-    return {"status": "success", "plugins": results, "total": len(results), "outdated_count": len(outdated)}
-
-@app.get("/api/plugins/console-updates", dependencies=[Depends(get_current_user)])
-async def get_console_plugin_updates():
-    """Returns all plugin update notices detected from console logs,
-    resolving official download links for any notice announced without one."""
-    updates = await plugin_manager.enrich_update_urls(plugin_manager.get_detected_updates())
-    return {"status": "success", "updates": updates, "count": len(updates)}
-
-@app.post("/api/plugins/scan-console", dependencies=[Depends(get_current_user)])
-async def scan_console_plugin_updates():
-    """Scans data/logs/latest.log and returns detected plugin updates."""
-    updates = await plugin_manager.enrich_update_urls(plugin_manager.scan_console_logs())
-    return {"status": "success", "updates": updates, "count": len(updates)}
-
-@app.post("/api/plugins/notify-updates", dependencies=[Depends(get_current_user)])
-async def notify_plugin_updates():
-    """Checks for plugin updates and broadcasts a webhook notification if any are outdated."""
-    return await plugin_manager.check_and_notify_updates()
-
-@app.delete("/api/plugins/console-updates/{plugin_name}", dependencies=[Depends(get_current_user)])
-async def dismiss_console_plugin_update(plugin_name: str):
-    """Dismisses/removes a specific plugin update notice."""
-    removed = plugin_manager.dismiss_update(plugin_name)
-    return {"status": "success", "removed": removed, "plugin": plugin_name}
-
-@app.delete("/api/plugins/console-updates", dependencies=[Depends(get_current_user)])
-async def clear_all_console_plugin_updates():
-    """Dismisses/clears all detected plugin update notices."""
-    count = plugin_manager.clear_detected_updates()
-    return {"status": "success", "cleared_count": count}
+app.include_router(backups_router.router)
+app.include_router(webhooks_router.router)
+app.include_router(tasks_router.router)
+app.include_router(plugins_router.router)
 
 # --- WebSocket Console & Stats Hub ---
 @app.websocket("/ws/console")
@@ -1793,7 +1536,7 @@ async def login_page(request: Request):
     if not settings.admin_password or (is_authenticated(request) and not session_expired):
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     is_locked, remaining = login_limiter.is_locked(client_ip)
 
     resp = templates.TemplateResponse(

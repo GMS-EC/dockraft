@@ -62,3 +62,29 @@ def test_task_scheduler_crud():
     # Verify deleted
     res_get_deleted = client.get(f"/api/tasks/{task_id}")
     assert res_get_deleted.status_code == 404
+
+
+def test_auto_backup_config_syncs_with_task_scheduler():
+    res = client.post("/api/backups/config", json={
+        "auto_backup": True,
+        "backup_interval_hours": 6,
+        "backup_max_count": 5
+    })
+    assert res.status_code == 200
+    sys_task = task_scheduler.get_task("auto_backup_sys")
+    assert sys_task is not None
+    assert sys_task["enabled"] is True
+    assert sys_task["interval_value"] == 6
+    assert sys_task["interval_unit"] == "hours"
+
+    # Disable auto_backup
+    res_off = client.post("/api/backups/config", json={
+        "auto_backup": False,
+        "backup_interval_hours": 6,
+        "backup_max_count": 5
+    })
+    assert res_off.status_code == 200
+    sys_task_off = task_scheduler.get_task("auto_backup_sys")
+    assert sys_task_off is not None
+    assert sys_task_off["enabled"] is False
+    task_scheduler.delete_task("auto_backup_sys")

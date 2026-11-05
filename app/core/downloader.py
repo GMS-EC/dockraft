@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable, Union
 from app.config import settings
-from app.core.fs_utils import atomic_write_text
+from app.core.fs_utils import PROTECTED_INTERNAL_FILES, atomic_write_text, safe_extract_zip
 
 class DownloadManager:
     def __init__(self):
@@ -656,21 +656,21 @@ class DownloadManager:
             # If it's a zip (Bedrock or modpack), extract it
             if is_zip or target_filename.endswith(".zip"):
                 self.active_download["status"] = "extracting"
-                with zipfile.ZipFile(temp_download_path, 'r') as zip_ref:
+                protected_files = {"server.properties", "permissions.json", "allowlist.json", "whitelist.json"}
+
+                def _skip_download_member(member: zipfile.ZipInfo) -> bool:
+                    parts = Path(member.filename).parts
+                    if len(parts) == 1 and parts[0].lower() in PROTECTED_INTERNAL_FILES:
+                        return True
                     if preserve_existing_configs:
-                        protected_files = {"server.properties", "permissions.json", "allowlist.json", "whitelist.json"}
-                        for member in zip_ref.infolist():
-                            member_path = Path(member.filename)
-                            if ".." in member_path.parts:
-                                continue
-                            target_file = settings.data_dir / member.filename
-                            if target_file.exists() and member.filename.lower() in protected_files:
-                                continue
-                            if target_file.exists() and member.filename.startswith("worlds/"):
-                                continue
-                            zip_ref.extract(member, settings.data_dir)
-                    else:
-                        zip_ref.extractall(settings.data_dir)
+                        target_file = settings.data_dir / member.filename
+                        if target_file.exists() and member.filename.lower() in protected_files:
+                            return True
+                        if target_file.exists() and member.filename.startswith("worlds/"):
+                            return True
+                    return False
+
+                safe_extract_zip(temp_download_path, settings.data_dir, skip_member_fn=_skip_download_member)
 
                 # Ensure bedrock binary has execute permission on Unix
                 bedrock_bin = settings.data_dir / "bedrock_server"

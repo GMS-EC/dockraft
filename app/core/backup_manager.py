@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException
 from app.config import settings
+from app.core.fs_utils import PROTECTED_INTERNAL_FILES, safe_extract_zip
 
 class BackupManager:
     def __init__(self):
@@ -254,24 +255,18 @@ class BackupManager:
         backup_file = self.get_backup_path(filename)
         
         try:
-            with zipfile.ZipFile(backup_file, 'r') as zf:
-                # ZipSlip and symlink security check
-                for member in zf.infolist():
-                    # Reject symlinks to prevent symlink-based Zip Slip attacks
-                    if stat.S_ISLNK(member.external_attr >> 16):
-                        raise HTTPException(status_code=400, detail="Corrupted backup archive (unsafe symbolic links)")
-                    member_path = (settings.data_dir / member.filename).resolve()
-                    if not member_path.is_relative_to(settings.data_dir.resolve()):
-                        raise HTTPException(status_code=400, detail="Corrupted backup archive (unsafe paths)")
-                    # Do not overwrite the backups folder itself
-                    if member.filename.startswith("backups/") or member.filename.startswith("backups\\"):
-                        continue
-                
-                # Extract
-                for member in zf.infolist():
-                    if member.filename.startswith("backups/") or member.filename.startswith("backups\\"):
-                        continue
-                    zf.extract(member, settings.data_dir)
+            def _skip_backup_member(member: zipfile.ZipInfo) -> bool:
+                if member.filename.startswith("backups/") or member.filename.startswith("backups\\"):
+                    return True
+                parts = Path(member.filename).parts
+                if len(parts) == 1 and parts[0].lower() in PROTECTED_INTERNAL_FILES:
+                    return True
+                return False
+
+            try:
+                safe_extract_zip(backup_file, settings.data_dir, skip_member_fn=_skip_backup_member)
+            except ValueError as ve:
+                raise HTTPException(status_code=400, detail=f"Corrupted backup archive ({ve})")
 
             return {"status": "success", "message": f"Backup '{filename}' restored successfully"}
         except HTTPException:

@@ -59,22 +59,17 @@ const LoginApp = {
     const username = userInput ? userInput.value.trim() : '';
     const password = passInput ? passInput.value : '';
 
-    if (!username) {
-      this.showError("Por favor ingresa el nombre de usuario.");
-      if (userInput) userInput.focus();
-      return;
-    }
-
-    if (!password) {
-      this.showError("Por favor ingresa la contraseña de administrador.");
-      if (passInput) passInput.focus();
+    if (!username || !password) {
+      this.showError(typeof I18n !== 'undefined' ? I18n.t('login_err_empty_credentials', 'Por favor ingresa tu usuario y contraseña') : 'Por favor ingresa tu usuario y contraseña');
+      if (!username && userInput) userInput.focus();
+      else if (passInput) passInput.focus();
       return;
     }
 
     // Set UI loading state
     if (submitBtn) submitBtn.disabled = true;
     if (btnIcon) btnIcon.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="spin-icon"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>';
-    if (btnText) btnText.textContent = 'Verificando...';
+    if (btnText) btnText.textContent = typeof I18n !== 'undefined' ? I18n.t('login_btn_signing_in', 'Verificando...') : 'Verificando...';
     if (errorAlert) errorAlert.style.display = 'none';
 
     try {
@@ -230,13 +225,7 @@ const LoginApp = {
   },
 
   escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+    return window.escapeHtml ? window.escapeHtml(str) : String(str || '');
   }
 };
 

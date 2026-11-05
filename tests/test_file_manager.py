@@ -53,3 +53,21 @@ def test_disk_quota_enforcement():
         assert "Límite de espacio en disco superado" in exc_info.value.detail
     finally:
         settings.runtime_config["disk_limit_gb"] = original_limit
+
+
+def test_protected_internal_files_blocked():
+    """Ensures internal panel config files cannot be read, overwritten, or deleted via FileManager."""
+    for protected_name in ("dockraft_config.json", "webhooks.json", "tasks.json", "activity_logs.json"):
+        with pytest.raises(HTTPException) as exc_info:
+            file_manager.read_file(protected_name)
+        assert exc_info.value.status_code == 403
+
+        with pytest.raises(HTTPException) as exc_info_w:
+            file_manager.write_file(protected_name, "{}")
+        assert exc_info_w.value.status_code == 403
+
+    listing = file_manager.list_directory("")
+    listed_names = {item["name"] for item in listing["items"]}
+    assert "dockraft_config.json" not in listed_names
+    assert "webhooks.json" not in listed_names
+

@@ -1,4 +1,54 @@
 <!-- TAB 6: SETTINGS & SERVER.PROPERTIES -->
+{% macro render_system_behavior(prefix='') %}
+        <!-- Comportamiento del Servidor: Autostart & Crash Detection -->
+        <div style="padding: 12px; background: rgba(22, 27, 34, 0.6); border: 1px solid #30363d; border-radius: 8px; margin-top: 14px; margin-bottom: 14px;">
+          <div style="font-size: 0.84rem; font-weight: 600; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span data-i18n="settings_system_behavior_title">Comportamiento del Servidor y Sistema</span>
+          </div>
+
+          <!-- 1. Inicio automático del servidor -->
+          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="{{ prefix }}setting-autostart-server" data-i18n="settings_autostart_label">
+                Inicio automático del servidor
+              </label>
+              <div class="field-hint" data-i18n="settings_autostart_hint">Inicia automáticamente el servidor de Minecraft al encender el contenedor o servicio Dockraft.</div>
+            </div>
+            <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
+              <input type="checkbox" id="{{ prefix }}setting-autostart-server">
+              <span class="slider-compact"></span>
+            </label>
+          </div>
+
+          <!-- 2. Detección de crasheos del Servidor -->
+          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="{{ prefix }}setting-crash-detection" data-i18n="settings_crash_label">
+                Detección de crasheos y auto-reinicio
+              </label>
+              <div class="field-hint" data-i18n="settings_crash_hint">Detecta caídas inesperadas del servidor y lo reinicia automáticamente con protección anti-bucle (máx 3 reintentos en 2 min).</div>
+            </div>
+            <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
+              <input type="checkbox" id="{{ prefix }}setting-crash-detection" checked>
+              <span class="slider-compact"></span>
+            </label>
+          </div>
+
+          <!-- 3. Caducidad de Sesión por Inactividad -->
+          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 0; padding-top: 10px; border-top: 1px solid rgba(48, 54, 61, 0.6);">
+            <div>
+              <label class="form-label" style="margin-bottom: 2px; color: #f0f6fc;" for="{{ prefix }}setting-session-timeout" data-i18n="settings_session_timeout_label">
+                Caducidad de sesión (minutos)
+              </label>
+              <div class="field-hint" data-i18n="settings_session_timeout_hint">Tiempo de inactividad tras el cual la sesión expira automáticamente por seguridad (por defecto: 60 min).</div>
+            </div>
+            <div style="flex-shrink: 0; width: 90px; margin-left: 14px;">
+              <input type="number" class="form-input" id="{{ prefix }}setting-session-timeout" min="5" max="10080" step="5" value="60" style="text-align: center; padding: 4px 8px;">
+            </div>
+          </div>
+        </div>
+{% endmacro %}
 <section class="tab-pane" id="tab-settings">
   <!-- Dynamic Server Header Profile -->
   <div class="settings-header-banner" id="settings-header-banner">
@@ -216,54 +266,7 @@
           </label>
         </div>
 
-        <!-- Comportamiento del Servidor: Autostart & Crash Detection -->
-        <div style="padding: 12px; background: rgba(22, 27, 34, 0.6); border: 1px solid #30363d; border-radius: 8px; margin-top: 14px; margin-bottom: 14px;">
-          <div style="font-size: 0.84rem; font-weight: 600; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            <span data-i18n="settings_system_behavior_title">Comportamiento del Servidor y Sistema</span>
-          </div>
-
-          <!-- 1. Inicio automático del servidor -->
-          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div>
-              <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="bedrock-setting-autostart-server" data-i18n="settings_autostart_label">
-                Inicio automático del servidor
-              </label>
-              <div class="field-hint" data-i18n="settings_autostart_hint">Inicia automáticamente el servidor de Minecraft al encender el contenedor o servicio Dockraft.</div>
-            </div>
-            <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
-              <input type="checkbox" id="bedrock-setting-autostart-server">
-              <span class="slider-compact"></span>
-            </label>
-          </div>
-
-          <!-- 2. Detección de crasheos del Servidor -->
-          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div>
-              <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="bedrock-setting-crash-detection" data-i18n="settings_crash_label">
-                Detección de crasheos y auto-reinicio
-              </label>
-              <div class="field-hint" data-i18n="settings_crash_hint">Detecta caídas inesperadas del servidor y lo reinicia automáticamente con protección anti-bucle (máx 3 reintentos en 2 min).</div>
-            </div>
-            <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
-              <input type="checkbox" id="bedrock-setting-crash-detection" checked>
-              <span class="slider-compact"></span>
-            </label>
-          </div>
-
-          <!-- 3. Caducidad de Sesión por Inactividad -->
-          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 0; padding-top: 10px; border-top: 1px solid rgba(48, 54, 61, 0.6);">
-            <div>
-              <label class="form-label" style="margin-bottom: 2px; color: #f0f6fc;" for="bedrock-setting-session-timeout" data-i18n="settings_session_timeout_label">
-                Caducidad de sesión (minutos)
-              </label>
-              <div class="field-hint" data-i18n="settings_session_timeout_hint">Tiempo de inactividad tras el cual la sesión expira automáticamente por seguridad (por defecto: 60 min).</div>
-            </div>
-            <div style="flex-shrink: 0; width: 90px; margin-left: 14px;">
-              <input type="number" class="form-input" id="bedrock-setting-session-timeout" min="5" max="10080" step="5" value="60" style="text-align: center; padding: 4px 8px;">
-            </div>
-          </div>
-        </div>
+        {{ render_system_behavior('bedrock-') }}
 
         <div style="margin-top: 14px;">
           <button class="btn btn-primary" onclick="Settings.saveBedrockProperties()" style="display: inline-flex; align-items: center; gap: 6px;">
@@ -700,54 +703,7 @@
           <input type="text" class="form-input" id="setting-custom-flags" placeholder="ej: -Dterminal.jline=false" data-i18n-placeholder="t_setting_ph_custom_flags">
         </div>
 
-        <!-- Comportamiento del Servidor: Autostart & Crash Detection -->
-        <div style="padding: 12px; background: rgba(22, 27, 34, 0.6); border: 1px solid #30363d; border-radius: 8px; margin-top: 14px; margin-bottom: 14px;">
-          <div style="font-size: 0.84rem; font-weight: 600; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            <span data-i18n="settings_system_behavior_title">Comportamiento del Servidor y Sistema</span>
-          </div>
-
-          <!-- 1. Inicio automático del servidor -->
-          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div>
-              <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="setting-autostart-server" data-i18n="settings_autostart_label">
-                Inicio automático del servidor
-              </label>
-              <div class="field-hint" data-i18n="settings_autostart_hint">Inicia automáticamente el servidor de Minecraft al encender el contenedor o servicio Dockraft.</div>
-            </div>
-            <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
-              <input type="checkbox" id="setting-autostart-server">
-              <span class="slider-compact"></span>
-            </label>
-          </div>
-
-          <!-- 2. Detección de crasheos del Servidor -->
-          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div>
-              <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="setting-crash-detection" data-i18n="settings_crash_label">
-                Detección de crasheos y auto-reinicio
-              </label>
-              <div class="field-hint" data-i18n="settings_crash_hint">Detecta caídas inesperadas del servidor y lo reinicia automáticamente con protección anti-bucle (máx 3 reintentos en 2 min).</div>
-            </div>
-            <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
-              <input type="checkbox" id="setting-crash-detection" checked>
-              <span class="slider-compact"></span>
-            </label>
-          </div>
-
-          <!-- 3. Caducidad de Sesión por Inactividad -->
-          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 0; padding-top: 10px; border-top: 1px solid rgba(48, 54, 61, 0.6);">
-            <div>
-              <label class="form-label" style="margin-bottom: 2px; color: #f0f6fc;" for="setting-session-timeout" data-i18n="settings_session_timeout_label">
-                Caducidad de sesión (minutos)
-              </label>
-              <div class="field-hint" data-i18n="settings_session_timeout_hint">Tiempo de inactividad tras el cual la sesión expira automáticamente por seguridad (por defecto: 60 min).</div>
-            </div>
-            <div style="flex-shrink: 0; width: 90px; margin-left: 14px;">
-              <input type="number" class="form-input" id="setting-session-timeout" min="5" max="10080" step="5" value="60" style="text-align: center; padding: 4px 8px;">
-            </div>
-          </div>
-        </div>
+        {{ render_system_behavior('') }}
 
         <div style="margin-top: 14px;">
           <button class="btn btn-primary" onclick="Settings.saveRuntimeConfig()" style="display: inline-flex; align-items: center; gap: 6px;">

@@ -893,11 +893,7 @@ const Files = {
   },
 
   formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    return window.formatBytes ? window.formatBytes(bytes) : `${bytes} B`;
   },
 
   setupEditorListeners() {
@@ -953,8 +949,8 @@ const Files = {
     const col = lastNewline === -1 ? pos + 1 : pos - lastNewline;
     const charCount = val.length;
 
-    posEl.textContent = `Línea ${line}, Columna ${col}`;
-    charEl.textContent = `${charCount} caracteres`;
+    posEl.textContent = this.trf('t_files_editor_line_col', [line, col], `Línea ${line}, Columna ${col}`);
+    charEl.textContent = this.trf('t_files_editor_chars', [charCount], `${charCount} caracteres`);
   },
 
   async openEditor(filePath) {

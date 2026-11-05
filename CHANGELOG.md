@@ -5,6 +5,46 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.4.0] - 2026-11-04
+
+### Seguridad (Security)
+- **Protección contra SSRF en Webhooks (`app/core/webhook_manager.py`):**
+  - Validación estricta del esquema (`http`/`https`) y resolución DNS con bloqueo de direcciones IP privadas, loopback (`127.0.0.1`), link-local (`169.254.169.254`) y rangos reservados antes de despachar notificaciones o pruebas de webhook.
+- **Protección Anti-Zip Bomb y Cuotas en Importación/Restauración (`app/main.py`, `app/core/backup_manager.py`, `app/core/file_manager.py`):**
+  - Inspección previa de metadatos (`infolist`) para verificar que el tamaño total descomprimido no supere la cuota de disco disponible ni el ratio máximo de compresión (`100:1`).
+  - Extracción segura por streaming en bloques de `64 KB` con contadores en tiempo real y rechazo de enlaces simbólicos o rutas fuera del directorio destino (`Path Traversal`).
+- **Endurecimiento de Autenticación y Sesiones (`app/core/security.py`, `app/config.py`):**
+  - Persistido automático de `SECRET_KEY` en `data/.secret_key` con permisos restringidos (`0o600`) para conservar las sesiones activas tras reiniciar el contenedor cuando no se define por variable de entorno.
+  - Protección contra enumeración de usuarios ejecutando siempre una verificación BCrypt dummy en tiempo constante cuando el usuario no existe.
+  - Límite de memoria (`MAX_TRACKED_IPS = 10000`) y purga automática de registros expirados en el limitador de intentos de inicio de sesión (`LoginRateLimiter`).
+  - Bandera `Secure` en cookies de sesión configurable dinámicamente según protocolo (`HTTPS` / `X-Forwarded-Proto`) o variable `COOKIE_SECURE`.
+- **Sanitización de Argumentos JVM (`app/core/process_manager.py`):**
+  - Bloqueo explícito de flags peligrosos de ejecución arbitraria (`-XX:OnOutOfMemoryError`, `-XX:OnError`, `-XX:AbortVMOnException`, `-javaagent`, `-agentlib`, `-agentpath`).
+
+### Mejorado y Optimizado (Changed & Performance)
+- ** Modularización del Backend con APIRouter (`app/routers/`):**
+  - Desacoplamiento de endpoints de `app/main.py` en módulos dedicados: `auth.py`, `server.py`, `files.py`, `backups.py`, `players.py`, `tasks.py` y `plugins.py`.
+- **Optimización Asíncrona y de I/O (`app/core/`):**
+  - Descargas de motores de servidor en streaming mediante `client.stream("GET", ...)` con cálculo incremental de SHA-256 sin cargar el `.jar` completo en RAM (`downloader.py`).
+  - Ejecución en hilos (`asyncio.to_thread`) de llamadas bloqueantes a `psutil` y escaneo de disco con caché TTL de 10 segundos e invalidación inmediata tras cambios en archivos o respaldos (`fs_utils.py`, `process_manager.py`).
+  - Precompilación de expresiones regulares en el motor de análisis de logs y lectura eficiente de las últimas líneas de `latest.log` mediante `deque(f, maxlen=500)` (`process_manager.py`).
+- **Persistencia Atómica y Precisión del Programador de Tareas:**
+  - Escritura atómica mediante archivo temporal y `os.replace()` para `dockraft_config.json` y `tasks.json`.
+  - Evaluación de tareas programadas basada en minuto calendario (`(now.year, now.month, now.day, now.hour, now.minute)`) para evitar omisiones o dobles ejecuciones por deriva del bucle asíncrono (`task_scheduler.py`).
+- **Limpieza y Unificación del Frontend (`web/`):**
+  - Centralización de `escapeHtml` y `formatBytes` en `window.App` (`console.js`), eliminando implementaciones duplicadas en `backups.js`, `files.js`, `installer.js`, `logs.js`, `players.js` y `tasks.js`.
+  - Consolidación de traducciones en `i18n.js`, reglas CSS duplicadas en `style.css` y controles de certificado SSL en `settings.html`.
+- **Optimización de Contenedor Docker (`Dockerfile`, `requirements.txt`):**
+  - Ejecución bajo usuario sin privilegios (`dockraft`) y eliminación de dependencias innecesarias (`passlib`, `pydantic-settings`).
+
+### Corregido (Fixed)
+- **Carga del Logo de la Aplicación (`web/templates/`):**
+  - Unificación del recurso gráfico en `/static/img/dockraft_logo.png` en `base.html`, `login.html`, `components/header.html`, `footer.html`, `manifest.json` y `sw.js`.
+- **Títulos de la Sección de Actualizaciones del Instalador (`installer.html`, `i18n-installer.js`):**
+  - Eliminación de la numeración fija (`1.` y `2.`) en las tarjetas *Parches del Motor (Compilación / Build)* y *Versión del Juego (Minecraft)* para mantener coherencia visual tanto en motores con builds (Paper/Purpur) como en motores de tarjeta única (Vanilla/Fabric/Forge/Bedrock).
+
+---
+
 ## [1.3.3] - 2026-10-14
 
 ### Añadido (Added)

@@ -1,8 +1,8 @@
 // Dockraft Service Worker for PWA
-const CACHE_NAME = 'dockraft-v9';
+const CACHE_NAME = 'dockraft-v10';
 const STATIC_ASSETS = [
   '/static/css/style.css',
-  '/static/img/logo.png',
+  '/static/img/dockraft_logo.png',
   '/static/js/i18n.js'
 ];
 
@@ -44,25 +44,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for HTML navigation, caching the page so the PWA works offline.
+  // Network-only for authenticated HTML navigation (never cache SSR state or CSP nonces).
   if (event.request.mode === 'navigate') {
+    if (url.pathname === '/logout') {
+      caches.open(CACHE_NAME).then((cache) => {
+        cache.delete(url.origin + '/');
+      });
+    }
     event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const copy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request.url, copy));
-          }
-          return networkResponse;
-        })
-        .catch(async () => {
-          const cached = await caches.match(event.request.url);
-          if (cached) return cached;
-          // Fallback to the cached app shell for the root/login pages.
-          const shell = await caches.match(url.origin + '/');
-          if (shell) return shell;
-          return caches.match(event.request);
-        })
+      fetch(event.request).catch(async () => {
+        if (url.pathname.startsWith('/login')) {
+          const cachedLogin = await caches.match(event.request.url);
+          if (cachedLogin) return cachedLogin;
+        }
+        return new Response(
+          '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dockraft — Sin conexión</title></head><body style="background:#0d1117;color:#e6edf3;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center;"><div><h2>Sin conexión con el servidor Dockraft</h2><p style="color:#8b949e;">Comprueba tu conexión de red e inténtalo de nuevo.</p></div></body></html>',
+          { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+        );
+      })
     );
     return;
   }

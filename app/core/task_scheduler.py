@@ -179,6 +179,41 @@ class TaskScheduler:
                 return dict(t)
         return None
 
+    def sync_auto_backup_task(self, enabled: bool, interval_hours: int = 24) -> Optional[Dict[str, Any]]:
+        """Synchronizes the legacy auto_backup / backup_interval_hours config with TaskScheduler."""
+        hours = max(1, int(interval_hours or 24))
+        for t in self.tasks:
+            if t.get("id") == "auto_backup_sys" or (t.get("action") == "backup" and t.get("system_managed")):
+                t["enabled"] = bool(enabled)
+                t["schedule_type"] = "interval"
+                t["interval_value"] = hours
+                t["interval_unit"] = "hours"
+                t["next_run"] = self.calculate_next_run(t)
+                self.save_tasks()
+                return dict(t)
+
+        if not enabled:
+            return None
+
+        new_task = {
+            "id": "auto_backup_sys",
+            "name": "Backup Automático",
+            "action": "backup",
+            "command": "",
+            "schedule_type": "interval",
+            "interval_value": hours,
+            "interval_unit": "hours",
+            "cron_expression": "0 4 * * *",
+            "enabled": True,
+            "system_managed": True,
+            "last_run": None,
+            "created_at": self.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        new_task["next_run"] = self.calculate_next_run(new_task)
+        self.tasks.append(new_task)
+        self.save_tasks()
+        return dict(new_task)
+
     async def execute_task_action(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Executes the specific action defined in a task."""
         action = task.get("action", "restart")
@@ -240,7 +275,8 @@ class TaskScheduler:
                         await asyncio.sleep(1)
 
                 try:
-                    backup_res = backup_manager.create_backup(
+                    backup_res = await asyncio.to_thread(
+                        backup_manager.create_backup,
                         tag="auto",
                         scope=scope,
                         targets=targets,

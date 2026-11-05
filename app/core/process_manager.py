@@ -783,6 +783,23 @@ class ProcessManager:
             self.clean_stale_session_locks()
             await self.start_server()
 
+    @staticmethod
+    def _filter_safe_jvm_flags(custom_flags: str) -> List[str]:
+        """Validates custom JVM flags against an allowlist pattern."""
+        if not custom_flags:
+            return []
+        _safe_flag_re = re.compile(
+            r'^(-X[a-zA-Z0-9:+\-=%.,@/]+|-XX:[+\-]?[a-zA-Z0-9=:.,]+|-D[a-zA-Z0-9._\-]+=\S*|-ea|-da|-server|-client)$'
+        )
+        _blocked_prefixes = ("-XX:OnOutOfMemoryError", "-XX:OnError", "-XX:AbortVMOnException")
+        validated_flags: List[str] = []
+        for flag in custom_flags.split():
+            if _safe_flag_re.match(flag) and not flag.startswith(_blocked_prefixes):
+                validated_flags.append(flag)
+            else:
+                print(f"[Dockraft] WARNING: Flag JVM descartado por no pasar validación: '{flag}'")
+        return validated_flags
+
     async def start_server(self) -> Dict[str, Any]:
         """Starts the configured Minecraft server."""
         rogue = self.find_running_server_processes()
@@ -837,14 +854,19 @@ class ProcessManager:
                     pass
 
             # Write memory & processor limits to user_jvm_args.txt for Forge
-            min_ram = cfg.get("min_ram", "1G")
-            max_ram = cfg.get("max_ram", "2G")
+            _ram_re = re.compile(r'^\d+[MGmg]$')
+            min_ram = str(cfg.get("min_ram", "1G")).strip()
+            max_ram = str(cfg.get("max_ram", "2G")).strip()
+            if not _ram_re.match(min_ram):
+                min_ram = "1G"
+            if not _ram_re.match(max_ram):
+                max_ram = "2G"
             jvm_args = [f"-Xms{min_ram}", f"-Xmx{max_ram}"]
             if cpu_cores > 0:
                 jvm_args.append(f"-XX:ActiveProcessorCount={cpu_cores}")
             custom_flags = cfg.get("custom_jvm_flags", "").strip()
             if custom_flags:
-                jvm_args.extend(custom_flags.split())
+                jvm_args.extend(self._filter_safe_jvm_flags(custom_flags))
 
             user_args_file = settings.data_dir / "user_jvm_args.txt"
             atomic_write_text(user_args_file, "\n".join(jvm_args) + "\n")
@@ -857,8 +879,13 @@ class ProcessManager:
         else:
             # Java Server (Paper, Purpur, Vanilla, Fabric, Legacy Forge)
             java_bin = cfg.get("java_path", "java")
-            min_ram = cfg.get("min_ram", "1G")
-            max_ram = cfg.get("max_ram", "2G")
+            _ram_re = re.compile(r'^\d+[MGmg]$')
+            min_ram = str(cfg.get("min_ram", "1G")).strip()
+            max_ram = str(cfg.get("max_ram", "2G")).strip()
+            if not _ram_re.match(min_ram):
+                min_ram = "1G"
+            if not _ram_re.match(max_ram):
+                max_ram = "2G"
 
             cmd = [java_bin, f"-Xms{min_ram}", f"-Xmx{max_ram}"]
 
@@ -870,18 +897,7 @@ class ProcessManager:
 
             custom_flags = cfg.get("custom_jvm_flags", "").strip()
             if custom_flags:
-                # Validate flags: only allow safe JVM flag patterns
-                # Allow: -X*, -XX:*, -D*, -ea, -da, -server, -client
-                _safe_flag_re = re.compile(
-                    r'^(-X[a-zA-Z0-9:+\-=%.,@/]+|-XX:[+\-]?[a-zA-Z0-9=:.,]+|-D[a-zA-Z0-9._\-]+=\S*|-ea|-da|-server|-client)$'
-                )
-                validated_flags = []
-                for flag in custom_flags.split():
-                    if _safe_flag_re.match(flag):
-                        validated_flags.append(flag)
-                    else:
-                        print(f"[Dockraft] WARNING: Flag JVM descartado por no pasar validación: '{flag}'")
-                cmd.extend(validated_flags)
+                cmd.extend(self._filter_safe_jvm_flags(custom_flags))
 
             cmd.extend(["-jar", str(server_path), "nogui"])
 

@@ -5,14 +5,54 @@ import shutil
 import time
 import zipfile
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import HTTPException, UploadFile
 from app.config import settings
-from app.core.fs_utils import atomic_write_text
+from app.core.fs_utils import PROTECTED_INTERNAL_FILES, atomic_write_text, safe_extract_zip
 
 class FileManager:
+    PROTECTED_FILES = PROTECTED_INTERNAL_FILES
+    _QUOTA_CACHE_TTL = 5.0
+
     def __init__(self):
         self.base_dir = settings.data_dir
+        self._cached_used_bytes: Optional[int] = None
+        self._cache_ts: float = 0.0
+
+    def invalidate_quota_cache(self, delta_bytes: Optional[int] = None) -> None:
+        """Updates or invalidates the cached disk usage."""
+        if delta_bytes is not None and self._cached_used_bytes is not None:
+            self._cached_used_bytes = max(0, self._cached_used_bytes + delta_bytes)
+            self._cache_ts = time.time()
+        else:
+            self._cached_used_bytes = None
+            self._cache_ts = 0.0
+
+    def _get_used_bytes(self, force_recalc: bool = False) -> int:
+        now = time.time()
+        if not force_recalc and self._cached_used_bytes is not None and (now - self._cache_ts) < self._QUOTA_CACHE_TTL:
+            return self._cached_used_bytes
+
+        total_used = 0
+        try:
+            for root, _, files in os.walk(self.base_dir):
+                for f in files:
+                    fp = os.path.join(root, f)
+                    try:
+                        total_used += os.path.getsize(fp)
+                    except (OSError, FileNotFoundError):
+                        pass
+        except Exception:
+            pass
+
+        self._cached_used_bytes = total_used
+        self._cache_ts = now
+        return total_used
+
+    def _is_protected_root_file(self, path: Path) -> bool:
+        resolved_base = self.base_dir.resolve()
+        resolved_path = path.resolve()
+        return resolved_path.parent == resolved_base and resolved_path.name.lower() in self.PROTECTED_FILES
 
     def _resolve_safe_path(self, relative_path: str = "") -> Path:
         """
@@ -34,6 +74,9 @@ class FileManager:
             if not target_str.startswith(base_str):
                 raise HTTPException(status_code=403, detail="Access denied: Path traversal detected")
 
+        if self._is_protected_root_file(target):
+            raise HTTPException(status_code=403, detail="Access denied: Protected system configuration file")
+
         return target
 
     def list_directory(self, relative_path: str = "") -> Dict[str, Any]:
@@ -42,9 +85,12 @@ class FileManager:
         if not target_dir.exists() or not target_dir.is_dir():
             raise HTTPException(status_code=404, detail="Directory not found")
 
+        is_root = target_dir == self.base_dir.resolve()
         items: List[Dict[str, Any]] = []
         try:
             for entry in os.scandir(target_dir):
+                if is_root and entry.name.lower() in self.PROTECTED_FILES:
+                    continue
                 stat = entry.stat()
                 items.append({
                     "name": entry.name,
@@ -96,17 +142,7 @@ class FileManager:
             return
 
         limit_bytes = int(disk_limit_gb * 1024 * 1024 * 1024)
-        total_used = 0
-        try:
-            for root, _, files in os.walk(self.base_dir):
-                for f in files:
-                    fp = os.path.join(root, f)
-                    try:
-                        total_used += os.path.getsize(fp)
-                    except (OSError, FileNotFoundError):
-                        pass
-        except Exception:
-            pass
+        total_used = self._get_used_bytes()
 
         if (total_used + extra_bytes) > limit_bytes:
             used_gb = round(total_used / (1024 * 1024 * 1024), 2)
@@ -126,6 +162,7 @@ class FileManager:
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             atomic_write_text(target, content)
+            self.invalidate_quota_cache(delta_bytes=content_bytes - old_size)
             return {"status": "saved", "path": relative_path, "size": len(content)}
         except HTTPException:
             raise
@@ -151,13 +188,16 @@ class FileManager:
 
         if target.is_dir():
             shutil.rmtree(target)
+            self.invalidate_quota_cache()
         else:
+            sz = target.stat().st_size
             target.unlink()
+            self.invalidate_quota_cache(delta_bytes=-sz)
 
         return {"status": "deleted", "path": relative_path}
 
     async def save_upload(self, relative_dir: str, file: UploadFile) -> Dict[str, Any]:
-        """Saves an uploaded file. If it's a zip and requested, can extract."""
+        """Saves an uploaded file while enforcing disk quota in a single pass."""
         target_dir = self._resolve_safe_path(relative_dir)
         if not target_dir.is_dir():
             raise HTTPException(status_code=400, detail="Target path is not a directory")
@@ -172,22 +212,41 @@ class FileManager:
         if not safe_name:
             safe_name = "upload"
         dest_file = target_dir / safe_name
+        if self._is_protected_root_file(dest_file):
+            raise HTTPException(status_code=403, detail="Access denied: Cannot overwrite protected system file")
+
+        old_size = dest_file.stat().st_size if dest_file.exists() else 0
+        disk_limit_gb = float(settings.runtime_config.get("disk_limit_gb", 10.0) or 0)
+        limit_bytes = int(disk_limit_gb * 1024 * 1024 * 1024) if disk_limit_gb > 0 else 0
+        base_used = max(0, self._get_used_bytes() - old_size)
+
+        written = 0
         try:
             with open(dest_file, "wb") as f:
-                shutil.copyfileobj(file.file, f)
+                while True:
+                    chunk = file.file.read(256 * 1024)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if limit_bytes > 0 and (base_used + written) > limit_bytes:
+                        used_gb = round(base_used / (1024 * 1024 * 1024), 2)
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Límite de espacio en disco superado ({used_gb} GB usados de {disk_limit_gb} GB permitidos). Libera espacio o amplía el límite en Configuración."
+                        )
+                    f.write(chunk)
 
-            try:
-                self._check_disk_quota(extra_bytes=0)
-            except HTTPException:
-                if dest_file.exists():
-                    dest_file.unlink()
-                raise
-
+            self.invalidate_quota_cache(delta_bytes=written - old_size)
             return {
                 "status": "uploaded",
                 "filename": file.filename,
-                "size": dest_file.stat().st_size
+                "size": written
             }
+        except HTTPException:
+            if dest_file.exists():
+                dest_file.unlink(missing_ok=True)
+            self.invalidate_quota_cache()
+            raise
         finally:
             await file.close()
 
@@ -199,15 +258,19 @@ class FileManager:
         if not zip_path.exists() or not zipfile.is_zipfile(zip_path):
             raise HTTPException(status_code=400, detail="Invalid zip file")
 
-        with zipfile.ZipFile(zip_path, 'r') as zf:
-            # Check zip slip and symlink vulnerabilities
-            for member in zf.infolist():
-                if stat.S_ISLNK(member.external_attr >> 16):
-                    raise HTTPException(status_code=400, detail="Zip contains unsafe symbolic links")
-                member_path = (dest_dir / member.filename).resolve()
-                if not member_path.is_relative_to(dest_dir):
-                    raise HTTPException(status_code=400, detail="Zip contains unsafe paths (ZipSlip)")
-            zf.extractall(dest_dir)
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                total_uncompressed = sum(max(0, int(m.file_size or 0)) for m in zf.infolist())
+            self._check_disk_quota(extra_bytes=total_uncompressed)
+
+            is_root_dest = dest_dir == self.base_dir.resolve()
+            safe_extract_zip(
+                zip_path,
+                dest_dir,
+                skip_member_fn=(lambda m: Path(m.filename).name.lower() in self.PROTECTED_FILES and len(Path(m.filename).parts) == 1) if is_root_dest else None,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
         return {"status": "extracted", "path": relative_zip_path}
 
@@ -227,7 +290,7 @@ class FileManager:
 
         dest = target.parent / clean_new
         # Ensure destination stays within base_dir
-        if not dest.resolve().is_relative_to(self.base_dir.resolve()):
+        if not dest.resolve().is_relative_to(self.base_dir.resolve()) or self._is_protected_root_file(dest):
             raise HTTPException(status_code=403, detail="Ruta de destino inválida")
 
         if dest.exists():

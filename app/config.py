@@ -33,7 +33,7 @@ def _read_version_from_changelog() -> str:
         except Exception:
             pass
 
-    return "1.3.2"
+    return "1.4.0"
 
 APP_VERSION = _read_version_from_changelog()
 
@@ -61,6 +61,7 @@ class Settings:
         # Fix #1: Set to true when the panel is behind an HTTPS reverse proxy
         # so session cookies are marked Secure and never sent over plain HTTP.
         self.https_enabled: bool = os.getenv("HTTPS_ENABLED", "false").lower() in ("true", "1", "yes")
+        self.trust_proxy_headers: bool = os.getenv("TRUST_PROXY_HEADERS", "false").lower() in ("true", "1", "yes")
         
         # Ensure directories exist
         self.data_dir.mkdir(parents=True, exist_ok=True)

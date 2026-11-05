@@ -36,9 +36,10 @@ const Logs = {
       const cmds = this.logs.filter(l => l.category === 'console').length;
       const sys = this.logs.filter(l => l.category !== 'console').length;
 
-      if (totalEl) totalEl.textContent = `${total} registros`;
-      if (cmdsEl) cmdsEl.textContent = `${cmds} comandos`;
-      if (sysEl) sysEl.textContent = `${sys} eventos`;
+      const isEn = typeof I18n !== 'undefined' && I18n.currentLang === 'en';
+      if (totalEl) totalEl.textContent = isEn ? `${total} records` : `${total} registros`;
+      if (cmdsEl) cmdsEl.textContent = isEn ? `${cmds} commands` : `${cmds} comandos`;
+      if (sysEl) sysEl.textContent = isEn ? `${sys} events` : `${sys} eventos`;
 
       this.render();
 

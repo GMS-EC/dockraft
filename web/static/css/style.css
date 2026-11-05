@@ -207,32 +207,6 @@ body {
   flex-shrink: 0;
 }
 
-.btn-logout,
-#btn-logout {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: transparent;
-  border: 1px solid #30363d;
-  color: #8b949e;
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.btn-logout:hover,
-#btn-logout:hover {
-  background: rgba(248, 81, 73, 0.1);
-  border-color: rgba(248, 81, 73, 0.4);
-  color: #f85149;
-}
-
 .status-dot {
   width: 8px;
   height: 8px;
@@ -2265,7 +2239,8 @@ input:checked + .slider:before {
 /* ==========================================================================
    Header Logout Button
    ========================================================================== */
-.btn-logout {
+.btn-logout,
+#btn-logout {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2279,9 +2254,12 @@ input:checked + .slider:before {
   font-weight: 500;
   transition: background-color 0.2s, border-color 0.2s, color 0.2s;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.btn-logout:hover {
+.btn-logout:hover,
+#btn-logout:hover {
   background-color: rgba(248, 81, 73, 0.22);
   border-color: #f85149;
   color: #ffffff;
@@ -3496,7 +3474,7 @@ input:checked + .slider:before {
 
 /* Server Properties Dual Mode & Category Filters */
 .prop-cat-btn {
-  background: var(--bg-surface);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   color: var(--text-muted);
   padding: 4px 10px;
@@ -3509,8 +3487,8 @@ input:checked + .slider:before {
 }
 
 .prop-cat-btn:hover {
-  border-color: var(--border-hover);
-  color: var(--text-primary);
+  border-color: var(--border-focus);
+  color: var(--text-main);
 }
 
 .prop-cat-btn.active {
@@ -3535,7 +3513,7 @@ input:checked + .slider:before {
 }
 
 .plugin-item-card:hover {
-  border-color: var(--border-hover);
+  border-color: var(--border-focus);
 }
 
 .plugin-item-card.has-update {

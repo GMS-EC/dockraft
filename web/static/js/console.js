@@ -492,10 +492,7 @@ const Console = {
   },
 
   escapeHtml(str) {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    return window.escapeHtml ? window.escapeHtml(str) : String(str || '');
   },
 
   convertAnsiToHtml(text) {

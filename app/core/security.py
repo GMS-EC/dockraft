@@ -1,5 +1,6 @@
 import hmac
 import hashlib
+import secrets
 import time
 from typing import Optional, Dict, Any, Tuple, Set
 from fastapi import HTTPException, Security, Request, status
@@ -138,14 +139,16 @@ def get_token_age(token: str) -> Optional[int]:
         return None
 
 def create_session_token() -> str:
-    """Generates an HMAC session token based on secret key and timestamp."""
+    """Generates an HMAC session token based on secret key, timestamp, and random nonce."""
     timestamp = str(int(time.time()))
+    nonce = secrets.token_hex(8)
+    payload = f"{timestamp}:{nonce}"
     signature = hmac.new(
         settings.secret_key.encode(),
-        timestamp.encode(),
+        payload.encode(),
         hashlib.sha256
     ).hexdigest()
-    return f"{timestamp}:{signature}"
+    return f"{payload}:{signature}"
 
 def verify_session_token(token: str, max_age_seconds: Optional[int] = None) -> bool:
     """Verifies the authenticity and expiration of the session token.
@@ -159,13 +162,14 @@ def verify_session_token(token: str, max_age_seconds: Optional[int] = None) -> b
     if max_age_seconds is None:
         max_age_seconds = get_session_max_age()
     try:
-        timestamp_str, signature = token.split(":", 1)
+        payload, signature = token.rsplit(":", 1)
+        timestamp_str = payload.split(":", 1)[0]
         token_time = int(timestamp_str)
         if time.time() - token_time > max_age_seconds:
             return False
         expected_sig = hmac.new(
             settings.secret_key.encode(),
-            timestamp_str.encode(),
+            payload.encode(),
             hashlib.sha256
         ).hexdigest()
         return hmac.compare_digest(signature, expected_sig)
@@ -288,3 +292,17 @@ def get_token_from_request(request: Request) -> Optional[str]:
         if tok:
             return tok
     return None
+
+
+def get_client_ip(request: Request) -> str:
+    """Extracts the client IP, honoring X-Forwarded-For / X-Real-IP when TRUST_PROXY_HEADERS is enabled."""
+    if getattr(settings, "trust_proxy_headers", False):
+        xff = request.headers.get("X-Forwarded-For", "").strip()
+        if xff:
+            first_ip = xff.split(",")[0].strip()
+            if first_ip:
+                return first_ip
+        x_real_ip = request.headers.get("X-Real-IP", "").strip()
+        if x_real_ip:
+            return x_real_ip
+    return request.client.host if request.client else "unknown"

@@ -80,37 +80,6 @@ const I18n = {
       console_jump_bottom: 'Ir al final de la consola',
       console_reconnecting: 'Conexión con la consola perdida. Reconectando...',
 
-      // Installer Tab
-      inst_title: 'Selecciona el Tipo de Servidor',
-      inst_import_btn: 'Importar Servidor (.zip)',
-      inst_unlock_btn: 'Desbloquear Reinstalación',
-      inst_delete_btn: 'Eliminar Servidor',
-      inst_reinstall_badge: 'REINSTALACIÓN DESBLOQUEADA',
-      inst_current_info: 'Ya existe un servidor en este directorio (/data). La instalación está bloqueada para proteger tus mundos, plugins y configuraciones de sobrescritura accidental.',
-      inst_desc_paper: 'Rápido y optimizado. El más recomendado para jugar con amigos y usar plugins.',
-      inst_desc_purpur: 'Variante de Paper con máxima personalización y gran rendimiento.',
-      inst_desc_vanilla: 'El Minecraft clásico original, sin añadidos, plugins ni mods.',
-      inst_desc_fabric: 'Ligero y rápido para jugar con mods modernos.',
-      inst_desc_forge: 'El sistema tradicional y con mayor variedad de mods.',
-      inst_desc_bedrock: 'Para jugar desde celulares, consolas (Xbox, PlayStation, Switch) y Windows.',
-      inst_res_title: 'Versión y Asignación de Recursos',
-      inst_server_name: 'Nombre del Servidor',
-      inst_server_name_hint: 'Nombre descriptivo que se mostrará en la barra superior y notificaciones Webhooks.',
-      inst_mc_version: 'Versión del Servidor de Minecraft',
-      inst_loading_versions: 'Cargando versiones oficiales...',
-      inst_min_ram: 'RAM Mínima (-Xms)',
-      inst_max_ram: 'RAM Máxima (-Xmx)',
-      inst_cpu_cores: 'Núcleos de CPU',
-      inst_cpu_cores_hint: 'Límite de procesadores lógicos para Java (0 = sin límite).',
-      inst_disk_limit: 'Límite Disco (GB)',
-      inst_disk_limit_hint: 'Capacidad asignada a la carpeta de datos.',
-      inst_aikar_title: 'Optimizaciones de Rendimiento (Aikar\'s Flags)',
-      inst_aikar_desc: 'Parámetros avanzados recomendados para evitar tirones (lag) en Java G1GC.',
-      inst_btn_install: 'Descargar e Instalar Servidor',
-      inst_update_title: 'Actualizar Servidor',
-      inst_update_desc: 'Esta función actualiza el motor y ejecutables de tu servidor a la versión seleccionada. Tus mundos, plugins, mods y configuraciones se conservan intactos.',
-      inst_update_btn: 'Actualizar Servidor',
-
       // Tasks Tab
       tasks_title: 'Tareas Programadas y Automatizaciones',
       tasks_desc: 'Automatiza reinicios periódicos, encendido, apagado, copias de seguridad recurrentes y ejecución de comandos en intervalos o con Cron.',
@@ -254,6 +223,12 @@ const I18n = {
       logs_page_next: 'Siguiente',
       logs_page_last: 'Último',
       logs_page_range: 'Mostrando {0}–{1} de {2} registros',
+      logs_status_success: 'Éxito',
+      logs_status_warning: 'Aviso',
+      logs_status_error: 'Error',
+      logs_status_info: 'Info',
+      files_selected_single: '{0} seleccionado',
+      files_selected_plural: '{0} seleccionados',
 
       // Footer
       footer_desc: 'Panel de control ultra-ligero para servidores de Minecraft Java y Bedrock.',
@@ -261,14 +236,6 @@ const I18n = {
 
       // Modals
       modal_create_backup_title: 'Crear Copia de Seguridad',
-      modal_scope_full: 'Todo el Servidor',
-      modal_scope_full_desc: 'Copia absoluta de mundos, plugins, mods, configuraciones y binarios.',
-      modal_scope_worlds: 'Solo Mundos',
-      modal_scope_worlds_desc: 'Respalda únicamente las carpetas de mapas de Minecraft y server.properties.',
-      modal_scope_plugins: 'Mundos + Plugins / Mods',
-      modal_scope_plugins_desc: 'Protege tu progreso y las extensiones instaladas sin incluir binarios grandes.',
-      modal_scope_custom: 'Personalizado',
-      modal_scope_custom_desc: 'Elige individualmente qué carpetas y archivos específicos respaldar.',
       modal_btn_cancel: 'Cancelar',
       modal_btn_confirm: 'Confirmar',
 
@@ -285,6 +252,10 @@ const I18n = {
       login_session_expired_desc: 'Tu sesión ha expirado por inactividad o seguridad. Por favor, inicia sesión de nuevo para continuar.',
       login_password_toggle: 'Mostrar/Ocultar contraseña',
       login_footer_note: 'Acceso exclusivo para la administración del servidor Dockraft.',
+      login_err_empty_credentials: 'Por favor ingresa tu usuario y contraseña',
+      login_btn_signing_in: 'Verificando...',
+      login_err_invalid_credentials: 'Credenciales inválidas',
+      login_err_connection: 'Error de conexión con el servidor',
       
       // Toasts
       toast_lang_changed: 'Idioma cambiado a Español',
@@ -371,37 +342,6 @@ const I18n = {
       console_jump_bottom: 'Jump to the bottom of the console',
       console_reconnecting: 'Console connection lost. Reconnecting...',
 
-      // Installer Tab
-      inst_title: 'Select Server Engine',
-      inst_import_btn: 'Import Server (.zip)',
-      inst_unlock_btn: 'Unlock Reinstall',
-      inst_delete_btn: 'Delete Server',
-      inst_reinstall_badge: 'REINSTALLATION UNLOCKED',
-      inst_current_info: 'A server already exists in this directory (/data). Installation is locked to protect your worlds, plugins, and settings from accidental overwriting.',
-      inst_desc_paper: 'Fast and optimized. Recommended for friends and plugins.',
-      inst_desc_purpur: 'Enhanced Paper fork with high performance and deep customization.',
-      inst_desc_vanilla: 'Pure original classic Minecraft, without plugins or mods.',
-      inst_desc_fabric: 'Lightweight and fast for modern modpacks.',
-      inst_desc_forge: 'The classic, battle-tested modding ecosystem.',
-      inst_desc_bedrock: 'For mobile devices, consoles (Xbox, PlayStation, Switch), and Windows.',
-      inst_res_title: 'Version & Resource Allocation',
-      inst_server_name: 'Server Name',
-      inst_server_name_hint: 'Descriptive name displayed in the top bar and Webhook notifications.',
-      inst_mc_version: 'Minecraft Server Version',
-      inst_loading_versions: 'Loading official versions...',
-      inst_min_ram: 'Minimum RAM (-Xms)',
-      inst_max_ram: 'Maximum RAM (-Xmx)',
-      inst_cpu_cores: 'CPU Cores',
-      inst_cpu_cores_hint: 'Logical processor limit for Java (0 = unlimited).',
-      inst_disk_limit: 'Disk Limit (GB)',
-      inst_disk_limit_hint: 'Assigned disk capacity for the data volume.',
-      inst_aikar_title: 'Performance Optimizations (Aikar\'s Flags)',
-      inst_aikar_desc: 'Recommended advanced flags to prevent garbage collection lag in Java G1GC.',
-      inst_btn_install: 'Download & Install Server',
-      inst_update_title: 'Update Server',
-      inst_update_desc: 'Updates the server engine and binaries to the selected version. Your worlds, plugins, mods, and configuration files remain intact.',
-      inst_update_btn: 'Update Server',
-
       // Tasks Tab
       tasks_title: 'Scheduled Tasks & Automations',
       tasks_desc: 'Automate periodic restarts, power schedules, recurring backups, and command execution using intervals or Cron expressions.',
@@ -461,6 +401,12 @@ const I18n = {
       logs_page_next: 'Next',
       logs_page_last: 'Last',
       logs_page_range: 'Showing {0}–{1} of {2} records',
+      logs_status_success: 'Success',
+      logs_status_warning: 'Warning',
+      logs_status_error: 'Error',
+      logs_status_info: 'Info',
+      files_selected_single: '{0} selected',
+      files_selected_plural: '{0} selected',
 
       // Webhooks Tab
       webhooks_title: 'Webhook Notifications',
@@ -552,14 +498,6 @@ const I18n = {
 
       // Modals
       modal_create_backup_title: 'Create Backup Archive',
-      modal_scope_full: 'Full Server',
-      modal_scope_full_desc: 'Complete backup of worlds, plugins, mods, configuration, and binaries.',
-      modal_scope_worlds: 'Worlds Only',
-      modal_scope_worlds_desc: 'Backs up only Minecraft world folders and server.properties.',
-      modal_scope_plugins: 'Worlds + Plugins / Mods',
-      modal_scope_plugins_desc: 'Protects game progress and installed extensions without large binaries.',
-      modal_scope_custom: 'Custom Selection',
-      modal_scope_custom_desc: 'Individually choose specific files and folders to back up.',
       modal_btn_cancel: 'Cancel',
       modal_btn_confirm: 'Confirm',
 
@@ -576,6 +514,10 @@ const I18n = {
       login_session_expired_desc: 'Your session has expired due to inactivity or security timeout. Please sign in again to continue.',
       login_password_toggle: 'Show/Hide password',
       login_footer_note: 'Exclusive access for Dockraft server administration.',
+      login_err_empty_credentials: 'Please enter your username and password',
+      login_btn_signing_in: 'Verifying...',
+      login_err_invalid_credentials: 'Invalid credentials',
+      login_err_connection: 'Error connecting to server',
 
       // Toasts
       toast_lang_changed: 'Language switched to English',
@@ -744,29 +686,6 @@ const I18n = {
       t.textContent = dict.cmd_send;
     }
 
-    // Installer cards
-    const cardDescs = {
-      'paper': dict.inst_desc_paper,
-      'purpur': dict.inst_desc_purpur,
-      'vanilla': dict.inst_desc_vanilla,
-      'fabric': dict.inst_desc_fabric,
-      'forge': dict.inst_desc_forge,
-      'bedrock': dict.inst_desc_bedrock
-    };
-    document.querySelectorAll('.type-card[data-type]').forEach(card => {
-      const type = card.getAttribute('data-type');
-      if (cardDescs[type]) {
-        const descEl = card.querySelector('.type-desc');
-        if (descEl) descEl.textContent = cardDescs[type];
-      }
-    });
-
-    // Installer action buttons
-    const btnInstall = document.getElementById('btn-install-server');
-    if (btnInstall && !btnInstall.disabled) {
-      btnInstall.textContent = dict.inst_btn_install;
-    }
-
     // Footer description & copyright
     const footerDesc = document.querySelector('.footer-desc');
     if (footerDesc) footerDesc.textContent = dict.footer_desc;
@@ -859,6 +778,15 @@ function escapeAttr(str) {
     .replace(/"/g, '&quot;');
 }
 
+function formatBytes(bytes) {
+  if (bytes === 0 || bytes === null || bytes === undefined) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 window.escapeHtml = escapeHtml;
 window.escapeAttr = escapeAttr;
+window.formatBytes = formatBytes;
 

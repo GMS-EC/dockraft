@@ -124,3 +124,83 @@ def test_is_authenticated_helper():
         assert is_authenticated(req_auth) is True
     finally:
         settings.admin_password = original_pass
+
+
+def test_session_token_nonce_uniqueness_and_logout_revocation():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    # Two tokens created in the same second must still be unique due to random nonce
+    t1 = create_session_token()
+    t2 = create_session_token()
+    assert t1 != t2
+    assert verify_session_token(t1) is True
+    assert verify_session_token(t2) is True
+
+    # GET /logout should revoke the active token in addition to clearing cookies
+    client = TestClient(app)
+    client.cookies.set("dockraft_token", t1)
+    resp = client.get("/logout", follow_redirects=False)
+    assert resp.status_code == 307
+    assert verify_session_token(t1) is False
+    assert verify_session_token(t2) is True
+
+
+def test_runtime_config_validation():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+    client.cookies.set("dockraft_token", create_session_token())
+
+    # Invalid RAM format rejected with 422
+    res_bad_ram = client.post("/api/config", json={"max_ram": "2GB; rm -rf /"})
+    assert res_bad_ram.status_code == 422
+
+    # Invalid server_file path traversal or protected file rejected with 422
+    res_bad_file = client.post("/api/config", json={"server_file": "../evil.jar"})
+    assert res_bad_file.status_code == 422
+    res_prot_file = client.post("/api/config", json={"server_file": "webhooks.json"})
+    assert res_prot_file.status_code == 422
+
+    # Valid config with extra unknown keys ignores extra keys and saves valid ones
+    res_ok = client.post("/api/config", json={"min_ram": "1G", "max_ram": "2G", "__injected_key__": "bad"})
+    assert res_ok.status_code == 200
+    assert "__injected_key__" not in res_ok.json()["config"]
+
+
+def test_jvm_flag_filtering_for_dangerous_flags():
+    from app.core.process_manager import ProcessManager
+
+    raw_flags = "-XX:+UseG1GC -javaagent:/tmp/evil.jar -XX:OnOutOfMemoryError=sh -Dfoo=bar"
+    safe = ProcessManager._filter_safe_jvm_flags(raw_flags)
+    assert "-XX:+UseG1GC" in safe
+    assert "-Dfoo=bar" in safe
+    assert "-javaagent:/tmp/evil.jar" not in safe
+    assert "-XX:OnOutOfMemoryError=sh" not in safe
+
+
+def test_get_client_ip_proxy_headers():
+    from fastapi import Request
+    from app.core.security import get_client_ip
+
+    scope = {
+        "type": "http",
+        "client": ("127.0.0.1", 50000),
+        "headers": [(b"x-forwarded-for", b"203.0.113.42, 10.0.0.1")],
+        "cookies": {},
+        "query_string": b""
+    }
+    req = Request(scope)
+
+    orig_trust = settings.trust_proxy_headers
+    try:
+        settings.trust_proxy_headers = False
+        assert get_client_ip(req) == "127.0.0.1"
+
+        settings.trust_proxy_headers = True
+        assert get_client_ip(req) == "203.0.113.42"
+    finally:
+        settings.trust_proxy_headers = orig_trust
+
+
