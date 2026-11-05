@@ -110,6 +110,15 @@ def safe_extract_zip(
         for member in members:
             if skip_member_fn and skip_member_fn(member):
                 continue
-            zf.extract(member, dest_resolved)
+            extracted_path = Path(zf.extract(member, dest_resolved))
+            if os.name != "nt":
+                try:
+                    cur_mode = stat.S_IMODE(extracted_path.stat().st_mode)
+                    if extracted_path.is_dir():
+                        os.chmod(extracted_path, cur_mode | 0o755)
+                    else:
+                        os.chmod(extracted_path, cur_mode | 0o644)
+                except OSError:
+                    pass
             total_extracted += max(0, int(member.file_size or 0))
     return total_extracted

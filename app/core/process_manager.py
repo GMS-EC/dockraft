@@ -165,6 +165,29 @@ class ProcessManager:
                     pass
         except Exception:
             pass
+        if sys.platform != "win32":
+            try:
+                for root, dirs, files in os.walk(settings.data_dir):
+                    for d in dirs:
+                        try:
+                            dp = os.path.join(root, d)
+                            cur = os.stat(dp).st_mode & 0o777
+                            if (cur & 0o755) != 0o755:
+                                os.chmod(dp, cur | 0o755)
+                        except OSError:
+                            pass
+                    for f in files:
+                        if f == ".secret_key":
+                            continue
+                        try:
+                            fp = os.path.join(root, f)
+                            cur = os.stat(fp).st_mode & 0o777
+                            if (cur & 0o644) != 0o644:
+                                os.chmod(fp, cur | 0o644)
+                        except OSError:
+                            pass
+            except Exception:
+                pass
         return removed
 
     def get_status(self) -> str:

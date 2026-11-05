@@ -35,7 +35,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Centralización de `escapeHtml` y `formatBytes` en `window.App` (`console.js`), eliminando implementaciones duplicadas en `backups.js`, `files.js`, `installer.js`, `logs.js`, `players.js` y `tasks.js`.
   - Consolidación de traducciones en `i18n.js`, reglas CSS duplicadas en `style.css` y controles de certificado SSL en `settings.html`.
 - **Optimización de Contenedor Docker (`Dockerfile`, `requirements.txt`):**
-  - Ejecución bajo usuario sin privilegios (`dockraft`) y eliminación de dependencias innecesarias (`passlib`, `pydantic-settings`).
+  - Reparación automática de permisos POSIX en archivos extraídos y directorios del mundo (`level.dat`) antes del arranque, y eliminación de dependencias innecesarias (`passlib`, `pydantic-settings`).
 
 ### Corregido (Fixed)
 - **Carga del Logo de la Aplicación (`web/templates/`):**

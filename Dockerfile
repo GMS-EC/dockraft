@@ -37,18 +37,14 @@ COPY app/ ./app/
 COPY web/ ./web/
 COPY CHANGELOG.md ./CHANGELOG.md
 
-# Prepare server data and backups volume directories and non-root user
-RUN groupadd -r dockraft && useradd -r -g dockraft -m -d /home/dockraft dockraft \
-    && mkdir -p /server_data /server_backups \
-    && chown -R dockraft:dockraft /app /server_data /server_backups
+# Prepare server data and backups volume directories
+RUN mkdir -p /server_data /server_backups
 
 ENV DATA_DIR="/server_data"
 ENV BACKUPS_DIR="/server_backups"
 ENV ADMIN_USER="admin"
 ENV HOST="0.0.0.0"
 ENV PORT="8000"
-
-USER dockraft
 
 # Expose ports:
 # 8000: Web Panel
