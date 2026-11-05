@@ -1,7 +1,7 @@
 <table>
   <tr>
     <td width="140" align="center" valign="middle">
-      <img src="web/static/img/logo.png" alt="Dockraft Logo" width="120" style="border-radius: 14px;" />
+      <img src="web/static/img/dockraft_logo.png" alt="Dockraft Logo" width="120" style="border-radius: 14px;" />
     </td>
     <td valign="middle">
       <h2>🎮 Dockraft — Dedicated Minecraft Server in Docker</h2>
