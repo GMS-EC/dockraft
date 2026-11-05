@@ -37,14 +37,17 @@ COPY app/ ./app/
 COPY web/ ./web/
 COPY CHANGELOG.md ./CHANGELOG.md
 
-# Prepare server data and backups volume directories
-RUN mkdir -p /server_data /server_backups
+# Prepare server data and backups volume directories (keep 'dockraft' as UID 0 alias for in-place container updaters)
+RUN mkdir -p /server_data /server_backups \
+    && useradd -u 0 -o -g 0 -M -d /root dockraft
 
 ENV DATA_DIR="/server_data"
 ENV BACKUPS_DIR="/server_backups"
 ENV ADMIN_USER="admin"
 ENV HOST="0.0.0.0"
 ENV PORT="8000"
+
+USER root
 
 # Expose ports:
 # 8000: Web Panel
