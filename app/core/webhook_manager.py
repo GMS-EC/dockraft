@@ -1,4 +1,5 @@
 import json
+import logging
 import asyncio
 import smtplib
 from email.mime.text import MIMEText
@@ -10,6 +11,8 @@ import httpx
 
 from app.config import settings
 from app.core.fs_utils import atomic_write_json
+
+logger = logging.getLogger("dockraft.webhooks")
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "discord": {
@@ -63,7 +66,7 @@ class WebhookManager:
                             else:
                                 config[k] = v
             except Exception as e:
-                print(f"[Dockraft] Error loading webhooks.json: {e}")
+                logger.error("[Dockraft] Error loading webhooks.json: %s", e)
         return config
 
     SECRET_MASK = "••••••••••••"
@@ -86,7 +89,7 @@ class WebhookManager:
         try:
             atomic_write_json(self.config_file, self.config, indent=2)
         except Exception as e:
-            print(f"[Dockraft] Error saving webhooks.json: {e}")
+            logger.error("[Dockraft] Error saving webhooks.json: %s", e)
             raise RuntimeError(f"Error saving webhook configuration: {e}")
             
         return self.get_sanitized_config()
@@ -445,7 +448,7 @@ class WebhookManager:
             try:
                 asyncio.run(self._async_dispatch_all(title, message, color, effective_fields))
             except Exception as e:
-                print(f"[Dockraft Webhooks] Could not dispatch event '{event_type}': {e}")
+                logger.warning("[Dockraft Webhooks] Could not dispatch event '%s': %s", event_type, e)
 
     async def _async_dispatch_all(self, title: str, message: str, color: int, fields: Optional[List[Dict[str, Any]]]) -> None:
         """Internal worker sending alerts to all enabled channels."""
@@ -467,6 +470,6 @@ class WebhookManager:
         try:
             await fn(*args)
         except Exception as e:
-            print(f"[Dockraft Webhooks] Failed to send to {name}: {e}")
+            logger.warning("[Dockraft Webhooks] Failed to send to %s: %s", name, e)
 
 webhook_manager = WebhookManager()

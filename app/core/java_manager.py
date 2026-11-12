@@ -1,9 +1,12 @@
 import os
 import shutil
+import logging
 import subprocess
 import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger("dockraft.java")
 
 class JavaManager:
     @staticmethod
@@ -23,8 +26,8 @@ class JavaManager:
             if match:
                 major = int(match.group(2))
                 return major
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Could not detect Java version for '%s': %s", binary_path, e)
         return None
 
     @classmethod

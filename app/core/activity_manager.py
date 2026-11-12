@@ -1,4 +1,5 @@
 import json
+import logging
 import threading
 import time
 from datetime import datetime
@@ -6,6 +7,8 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from app.config import settings
 from app.core.fs_utils import atomic_write_text
+
+logger = logging.getLogger("dockraft.activity")
 
 class ActivityManager:
     """Manages persistent audit and activity logs including console commands,
@@ -50,7 +53,7 @@ class ActivityManager:
                         if self.prune_expired(self.retention_days) > 0:
                             self.flush(force=True)
             except Exception as e:
-                print(f"[Dockraft] Warning loading activity_logs.json: {e}")
+                logger.warning("[Dockraft] Warning loading activity_logs.json: %s", e)
                 self._entries = []
 
     def _schedule_save(self) -> None:
@@ -79,7 +82,7 @@ class ActivityManager:
         try:
             atomic_write_text(self.log_file, json_str)
         except Exception as e:
-            print(f"[Dockraft] Error saving activity_logs.json: {e}")
+            logger.error("[Dockraft] Error saving activity_logs.json: %s", e)
 
     def _save(self):
         """Debounced persist (internal alias)."""

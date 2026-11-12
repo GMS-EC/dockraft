@@ -8,11 +8,13 @@ from typing import Any, Callable, Optional, Set, Union
 
 PROTECTED_INTERNAL_FILES: Set[str] = {
     "dockraft_config.json",
+    "litemc_config.json",
     "webhooks.json",
     "tasks.json",
     "activity_logs.json",
     ".install_lock",
     ".console_plugin_updates.json",
+    ".secret_key",
 }
 
 
@@ -122,3 +124,14 @@ def safe_extract_zip(
                     pass
             total_extracted += max(0, int(member.file_size or 0))
     return total_extracted
+
+
+def format_size(size_bytes: int) -> str:
+    """Formats a byte count into a human-readable B/KB/MB/GB string."""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    if size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"

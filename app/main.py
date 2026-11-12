@@ -1,45 +1,34 @@
 import os
-import sys
-import re
 import json
 import time
-import shutil
-import zipfile
+import logging
 import asyncio
-import inspect
-from pathlib import Path
-from datetime import datetime
+from typing import Any, Optional, List
 from contextlib import asynccontextmanager
-from typing import Dict, Any, Optional, List, Union
-from fastapi import (
-    FastAPI, WebSocket, WebSocketDisconnect, Depends,
-    HTTPException, UploadFile, File, Form, Query, Response, Request, status
-)
-from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Request, status
+from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.config import settings, BASE_DIR, APP_VERSION
 from app.core.security import (
-    create_session_token, verify_admin_credentials,
-    verify_session_token, get_current_user, login_limiter, is_authenticated,
-    get_session_max_age, revoke_token, get_token_from_request, get_client_ip
+    verify_session_token,
+    get_current_user,
+    login_limiter,
+    is_authenticated,
+    get_client_ip,
 )
 from app.core.process_manager import process_manager
 from app.core.downloader import downloader
-from app.core.file_manager import file_manager
-from app.core.java_manager import JavaManager
 from app.core.backup_manager import backup_manager
 from app.core.task_scheduler import task_scheduler
-from app.core.webhook_manager import webhook_manager
 from app.core.metrics_manager import metrics_manager
 from app.core.player_manager import player_manager
-from app.core.fs_utils import atomic_write_text, PROTECTED_INTERNAL_FILES, safe_extract_zip
-from app.core.diagnostic_manager import diagnostic_manager
 from app.core.activity_manager import activity_manager
+
+logger = logging.getLogger("dockraft.main")
 
 
 # --- Security Headers Middleware ---
@@ -64,9 +53,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 # --- Lifespan (replaces deprecated @app.on_event) ---
+_autostart_task: Optional[asyncio.Task] = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown lifecycle manager."""
+    global _autostart_task
     task_scheduler.start_loop()
     metrics_manager.start()
 
@@ -75,11 +68,13 @@ async def lifespan(app: FastAPI):
         async def _autostart():
             await asyncio.sleep(2)
             if process_manager.get_status() == "OFFLINE":
-                print("[Dockraft] Inicio automático habilitado: arrancando servidor de Minecraft...")
+                logger.info("[Dockraft] Inicio automático habilitado: arrancando servidor de Minecraft...")
                 await process_manager.start_server()
-        asyncio.create_task(_autostart())
+        _autostart_task = asyncio.create_task(_autostart())
 
     yield
+    if _autostart_task and not _autostart_task.done():
+        _autostart_task.cancel()
     metrics_manager.stop()
     task_scheduler.stop_loop()
     # Flush debounced writers so no activity/player history is lost on shutdown.
@@ -91,12 +86,10 @@ app = FastAPI(
     title="Dockraft",
     description="Ultra-lightweight Minecraft Server Panel",
     version=APP_VERSION,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # --- CORS Middleware ---
-# IMPORTANT: allow_origins=["*"] combined with allow_credentials=True is invalid per the CORS spec.
-# Restrict to specific origins via the ALLOWED_ORIGINS env var (comma-separated).
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
 _allowed_origins: List[str] = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
@@ -109,7 +102,6 @@ if _allowed_origins:
         allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
     )
 else:
-    # No explicit origins: allow all but WITHOUT credentials (safe default for local/LAN use)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -120,1336 +112,44 @@ else:
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+
 # --- Helper ---
 def _is_server_installed() -> bool:
     """Returns True if any known server binary or configured server_file exists in data_dir."""
     return process_manager.is_installed()
 
-# --- Pydantic Schemas ---
-class LoginRequest(BaseModel):
-    username: Optional[str] = "admin"
-    password: str
 
-class CommandRequest(BaseModel):
-    command: str
-
-class FileSaveRequest(BaseModel):
-    path: str
-    content: str
-
-class FolderCreateRequest(BaseModel):
-    path: str
-
-class UnzipRequest(BaseModel):
-    path: str
-    target_dir: str = ""
-
-class FileRenameRequest(BaseModel):
-    path: str
-    new_name: str
-
-class FileDuplicateRequest(BaseModel):
-    path: str
-
-class FileCompressRequest(BaseModel):
-    path: str
-
-class FileCreateRequest(BaseModel):
-    path: str
-
-class BulkDeleteRequest(BaseModel):
-    paths: List[str]
-
-class BulkCompressRequest(BaseModel):
-    paths: List[str]
-    target_dir: Optional[str] = ""
-    archive_name: Optional[str] = ""
-
-class InstallRequest(BaseModel):
-    server_type: str # paper, purpur, vanilla, fabric, bedrock, forge
-    version: str
-    server_name: Optional[str] = "Mi Servidor Dockraft"
-    java_path: Optional[str] = None
-    min_ram: Optional[str] = "1G"
-    max_ram: Optional[str] = "2G"
-    aikar_flags: Optional[bool] = True
-    cpu_cores: Optional[int] = 2
-    disk_limit_gb: Optional[float] = 10.0
-    force: Optional[bool] = False
-
-class EulaRequest(BaseModel):
-    accepted: bool
-
-class UpdateRequest(BaseModel):
-    version: str
-    build: Optional[Union[int, str]] = None
-
-class PlayerActionRequest(BaseModel):
-    player: str
-    reason: Optional[str] = ""
-
-class KickAllRequest(BaseModel):
-    reason: Optional[str] = "Mantenimiento del servidor"
-
-class BackupCreateRequest(BaseModel):
-    tag: Optional[str] = "manual"
-    scope: Optional[str] = "full"
-    targets: Optional[List[str]] = None
-    compression: Optional[bool] = None
-    stop_server: Optional[bool] = None
-    pre_command: Optional[str] = None
-
-class BackupRestoreRequest(BaseModel):
-    filename: str
-
-class BackupConfigRequest(BaseModel):
-    auto_backup: Optional[bool] = None
-    backup_interval_hours: Optional[int] = None
-    backup_max_count: int = 5
-    backup_scope: Optional[str] = "full"
-    backup_targets: Optional[List[str]] = None
-    backup_compression: Optional[bool] = True
-    backup_stop_server: Optional[bool] = False
-    backup_pre_command: Optional[str] = "save-all"
-
-class WebhookConfigRequest(BaseModel):
-    discord: Optional[Dict[str, Any]] = None
-    telegram: Optional[Dict[str, Any]] = None
-    email: Optional[Dict[str, Any]] = None
-    events: Optional[Dict[str, Any]] = None
-
-class TaskCreateRequest(BaseModel):
-    name: str
-    action: str
-    command: Optional[str] = ""
-    schedule_type: str = "interval"
-    interval_value: Optional[int] = 1
-    interval_unit: Optional[str] = "days"
-    cron_expression: Optional[str] = "0 4 * * *"
-    enabled: Optional[bool] = True
-
-class TaskUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    action: Optional[str] = None
-    command: Optional[str] = None
-    schedule_type: Optional[str] = None
-    interval_value: Optional[int] = None
-    interval_unit: Optional[str] = None
-    cron_expression: Optional[str] = None
-    enabled: Optional[bool] = None
-
-class TaskToggleRequest(BaseModel):
-    enabled: Optional[bool] = None
-
-class RawPropertiesRequest(BaseModel):
-    content: str
-
-
-class RuntimeConfigUpdate(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    server_name: Optional[str] = None
-    server_type: Optional[str] = None
-    server_version: Optional[str] = None
-    server_build: Optional[Union[str, int]] = None
-    server_file: Optional[str] = None
-    java_path: Optional[str] = None
-    java_version: Optional[int] = None
-    min_ram: Optional[str] = None
-    max_ram: Optional[str] = None
-    aikar_flags: Optional[bool] = None
-    custom_jvm_flags: Optional[str] = None
-    eula_accepted: Optional[bool] = None
-    auto_restart: Optional[bool] = None
-    disk_limit_gb: Optional[float] = Field(default=None, ge=0.0, le=10240.0)
-    cpu_cores: Optional[int] = Field(default=None, ge=0, le=128)
-    auto_backup: Optional[bool] = None
-    backup_interval_hours: Optional[int] = Field(default=None, ge=1, le=720)
-    backup_max_count: Optional[int] = Field(default=None, ge=1, le=500)
-    backup_scope: Optional[str] = None
-    backup_targets: Optional[List[str]] = None
-    backup_compression: Optional[bool] = None
-    backup_stop_server: Optional[bool] = None
-    backup_pre_command: Optional[str] = None
-    autostart_server: Optional[bool] = None
-    crash_detection: Optional[bool] = None
-    session_timeout_minutes: Optional[int] = Field(default=None, ge=1, le=10080)
-
-    @field_validator("min_ram", "max_ram")
-    @classmethod
-    def validate_ram_format(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            v = v.strip()
-            if not re.match(r"^\d+[MGmg]$", v):
-                raise ValueError("El formato de RAM debe ser numérico seguido de M o G (ej: 1G, 2048M)")
-        return v
-
-    @field_validator("server_file")
-    @classmethod
-    def validate_server_file(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            v = v.strip()
-            if not v or ".." in v or "/" in v or "\\" in v or v in PROTECTED_INTERNAL_FILES:
-                raise ValueError("Nombre de archivo ejecutable del servidor no válido")
-        return v
-
-# --- Authentication Endpoints ---
-@app.get("/api/auth/status")
-async def auth_status(user: bool = Depends(get_current_user)):
-    max_age = get_session_max_age()
-    return {
-        "auth_required": bool(settings.admin_password),
-        "authenticated": True,
-        "admin_user": getattr(settings, "admin_user", "admin"),
-        "session_timeout_minutes": max_age // 60
-    }
-
-@app.post("/api/auth/refresh")
-async def auth_refresh(response: Response, user: bool = Depends(get_current_user)):
-    """Refreshes the active session token and sliding cookie timestamp."""
-    new_token = create_session_token()
-    max_age = get_session_max_age()
-    _secure = settings.https_enabled
-    response.set_cookie(key="dockraft_token", value=new_token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
-    response.set_cookie(key="litemc_token", value=new_token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
-    return {
-        "status": "success",
-        "token": new_token,
-        "session_timeout_minutes": max_age // 60
-    }
-
-@app.post("/api/auth/login")
-async def auth_login(req: LoginRequest, request: Request, response: Response):
-    client_ip = get_client_ip(request)
-    max_age = get_session_max_age()
-
-    # 1. Rate limiting check: check if this IP is currently locked out
-    is_locked, remaining = login_limiter.is_locked(client_ip)
-    if is_locked:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Demasiados intentos fallidos. Acceso bloqueado temporalmente. Reintente en {remaining} segundos.",
-            headers={"Retry-After": str(remaining)}
-        )
-
-    # 2. If no admin password is configured, grant access directly
-    if not settings.admin_password:
-        login_limiter.record_success(client_ip)
-        token = create_session_token()
-        _secure = settings.https_enabled
-        response.set_cookie(key="dockraft_token", value=token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
-        response.set_cookie(key="litemc_token", value=token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
-        return {"status": "success", "token": token, "session_timeout_minutes": max_age // 60}
-
-    # 3. Verify admin credentials (username + password)
-    if verify_admin_credentials(req.username, req.password):
-        login_limiter.record_success(client_ip)
-        token = create_session_token()
-        _secure = settings.https_enabled
-        response.set_cookie(key="dockraft_token", value=token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
-        response.set_cookie(key="litemc_token", value=token, httponly=True, secure=_secure, max_age=max_age, samesite="lax")
-        try:
-            activity_manager.log("security", "Inicio de sesión exitoso", f"Usuario '{req.username or 'admin'}' conectado (IP: {client_ip})", user=req.username or "admin", status="success")
-        except Exception:
-            pass
-        return {"status": "success", "token": token, "session_timeout_minutes": max_age // 60}
-
-    # 4. Record failed attempt and check if threshold reached
-    remaining_attempts, cooldown = login_limiter.record_failure(client_ip)
-    if cooldown > 0:
-        try:
-            activity_manager.log("security", "Bloqueo por fuerza bruta", f"5 intentos fallidos superados (IP: {client_ip})", user="desconocido", status="error")
-        except Exception:
-            pass
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Ha alcanzado el límite de 5 intentos fallidos. Acceso bloqueado durante 10 minutos ({cooldown}s).",
-            headers={"Retry-After": str(cooldown)}
-        )
-
-    try:
-        activity_manager.log("security", "Intento de inicio fallido", f"Credenciales inválidas para '{req.username or 'admin'}' (IP: {client_ip})", user=req.username or "desconocido", status="warning")
-    except Exception:
-        pass
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=f"Credenciales inválidas. Intentos restantes antes del bloqueo: {remaining_attempts}"
-    )
-
-@app.post("/api/auth/logout")
-async def auth_logout(request: Request, response: Response):
-    # Fix #3: Revoke the current token server-side so it is immediately invalid
-    # even if someone captured it before the user clicked logout.
-    current_token = get_token_from_request(request)
-    if current_token:
-        revoke_token(current_token)
-    response.delete_cookie(key="dockraft_token", samesite="lax")
-    response.delete_cookie(key="litemc_token", samesite="lax")
-    try:
-        activity_manager.log("security", "Cierre de sesión", "Sesión cerrada por el usuario", user="admin", status="info")
-    except Exception:
-        pass
-    return {"status": "success", "message": "Sesión cerrada"}
-
-@app.get("/logout")
-async def logout_page(request: Request):
-    current_token = get_token_from_request(request)
-    if current_token:
-        revoke_token(current_token)
-    redirect_resp = RedirectResponse(url="/login", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-    redirect_resp.delete_cookie(key="dockraft_token", samesite="lax")
-    redirect_resp.delete_cookie(key="litemc_token", samesite="lax")
-    return redirect_resp
-
-# --- Health & Status Endpoints ---
-@app.get("/api/health")
-async def health_check():
-    """Lightweight unauthenticated healthcheck endpoint for Docker."""
-    return {"status": "ok"}
-
-# --- Server Control Endpoints ---
-@app.get("/api/server/status", dependencies=[Depends(get_current_user)])
-async def server_status():
-    return process_manager.get_stats()
-
-@app.post("/api/server/start", dependencies=[Depends(get_current_user)])
-async def server_start():
-    return await process_manager.start_server()
-
-@app.post("/api/server/stop", dependencies=[Depends(get_current_user)])
-async def server_stop():
-    return await process_manager.stop_server()
-
-@app.post("/api/server/restart", dependencies=[Depends(get_current_user)])
-async def server_restart():
-    return await process_manager.restart_server()
-
-@app.post("/api/server/kill", dependencies=[Depends(get_current_user)])
-async def server_kill():
-    return await process_manager.kill_server()
-
-@app.post("/api/server/delete", dependencies=[Depends(get_current_user)])
-async def delete_server():
-    """Safely uninstalls/wipes the server files, keeping the backups directory intact."""
-    if process_manager.get_status() != "OFFLINE":
-        raise HTTPException(status_code=400, detail="Por favor detén el servidor antes de eliminarlo")
-
-    protected_items = {"backups", "dockraft_config.json", "litemc_config.json"}
-    deleted_count = 0
-    try:
-        for item in settings.data_dir.iterdir():
-            if item.name in protected_items or item.name.startswith("."):
-                continue
-            if item.is_dir():
-                shutil.rmtree(item, ignore_errors=True)
-                deleted_count += 1
-            elif item.is_file():
-                try:
-                    item.unlink()
-                    deleted_count += 1
-                except Exception:
-                    pass
-
-        # Reset runtime config
-        settings.save_runtime_config({
-            "server_type": "paper",
-            "server_version": "",
-            "server_file": "server.jar"
-        })
-
-        return {
-            "status": "success",
-            "message": "Servidor eliminado correctamente. Las copias de seguridad se han conservado.",
-            "deleted_items": deleted_count
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al eliminar servidor: {str(e)}")
-
-@app.post("/api/server/command", dependencies=[Depends(get_current_user)])
-async def server_command(req: CommandRequest):
-    return await process_manager.send_command(req.command)
-
-@app.get("/api/server/eula", dependencies=[Depends(get_current_user)])
-async def get_eula():
-    eula_file = settings.data_dir / "eula.txt"
-    accepted = False
-    if eula_file.exists():
-        with open(eula_file, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                if line.strip().lower() == "eula=true":
-                    accepted = True
-                    break
-    return {"accepted": accepted}
-
-@app.post("/api/server/eula", dependencies=[Depends(get_current_user)])
-async def set_eula(req: EulaRequest):
-    eula_file = settings.data_dir / "eula.txt"
-    val = "true" if req.accepted else "false"
-    atomic_write_text(eula_file, f"# By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\neula={val}\n")
-    return {"status": "success", "accepted": req.accepted}
-
-# --- Configuration & Properties ---
-@app.get("/api/config", dependencies=[Depends(get_current_user)])
-async def get_config():
-    return settings.runtime_config
-
-@app.post("/api/config", dependencies=[Depends(get_current_user)])
-async def update_config(config: RuntimeConfigUpdate):
-    settings.save_runtime_config(config.model_dump(exclude_unset=True))
-    return {"status": "saved", "config": settings.runtime_config}
-
-# --- Performance Telemetry & Metrics ---
-@app.get("/api/metrics/history", dependencies=[Depends(get_current_user)])
-async def get_metrics_history():
-    """Returns chronological telemetry samples and summary statistics."""
-    return {
-        "history": metrics_manager.get_history(),
-        "summary": metrics_manager.get_summary()
-    }
-
-@app.post("/api/metrics/reset", dependencies=[Depends(get_current_user)])
-async def reset_metrics():
-    """Clears recorded telemetry buffer and peaks."""
-    metrics_manager.reset()
-    return {"status": "reset", "summary": metrics_manager.get_summary()}
-
-# --- Player Management Endpoints (Modular Router) ---
-from app.routers import players as players_router
-app.include_router(players_router.router)
-
-@app.get("/api/server/properties", dependencies=[Depends(get_current_user)])
-async def get_properties():
-    """Reads server.properties if present and returns key-values."""
-    prop_file = settings.data_dir / "server.properties"
-    server_type = settings.runtime_config.get("server_type", "paper")
-    if not prop_file.exists():
-        return {"exists": False, "server_type": server_type, "properties": {}}
-
-    props: Dict[str, str] = {}
-    with open(prop_file, "r", encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, val = line.split("=", 1)
-                props[key.strip()] = val.strip()
-
-    # Alias sync for convenience across Java and Bedrock
-    if "server-name" in props and "motd" not in props:
-        props["motd"] = props["server-name"]
-    elif "motd" in props and "server-name" not in props:
-        props["server-name"] = props["motd"]
-
-    if "allow-list" in props and "white-list" not in props:
-        props["white-list"] = props["allow-list"]
-    elif "white-list" in props and "allow-list" not in props:
-        props["allow-list"] = props["white-list"]
-
-    return {"exists": True, "server_type": server_type, "properties": props}
-
-@app.post("/api/server/properties", dependencies=[Depends(get_current_user)])
-async def save_properties(new_props: Dict[str, str]):
-    """Updates key-values in server.properties, keeping formatting/comments where possible."""
-    prop_file = settings.data_dir / "server.properties"
-    server_type = settings.runtime_config.get("server_type", "paper")
-    lines = []
-    keys_written = set()
-
-    # Keep aliases synchronized
-    to_save = dict(new_props)
-    if "server-name" in to_save and "motd" not in to_save:
-        to_save["motd"] = to_save["server-name"]
-    elif "motd" in to_save and "server-name" not in to_save:
-        to_save["server-name"] = to_save["motd"]
-
-    if "allow-list" in to_save and "white-list" not in to_save:
-        to_save["white-list"] = to_save["allow-list"]
-    elif "white-list" in to_save and "allow-list" not in to_save:
-        to_save["allow-list"] = to_save["white-list"]
-
-    if prop_file.exists():
-        with open(prop_file, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                stripped = line.strip()
-                if stripped and not stripped.startswith("#") and "=" in stripped:
-                    key, _ = stripped.split("=", 1)
-                    key = key.strip()
-                    if key in to_save:
-                        lines.append(f"{key}={to_save[key]}\n")
-                        keys_written.add(key)
-                        continue
-                lines.append(line)
-
-    for k, v in to_save.items():
-        if k not in keys_written:
-            lines.append(f"{k}={v}\n")
-
-    atomic_write_text(prop_file, "".join(lines))
-
-    return {"status": "success", "server_type": server_type}
-
-@app.get("/api/server/properties/raw", dependencies=[Depends(get_current_user)])
-async def get_raw_properties():
-    """Reads full raw text of server.properties."""
-    prop_file = settings.data_dir / "server.properties"
-    server_type = settings.runtime_config.get("server_type", "paper")
-    if not prop_file.exists():
-        return {"exists": False, "server_type": server_type, "content": ""}
-    content = prop_file.read_text(encoding="utf-8", errors="replace")
-    return {"exists": True, "server_type": server_type, "content": content}
-
-@app.post("/api/server/properties/raw", dependencies=[Depends(get_current_user)])
-async def save_raw_properties(req: RawPropertiesRequest):
-    """Saves full raw text of server.properties with atomic write."""
-    prop_file = settings.data_dir / "server.properties"
-    server_type = settings.runtime_config.get("server_type", "paper")
-    atomic_write_text(prop_file, req.content)
-    return {"status": "success", "server_type": server_type}
-
-# --- Java & Runtimes ---
-@app.get("/api/java/runtimes", dependencies=[Depends(get_current_user)])
-async def get_runtimes():
-    return await asyncio.to_thread(JavaManager.detect_runtimes)
-
-# --- Downloader & Installer ---
-@app.get("/api/installer/versions", dependencies=[Depends(get_current_user)])
-async def get_installer_versions(type: str = Query("paper")):
-    try:
-        if type in ["paper", "folia", "velocity"]:
-            versions = await downloader.get_paper_versions(type)
-            return {"type": type, "versions": versions}
-        elif type == "purpur":
-            versions = await downloader.get_purpur_versions()
-            return {"type": type, "versions": versions}
-        elif type == "vanilla":
-            versions = await downloader.get_vanilla_versions()
-            return {"type": type, "versions": [v["id"] for v in versions]}
-        elif type == "fabric":
-            versions = await downloader.get_fabric_versions()
-            return {"type": type, "versions": versions}
-        elif type == "bedrock":
-            versions = await downloader.get_bedrock_versions()
-            return {"type": "bedrock", "versions": versions}
-        elif type == "forge":
-            versions = await downloader.get_forge_versions()
-            return {"type": "forge", "versions": versions}
-        else:
-            raise HTTPException(status_code=400, detail="Invalid server type")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching versions: {str(e)}")
-
-@app.get("/api/installer/progress", dependencies=[Depends(get_current_user)])
-async def get_install_progress():
-    data = downloader.active_download or {"status": "idle", "percent": 0}
-    if data.get("status") == "completed":
-        downloader.active_download = {"status": "idle", "percent": 100}
-    return data
-
-@app.post("/api/installer/install", dependencies=[Depends(get_current_user)])
-async def install_server(req: InstallRequest):
-    if process_manager.get_status() != "OFFLINE":
-        raise HTTPException(status_code=400, detail="Por favor detén el servidor antes de instalar o cambiar de versión")
-
-    # Guard against accidental overwrite if server is already installed
-    if _is_server_installed() and not req.force:
-        raise HTTPException(
-            status_code=400,
-            detail="Ya existe un servidor instalado en este directorio. Desbloquea la reinstalación para confirmar la sobrescritura."
-        )
-
-    target_file = "server.jar"
-    download_url = ""
-    is_zip = False
-
-    try:
-        # Auto-resolve best Java runtime if not specifically provided
-        if req.server_type != "bedrock":
-            if not req.java_path or req.java_path == "java":
-                req.java_path = await asyncio.to_thread(JavaManager.get_best_java_path, req.version)
-
-        server_build = None
-        if req.server_type in ["paper", "folia", "velocity"]:
-            info = await downloader.get_paper_latest_build(req.server_type, req.version)
-            download_url = info["download_url"]
-            target_file = "server.jar"
-            server_build = info.get("build")
-        elif req.server_type == "purpur":
-            info = await downloader.get_purpur_latest_build(req.version)
-            download_url = info["download_url"]
-            target_file = "server.jar"
-            server_build = info.get("build")
-        elif req.server_type == "vanilla":
-            versions = await downloader.get_vanilla_versions()
-            match = next((v for v in versions if v["id"] == req.version), None)
-            if not match:
-                raise HTTPException(status_code=404, detail="Version manifest not found")
-            download_url = await downloader.get_vanilla_download_url(match["url"])
-            target_file = "server.jar"
-        elif req.server_type == "fabric":
-            download_url = await downloader.get_fabric_download_url(req.version)
-            target_file = "server.jar"
-        elif req.server_type == "bedrock":
-            platform = "win" if sys.platform == "win32" else "linux"
-            download_url = await downloader.get_bedrock_download_url(req.version, platform=platform)
-            target_file = "bedrock-server.zip"
-            is_zip = True
-        elif req.server_type == "forge":
-            download_url = await downloader.get_forge_download_url(req.version)
-            target_file = "forge-installer.jar"
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported server type")
-
-        if req.server_type == "forge":
-            java_bin = req.java_path or "java"
-            async def forge_install_pipeline():
-                try:
-                    installer_path = await downloader.download_file(download_url, target_file)
-                    res = await downloader.install_forge_server(installer_path, java_bin=java_bin)
-                    settings.save_runtime_config({
-                        "server_file": res.get("server_file", "run.sh")
-                    })
-                except Exception as ex:
-                    print(f"[Dockraft] Forge install pipeline error: {ex}")
-
-            asyncio.create_task(forge_install_pipeline())
-        else:
-            # Start download in background task
-            asyncio.create_task(downloader.download_file(download_url, target_file, is_zip=is_zip))
-
-        # Update runtime config
-        resolved_server_file = (
-            ("bedrock_server.exe" if sys.platform == "win32" else "bedrock_server")
-            if req.server_type == "bedrock"
-            else ("run.sh" if req.server_type == "forge" else "server.jar")
-        )
-
-        cfg_to_save = {
-            "server_type": req.server_type,
-            "server_version": req.version,
-            "server_file": resolved_server_file,
-            "server_name": req.server_name or "Mi Servidor Dockraft",
-            "java_path": req.java_path or "java",
-            "min_ram": req.min_ram or "1G",
-            "max_ram": req.max_ram or "2G",
-            "aikar_flags": req.aikar_flags if req.aikar_flags is not None else True,
-            "cpu_cores": req.cpu_cores if req.cpu_cores is not None else 2,
-            "disk_limit_gb": req.disk_limit_gb if req.disk_limit_gb is not None else 10.0
-        }
-        if server_build is not None:
-            try:
-                cfg_to_save["server_build"] = int(server_build)
-            except (ValueError, TypeError):
-                pass
-
-        settings.save_runtime_config(cfg_to_save)
-
-        return {"status": "started", "target_file": target_file, "download_url": download_url}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-def get_version_changelog_info(server_type: str, version_id: str, channel: str = "stable") -> Dict[str, Any]:
-    """Generates official changelog URLs, engine notes, and upgrade advice for any Minecraft server version."""
-    st = (server_type or "").lower().strip()
-    vid = (version_id or "").strip()
-
-    # Extract clean semantic version or snapshot id (e.g. '1.21.4', '26.3', '24w45a', '1.21.4-rc1')
-    m = re.search(r'([0-9]+(?:\.[0-9]+)+(?:-[a-zA-Z0-9\.\-]+)?)', vid)
-    clean_ver = m.group(1) if m else vid
-
-    # Determine official software portal and Minecraft wiki URLs
-    if st == "bedrock":
-        if channel in ("preview", "beta"):
-            official_url = "https://feedback.minecraft.net/hc/en-us/sections/360001185332-Beta-and-Preview-Information-and-Changelogs"
-            official_label = "Novedades Oficiales de Betas y Previews (Bedrock)"
-        else:
-            official_url = "https://feedback.minecraft.net/hc/en-us/sections/360001186971-Release-Changelogs"
-            official_label = "Página Oficial y Cambios de Bedrock"
-        wiki_url = f"https://minecraft.wiki/w/Bedrock_Edition_{clean_ver}"
-    elif st == "paper":
-        official_url = "https://papermc.io/downloads/paper"
-        official_label = "Página Oficial y Descargas de PaperMC"
-        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-    elif st == "folia":
-        official_url = "https://papermc.io/downloads/folia"
-        official_label = "Página Oficial y Descargas de Folia"
-        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-    elif st == "velocity":
-        official_url = "https://papermc.io/downloads/velocity"
-        official_label = "Página Oficial y Descargas de Velocity"
-        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-    elif st == "purpur":
-        official_url = f"https://purpurmc.org/downloads?version={clean_ver}" if clean_ver else "https://purpurmc.org/downloads"
-        official_label = "Página Oficial y Descargas de Purpur"
-        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-    elif st == "fabric":
-        official_url = "https://fabricmc.net/"
-        official_label = "Portal Oficial de FabricMC"
-        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-    elif st == "forge":
-        official_url = "https://files.minecraftforge.net/net/minecraftforge/forge/"
-        official_label = "Portal Oficial de Minecraft Forge"
-        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-    else:  # vanilla or custom
-        official_url = "https://www.minecraft.net/articles"
-        official_label = "Artículos Oficiales de Lanzamiento en Minecraft.net"
-        wiki_url = f"https://minecraft.wiki/w/Java_Edition_{clean_ver}"
-
-    wiki_label = f"Wiki de Minecraft ({clean_ver})"
-
-    is_stable = channel == "stable"
-    if is_stable:
-        advice_title = "Compilación Estable (Recomendada para Producción)"
-        advice_text = (
-            f"La versión {clean_ver} es una compilación Estable oficial. Es la opción recomendada "
-            "si buscas máxima compatibilidad con plugins/mods, estabilidad para tus jugadores y cero riesgos de fallos experimentales."
-        )
-    else:
-        ch_label = "Beta / Snapshot" if channel in ("beta", "snapshot", "pre") else "Experimental"
-        advice_title = f"Compilación {ch_label} (Preliminar de Desarrollo)"
-        advice_text = (
-            f"La versión {clean_ver} incluye las mecánicas y bloques más recientes antes de su lanzamiento final, "
-            "pero puede contener bugs, inestabilidad o incompatibilidad temporal con plugins. Te conviene quedarte en Estable "
-            "si tu comunidad está activa, o probar esta versión si tienes un entorno de prueba o deseas explorar las novedades. "
-            "Dockraft generará una copia de seguridad preventiva antes de instalar."
-        )
-
-    return {
-        "clean_version": clean_ver,
-        "official_url": official_url,
-        "official_label": official_label,
-        "wiki_url": wiki_url,
-        "wiki_label": wiki_label,
-        "changelog_url": official_url,
-        "engine_url": wiki_url,
-        "engine_label": wiki_label,
-        "advice_title": advice_title,
-        "advice_text": advice_text,
-        "is_stable": is_stable
-    }
-
-@app.get("/api/installer/update-info", dependencies=[Depends(get_current_user)])
-async def get_update_info():
-    """Returns update status and classified versions for the currently installed server type."""
-    if not _is_server_installed():
-        return {
-            "is_installed": False,
-            "server_type": None,
-            "current_version": None,
-            "current_channel": "unknown",
-            "latest_stable": "",
-            "latest_preview": "",
-            "update_available": False,
-            "preview_available": False,
-            "available_versions": [],
-            "versions": []
-        }
-
-    cfg = settings.runtime_config
-    server_type = cfg.get("server_type", "paper")
-    current_version = cfg.get("server_version", "")
-    current_build = cfg.get("server_build")
-    server_file = cfg.get("server_file")
-
-    # If version is generic, missing, or imported, attempt auto-detection from local files
-    if not current_version or current_version.lower() in ["importado", "desconocida", "unknown"]:
-        detected_ver = downloader.detect_server_version(server_file=server_file)
-        if detected_ver:
-            current_version = detected_ver
-            settings.save_runtime_config({"server_version": detected_ver})
-        else:
-            current_version = "importado"
-
-    # If build is not stored yet, attempt detection from logs or version_history
-    if current_build is None and server_type in ["paper", "folia", "velocity", "purpur"]:
-        detected_build = downloader.detect_server_build(server_file=server_file)
-        if detected_build:
-            current_build = detected_build
-            settings.save_runtime_config({"server_build": detected_build})
-    
-    latest_stable = ""
-    latest_preview = ""
-    version_items = []
-
-    try:
-        if server_type == "bedrock":
-            b_vers = await downloader.get_bedrock_versions()
-            for bv in b_vers:
-                m = re.search(r'([0-9]+\.[0-9]+(?:\.[0-9]+)+)', bv)
-                vid = m.group(1) if m else bv
-                is_prev = "preview" in bv.lower() or "beta" in bv.lower()
-                ch = "preview" if is_prev else "stable"
-                lbl = f"{vid} (Estable)" if not is_prev else f"{vid} (Preview / Beta)"
-                version_items.append({"id": bv, "label": lbl, "channel": ch})
-                if not is_prev and not latest_stable:
-                    latest_stable = vid
-                elif is_prev and not latest_preview:
-                    latest_preview = vid
-
-        elif server_type == "vanilla":
-            latest_info = await downloader.get_vanilla_latest()
-            latest_stable = latest_info.get("release", "")
-            latest_preview = latest_info.get("snapshot", "")
-            
-            raw_versions = await downloader.get_vanilla_versions()
-            for v in raw_versions:
-                vid = v["id"]
-                vtype = v.get("type", "")
-                if vtype == "release":
-                    ch = "stable"
-                    lbl = f"{vid} (Estable)"
-                elif "-pre" in vid or "pre-release" in vid:
-                    ch = "pre"
-                    lbl = f"{vid} (Pre-Release)"
-                elif "-rc" in vid:
-                    ch = "pre"
-                    lbl = f"{vid} (Release Candidate)"
-                else:
-                    ch = "snapshot"
-                    lbl = f"{vid} (Snapshot)"
-                version_items.append({"id": vid, "label": lbl, "channel": ch})
-
-        elif server_type == "fabric":
-            fabric_items = await downloader.get_fabric_version_items()
-            for f in fabric_items:
-                vid = f["id"]
-                is_st = f.get("stable", False)
-                if is_st:
-                    ch = "stable"
-                    lbl = f"{vid} (Estable)"
-                    if not latest_stable:
-                        latest_stable = vid
-                elif "-pre" in vid or "-rc" in vid:
-                    ch = "pre"
-                    lbl = f"{vid} (Pre-Release)"
-                    if not latest_preview:
-                        latest_preview = vid
-                else:
-                    ch = "snapshot"
-                    lbl = f"{vid} (Snapshot)"
-                    if not latest_preview:
-                        latest_preview = vid
-                version_items.append({"id": vid, "label": lbl, "channel": ch})
-
-        elif server_type in ["paper", "folia", "velocity"]:
-            classified = await downloader.get_paper_classified_versions(server_type)
-            version_items = classified.get("versions", [])
-            latest_stable = classified.get("latest_stable", "")
-            latest_preview = classified.get("latest_preview", "")
-
-        elif server_type == "purpur":
-            purpur_versions = await downloader.get_purpur_versions()
-            for pv in purpur_versions:
-                is_pre = "-pre" in pv or "-rc" in pv
-                ch = "pre" if is_pre else "stable"
-                lbl = f"{pv} (Pre-Release)" if is_pre else f"{pv} (Estable)"
-                version_items.append({"id": pv, "label": lbl, "channel": ch})
-                if ch == "stable" and not latest_stable:
-                    latest_stable = pv
-                elif ch != "stable" and not latest_preview:
-                    latest_preview = pv
-
-        elif server_type == "forge":
-            forge_list = await downloader.get_forge_versions()
-            for fv in forge_list:
-                vid = fv["mc_version"]
-                is_rec = fv.get("is_recommended", False)
-                ch = "stable" if is_rec else "preview"
-                version_items.append({"id": vid, "label": fv["label"], "channel": ch})
-                if is_rec and not latest_stable:
-                    latest_stable = vid
-                elif not is_rec and not latest_preview:
-                    latest_preview = vid
-
-    except Exception as e:
-        print(f"[UpdateInfo] Error querying versions for {server_type}: {e}")
-
-    # Determine current version channel
-    curr_l = current_version.lower()
-    if server_type == "bedrock":
-        current_channel = "preview" if ("preview" in curr_l or "beta" in curr_l) else "stable"
-    elif "-pre" in curr_l or "pre-release" in curr_l:
-        current_channel = "pre"
-    elif "-rc" in curr_l:
-        current_channel = "rc"
-    elif "snapshot" in curr_l or re.search(r'^[0-9]{2}w[0-9]{2}[a-z]$', curr_l):
-        current_channel = "snapshot"
-    else:
-        # Check if the installed version is actually tagged as preview/experimental
-        matching_ver = next((v for v in version_items if v.get("id") == current_version), None)
-        if matching_ver and matching_ver.get("channel") in ("preview", "pre", "snapshot"):
-            current_channel = matching_ver.get("channel")
-        else:
-            current_channel = "stable"
-
-    curr_m = re.search(r'([0-9]+\.[0-9]+(?:\.[0-9]+)+)', current_version)
-    curr_clean = curr_m.group(1) if curr_m else current_version
-
-    # Query latest build for Paper/Purpur/Folia/Velocity
-    latest_build = None
-    build_update_available = False
-    try:
-        target_v = current_version if (current_version and current_version != "importado") else latest_stable
-        if target_v and server_type in ["paper", "folia", "velocity"]:
-            b_info = await downloader.get_paper_latest_build(server_type, target_v)
-            if b_info and b_info.get("build"):
-                latest_build = int(b_info["build"])
-        elif target_v and server_type == "purpur":
-            b_info = await downloader.get_purpur_latest_build(target_v)
-            if b_info and b_info.get("build"):
-                latest_build = int(b_info["build"])
-    except Exception as ex:
-        print(f"[UpdateInfo] Warning querying latest build for {server_type}: {ex}")
-
-    if current_build is not None and latest_build is not None:
-        try:
-            if int(latest_build) > int(current_build):
-                build_update_available = True
-        except (ValueError, TypeError):
-            pass
-
-    # Update available:
-    update_available = False
-    if current_version == "importado":
-        update_available = bool(latest_stable)
-    elif current_channel == "stable":
-        if latest_stable and curr_clean and latest_stable != curr_clean:
-            update_available = True
-        elif build_update_available:
-            update_available = True
-    else:
-        # If on pre or snapshot, notify if latest preview is different or new build available
-        if latest_preview and current_version != latest_preview:
-            update_available = True
-        elif build_update_available:
-            update_available = True
-
-    preview_available = bool(latest_preview and latest_preview != current_version and latest_preview != latest_stable)
-
-    # Enrich version items with changelog links and guidance
-    enriched_versions = []
-    for it in version_items:
-        cinfo = get_version_changelog_info(server_type, it["id"], it.get("channel", "stable"))
-        enriched = dict(it)
-        enriched.update(cinfo)
-        enriched_versions.append(enriched)
-
-    latest_stable_info = get_version_changelog_info(server_type, latest_stable, "stable") if latest_stable else None
-    latest_preview_info = get_version_changelog_info(server_type, latest_preview, "preview") if latest_preview else None
-    current_version_info = get_version_changelog_info(server_type, current_version, current_channel) if current_version else None
-
-    return {
-        "is_installed": True,
-        "server_type": server_type,
-        "current_version": current_version,
-        "current_build": current_build,
-        "current_channel": current_channel,
-        "latest_stable": latest_stable,
-        "latest_preview": latest_preview,
-        "latest_build": latest_build,
-        "build_update_available": build_update_available,
-        "latest_stable_info": latest_stable_info,
-        "latest_preview_info": latest_preview_info,
-        "current_version_info": current_version_info,
-        "update_available": update_available,
-        "preview_available": preview_available,
-        "available_versions": [it["label"] for it in enriched_versions],
-        "versions": enriched_versions
-    }
-
-@app.get("/api/installer/builds", dependencies=[Depends(get_current_user)])
-async def get_installer_builds(version: Optional[str] = None):
-    """Retrieves available builds for the current server type and specified version."""
-    if not _is_server_installed():
-        raise HTTPException(status_code=400, detail="No hay servidor instalado")
-    cfg = settings.runtime_config
-    server_type = cfg.get("server_type", "paper")
-    current_ver = cfg.get("server_version", "")
-    current_build = cfg.get("server_build")
-    target_ver = version or current_ver
-
-    builds = []
-    latest_build = None
-    try:
-        if server_type in ["paper", "folia", "velocity"]:
-            builds = await downloader.get_paper_build_list(server_type, target_ver)
-            if builds:
-                latest_build = builds[0]["id"]
-        elif server_type == "purpur":
-            builds = await downloader.get_purpur_build_list(target_ver)
-            if builds:
-                latest_build = builds[0]["id"]
-    except Exception as e:
-        print(f"[BuildsAPI] Error fetching builds for {server_type} {target_ver}: {e}")
-
-    return {
-        "server_type": server_type,
-        "version": target_ver,
-        "current_build": current_build,
-        "latest_build": latest_build,
-        "builds": builds
-    }
-
-@app.post("/api/installer/update", dependencies=[Depends(get_current_user)])
-async def update_server(req: UpdateRequest):
-    """Safely updates the existing server to a new version of the same software,
-    preserving configs and worlds, auto-stopping gracefully if running,
-    creating a pre-update backup, and verifying file integrity against corruption."""
-    if not _is_server_installed():
-        raise HTTPException(status_code=400, detail="No hay ningún servidor instalado para actualizar")
-
-    cfg = settings.runtime_config
-    server_type = cfg.get("server_type", "paper")
-    old_server_file = cfg.get("server_file")
-    target_file = "server.jar"
-    download_url = ""
-    is_zip = False
-
-    try:
-        new_build = req.build
-        if server_type in ["paper", "folia", "velocity"]:
-            if req.build is not None:
-                info = await downloader.get_paper_build(server_type, req.version, req.build)
-            else:
-                info = await downloader.get_paper_latest_build(server_type, req.version)
-            download_url = info["download_url"]
-            target_file = "server.jar"
-            new_build = info.get("build")
-        elif server_type == "purpur":
-            if req.build is not None:
-                info = await downloader.get_purpur_build(req.version, req.build)
-            else:
-                info = await downloader.get_purpur_latest_build(req.version)
-            download_url = info["download_url"]
-            target_file = "server.jar"
-            new_build = info.get("build")
-        elif server_type == "vanilla":
-            versions = await downloader.get_vanilla_versions()
-            match = next((v for v in versions if v["id"] == req.version), None)
-            if not match:
-                raise HTTPException(status_code=404, detail="Version manifest not found")
-            download_url = await downloader.get_vanilla_download_url(match["url"])
-            target_file = "server.jar"
-        elif server_type == "fabric":
-            download_url = await downloader.get_fabric_download_url(req.version)
-            target_file = "server.jar"
-        elif server_type == "bedrock":
-            platform = "win" if sys.platform == "win32" else "linux"
-            download_url = await downloader.get_bedrock_download_url(req.version, platform=platform)
-            target_file = "bedrock-server.zip"
-            is_zip = True
-        elif server_type == "forge":
-            download_url = await downloader.get_forge_download_url(req.version)
-            target_file = "forge-installer.jar"
-        else:
-            raise HTTPException(status_code=400, detail="Tipo de servidor no soportado para actualización")
-
-        was_running = process_manager.get_status() != "OFFLINE"
-
-        async def safe_update_pipeline():
-            try:
-                # 1. Stop gracefully if running
-                if was_running:
-                    msg = "[Dockraft] Deteniendo servidor de forma segura para aplicar actualización..."
-                    process_manager._append_log(msg)
-                    await process_manager.broadcast_message({"type": "log", "data": msg})
-                    await process_manager.send_command("save-all", echo=False)
-                    await process_manager.stop_server()
-                    # Wait for offline status
-                    for _ in range(45):
-                        await asyncio.sleep(1)
-                        if process_manager.get_status() == "OFFLINE":
-                            break
-                    if process_manager.get_status() != "OFFLINE":
-                        kill_msg = "[Dockraft] El servidor tardó más de 45s en cerrar; forzando detención para proceder con la actualización de forma segura..."
-                        process_manager._append_log(kill_msg)
-                        await process_manager.broadcast_message({"type": "log", "data": kill_msg})
-                        await process_manager.kill_server()
-
-                # 2. Create pre-update backup
-                build_suffix = f"-b{new_build}" if new_build else ""
-                tag_name = f"pre-update-{req.version}{build_suffix}"
-                msg = f"[Dockraft] Generando copia de seguridad preventiva ({tag_name})..."
-                process_manager._append_log(msg)
-                await process_manager.broadcast_message({"type": "log", "data": msg})
-                pre_backup = backup_manager.create_backup(
-                    scope="full",
-                    tag=tag_name,
-                    compression=True
-                )
-                if inspect.isawaitable(pre_backup):
-                    pre_backup = await pre_backup
-                if pre_backup.get("status") == "error":
-                    err_msg = f"[Dockraft] Error al crear copia preventiva: {pre_backup.get('message')}. Abortando actualización para seguridad de datos."
-                    process_manager._append_log(err_msg)
-                    await process_manager.broadcast_message({"type": "log", "data": err_msg})
-                    if was_running:
-                        await process_manager.start_server()
-                    return
-
-                # 3. Download and verify integrity
-                build_label = f" (Build #{new_build})" if new_build else ""
-                msg = f"[Dockraft] Descargando actualización {req.version}{build_label} y verificando integridad anti-corrupción..."
-                process_manager._append_log(msg)
-                await process_manager.broadcast_message({"type": "log", "data": msg})
-
-                if server_type == "forge":
-                    java_path = cfg.get("java_path") or JavaManager.get_best_java_path(req.version)
-                    installer_path = await downloader.download_file(
-                        download_url,
-                        target_file,
-                        preserve_existing_configs=True,
-                        verify_integrity=True
-                    )
-                    res = await downloader.install_forge_server(installer_path, java_bin=java_path)
-                    settings.save_runtime_config({
-                        "server_file": res.get("server_file", "run.sh"),
-                        "server_version": req.version
-                    })
-                else:
-                    await downloader.download_file(
-                        download_url,
-                        target_file,
-                        is_zip=is_zip,
-                        preserve_existing_configs=True,
-                        verify_integrity=True
-                    )
-                    if old_server_file and old_server_file != target_file and not is_zip:
-                        old_path = settings.data_dir / old_server_file
-                        if old_path.exists():
-                            try:
-                                old_path.unlink()
-                            except Exception:
-                                pass
-
-                    upd_cfg = {
-                        "server_file": target_file if not is_zip else old_server_file or "bedrock_server",
-                        "server_version": req.version
-                    }
-                    if new_build is not None:
-                        try:
-                            upd_cfg["server_build"] = int(new_build)
-                        except (ValueError, TypeError):
-                            pass
-                    settings.save_runtime_config(upd_cfg)
-
-                # Log activity
-                build_label = f" (Build #{new_build})" if new_build else ""
-                activity_manager.log(
-                    category="update",
-                    action="Servidor actualizado",
-                    details=f"Actualizado con éxito a versión {req.version}{build_label} ({server_type.upper()}). Respaldo preventivo: {pre_backup.get('filename')}",
-                    user="admin",
-                    status="success"
-                )
-
-                succ_msg = f"[Dockraft] ¡Servidor actualizado exitosamente a la versión {req.version}{build_label}!"
-                process_manager._append_log(succ_msg)
-                await process_manager.broadcast_message({"type": "log", "data": succ_msg})
-
-                # 4. Restart if was running
-                if was_running:
-                    restart_msg = "[Dockraft] Reiniciando servidor automáticamente con la nueva versión..."
-                    process_manager._append_log(restart_msg)
-                    await process_manager.broadcast_message({"type": "log", "data": restart_msg})
-                    await asyncio.sleep(1.5)
-                    await process_manager.start_server()
-
-            except Exception as ex:
-                err_msg = f"[Dockraft] Error en la actualización a {req.version}: {str(ex)}"
-                process_manager._append_log(err_msg)
-                await process_manager.broadcast_message({"type": "log", "data": err_msg})
-                activity_manager.log(
-                    category="update",
-                    action="Error en actualización",
-                    details=f"Fallo al actualizar a {req.version}: {str(ex)}",
-                    user="admin",
-                    status="error"
-                )
-                if was_running and process_manager.get_status() == "OFFLINE":
-                    await process_manager.start_server()
-
-        asyncio.create_task(safe_update_pipeline())
-
-        return {
-            "status": "started",
-            "server_type": server_type,
-            "target_version": req.version,
-            "download_url": download_url,
-            "auto_stopping": was_running
-        }
-
-    except HTTPException:
-        raise
-    except (ValueError, KeyError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        if "404" in str(e) or "Not Found" in str(e):
-            raise HTTPException(status_code=404, detail="Version not found")
-        if "HTTPStatusError" in type(e).__name__:
-            raise HTTPException(status_code=400, detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-# --- Activity / Audit Log Endpoints ---
-@app.get("/api/activity/logs", dependencies=[Depends(get_current_user)])
-async def get_activity_logs(
-    category: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
-    limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0)
-):
-    """Returns filtered and paginated activity logs and category counts."""
-    return activity_manager.get_logs(category=category, search=search, limit=limit, offset=offset)
-
-@app.post("/api/activity/clear", dependencies=[Depends(get_current_user)])
-async def clear_activity_logs():
-    """Clears all logged activities."""
-    activity_manager.clear_logs()
-    activity_manager.log("security", "Historial de registros vaciado", "El administrador vació el registro de actividad", user="admin", status="warning")
-    return {"status": "success", "message": "Registros de actividad vaciados correctamente"}
-
-@app.get("/api/activity/export", dependencies=[Depends(get_current_user)])
-async def export_activity_logs(format: str = Query("csv", pattern="^(txt|json|csv)$")):
-    """Exports activity logs as CSV, plain text or JSON file."""
-    content = activity_manager.export_logs(format_type=format)
-    if format == "json":
-        media_type = "application/json"
-    elif format == "csv":
-        media_type = "text/csv; charset=utf-8"
-    else:
-        media_type = "text/plain; charset=utf-8"
-    filename = f"dockraft_activity_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{format}"
-    return Response(
-        content=content,
-        media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
-    )
-
-# --- File Manager Endpoints (Modular Router) ---
-from app.routers import files as files_router
-app.include_router(files_router.router)
-
-# --- Server Import Endpoint ---
-@app.post("/api/server/import", dependencies=[Depends(get_current_user)])
-async def import_server(file: UploadFile = File(...), accept_eula: bool = Form(True)):
-    """Imports an existing Minecraft server from an uploaded zip archive."""
-    if process_manager.get_status() != "OFFLINE":
-        raise HTTPException(status_code=400, detail="Por favor detén el servidor antes de importar")
-    
-    if not (file.filename or "").lower().endswith(".zip"):
-        raise HTTPException(status_code=400, detail="El archivo debe tener formato .zip")
-
-    temp_zip = settings.data_dir / f"import_temp_{int(time.time())}.zip"
-    try:
-        with open(temp_zip, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        # Validate disk quota and extract safely (ZipSlip + symlink + protected files check)
-        with zipfile.ZipFile(temp_zip, 'r') as zf:
-            total_uncompressed = sum(info.file_size for info in zf.infolist())
-            file_manager._check_disk_quota(extra_bytes=total_uncompressed)
-
-        try:
-            await asyncio.to_thread(
-                safe_extract_zip,
-                temp_zip,
-                settings.data_dir,
-                lambda member: Path(member.filename).parts[0] in PROTECTED_INTERNAL_FILES if Path(member.filename).parts else False,
-            )
-            file_manager.invalidate_quota_cache()
-        except ValueError as ve:
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        # Detect server type from extracted contents
-        detected_type = "paper"
-        detected_file = "server.jar"
-
-        if (settings.data_dir / "bedrock_server").exists() or (settings.data_dir / "bedrock_server.exe").exists():
-            detected_type = "bedrock"
-            detected_file = "bedrock_server.exe" if sys.platform == "win32" else "bedrock_server"
-            if sys.platform != "win32":
-                try:
-                    os.chmod(settings.data_dir / "bedrock_server", 0o755)
-                except Exception:
-                    pass
-        elif (settings.data_dir / "run.sh").exists():
-            detected_type = "forge"
-            detected_file = "run.sh"
-            if sys.platform != "win32":
-                try:
-                    os.chmod(settings.data_dir / "run.sh", 0o755)
-                except Exception:
-                    pass
-        else:
-            for f in settings.data_dir.iterdir():
-                if f.is_file() and f.name.endswith(".jar"):
-                    fn = f.name.lower()
-                    if "forge" in fn:
-                        detected_type = "forge"
-                        detected_file = f.name
-                        break
-                    elif "fabric" in fn:
-                        detected_type = "fabric"
-                        detected_file = f.name
-                        break
-                    elif "purpur" in fn:
-                        detected_type = "purpur"
-                        detected_file = f.name
-                        break
-                    elif "paper" in fn:
-                        detected_type = "paper"
-                        detected_file = f.name
-                        break
-                    elif "server" in fn:
-                        detected_file = f.name
-
-        if accept_eula:
-            downloader.accept_eula()
-
-        detected_version = downloader.detect_server_version(server_file=detected_file) or "importado"
-
-        settings.save_runtime_config({
-            "server_type": detected_type,
-            "server_file": detected_file,
-            "server_version": detected_version
-        })
-
-        return {
-            "status": "success",
-            "message": f"Servidor importado correctamente como '{detected_type}' ({detected_file})",
-            "server_type": detected_type,
-            "server_file": detected_file
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al importar el servidor: {str(e)}")
-    finally:
-        if temp_zip.exists():
-            try:
-                temp_zip.unlink()
-            except Exception:
-                pass
-
-# --- Backups, Webhooks, Scheduled Tasks, Diagnostics & Plugins (Modular Routers) ---
+# --- Modular Routers ---
 from app.routers import (
+    auth as auth_router,
+    server as server_router,
+    players as players_router,
+    installer as installer_router,
+    activity as activity_router,
+    files as files_router,
     backups as backups_router,
     webhooks as webhooks_router,
     tasks as tasks_router,
     plugins as plugins_router,
 )
-from app.core.plugin_manager import plugin_manager
+from app.routers.installer import get_update_info, get_version_changelog_info
+from app.routers.auth import clear_session_cookies as _clear_session_cookies
 
+app.include_router(auth_router.router)
+app.include_router(server_router.router)
+app.include_router(players_router.router)
+app.include_router(installer_router.router)
+app.include_router(activity_router.router)
+app.include_router(files_router.router)
 app.include_router(backups_router.router)
 app.include_router(webhooks_router.router)
 app.include_router(tasks_router.router)
 app.include_router(plugins_router.router)
 
+
 # --- WebSocket Console & Stats Hub ---
 @app.websocket("/ws/console")
 async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(None)):
-    # Authenticate websocket connection
     if settings.admin_password:
         cookie_token = (
             websocket.cookies.get("dockraft_token")
@@ -1458,7 +158,6 @@ async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(N
         )
         effective_token = token or cookie_token
         if not effective_token or not verify_session_token(effective_token):
-            # Must accept() before being able to close() with a code in WebSocket protocol
             await websocket.accept()
             await websocket.close(code=4001)
             return
@@ -1466,28 +165,25 @@ async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(N
     await websocket.accept()
     process_manager.connected_websockets.add(websocket)
 
-    # Send initial backlog and status
     try:
         initial_stats = process_manager.get_stats()
         await websocket.send_json({
             "type": "init",
             "status": process_manager.get_status(),
-            "history": list(process_manager.log_buffer)  # deque is not JSON-serializable — must cast to list
+            "history": list(process_manager.log_buffer),
         })
-        # Send initial stats immediately so client doesn't wait 2s
         await websocket.send_json({
             "type": "stats",
-            "data": initial_stats
+            "data": initial_stats,
         })
-        
-        # Periodic stats loop
+
         async def stats_pusher():
             while True:
                 await asyncio.sleep(2)
                 try:
                     await websocket.send_json({
                         "type": "stats",
-                        "data": process_manager.get_stats()
+                        "data": process_manager.get_stats(),
                     })
                 except Exception:
                     break
@@ -1512,8 +208,9 @@ async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(N
         pass
     finally:
         process_manager.connected_websockets.discard(websocket)
-        if 'stats_task' in locals() and not stats_task.done():
+        if "stats_task" in locals() and not stats_task.done():
             stats_task.cancel()
+
 
 # --- Serve Static UI & Modular Jinja2 Templates ---
 WEB_DIR = BASE_DIR / "web"
@@ -1522,17 +219,16 @@ if (WEB_DIR / "static").exists():
 
 templates_dir = WEB_DIR / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
-# Dynamic cache-busting token generated at application boot
 START_TIME_TOKEN = str(int(time.time()))
 templates.env.globals["asset_v"] = START_TIME_TOKEN
 templates.env.globals["app_version"] = APP_VERSION
+
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Isolated secure login page rendered via Jinja2."""
     session_expired = request.query_params.get("expired") == "1"
 
-    # If no password is required or user is already authenticated (and not arriving as expired), redirect straight to dashboard
     if not settings.admin_password or (is_authenticated(request) and not session_expired):
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
@@ -1550,21 +246,17 @@ async def login_page(request: Request):
             "app_name": "Dockraft",
             "app_version": APP_VERSION,
             "asset_v": START_TIME_TOKEN,
-            "session_expired": session_expired
-        }
+            "session_expired": session_expired,
+        },
     )
     if session_expired:
-        resp.delete_cookie("dockraft_token")
-        resp.delete_cookie("litemc_token")
+        _clear_session_cookies(resp)
     return resp
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    """
-    Main Dockraft Dashboard view.
-    Requires active session if admin_password is configured.
-    Unauthenticated users are redirected to /login.
-    """
+    """Main Dockraft Dashboard view."""
     if settings.admin_password and not is_authenticated(request):
         return RedirectResponse(url="/login", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
@@ -1573,8 +265,6 @@ async def root(request: Request):
     is_installed = bool(stats.get("is_installed", False))
     server_status = stats.get("status", "OFFLINE")
 
-    # Serialize for inline <script> hydration; escape <, > and & so a crafted
-    # server name / MOTD cannot break out of the script block.
     def _safe_json_embed(data: Any) -> str:
         return json.dumps(data).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
@@ -1595,6 +285,6 @@ async def root(request: Request):
             "server_type": stats.get("server_type") or cfg.get("server_type", ""),
             "motd": stats.get("motd", ""),
             "stats_json": _safe_json_embed(stats),
-            "cfg_json": _safe_json_embed(cfg)
-        }
+            "cfg_json": _safe_json_embed(cfg),
+        },
     )

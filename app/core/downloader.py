@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import logging
 import httpx
 import asyncio
 import zipfile
@@ -9,6 +10,8 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable, Union
 from app.config import settings
 from app.core.fs_utils import PROTECTED_INTERNAL_FILES, atomic_write_text, safe_extract_zip
+
+logger = logging.getLogger("dockraft.downloader")
 
 class DownloadManager:
     def __init__(self):
@@ -90,7 +93,7 @@ class DownloadManager:
                         latest_stable = pv
                         break
                 except Exception as e:
-                    print(f"[Dockraft] Warning checking Paper build channel for {pv}: {e}")
+                    logger.warning("[Dockraft] Warning checking Paper build channel for %s: %s", pv, e)
                     latest_stable = pv
                     break
 
@@ -207,7 +210,7 @@ class DownloadManager:
                     })
                 return result
         except Exception as e:
-            print(f"[Downloader] Error fetching paper build list for {project} {version}: {e}")
+            logger.error("[Downloader] Error fetching paper build list for %s %s: %s", project, version, e)
             return []
 
     async def get_purpur_versions(self) -> List[str]:
@@ -267,7 +270,7 @@ class DownloadManager:
                     })
                 return result
         except Exception as e:
-            print(f"[Downloader] Error fetching purpur build list for {version}: {e}")
+            logger.error("[Downloader] Error fetching purpur build list for %s: %s", version, e)
             return []
 
     async def get_vanilla_versions(self) -> List[Dict[str, str]]:
@@ -340,7 +343,7 @@ class DownloadManager:
                 if installers:
                     installer_version = installers[0].get("version", installer_version)
         except Exception as e:
-            print(f"[Dockraft] Warning: could not fetch latest Fabric versions, using fallback. Error: {e}")
+            logger.warning("[Dockraft] Warning: could not fetch latest Fabric versions, using fallback. Error: %s", e)
 
         return f"https://meta.fabricmc.net/v2/versions/loader/{game_version}/{loader_version}/{installer_version}/server/jar"
 
@@ -400,8 +403,8 @@ class DownloadManager:
 
                 if versions:
                     return versions
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("[Downloader] Could not fetch Bedrock versions from Mojang API: %s", e)
 
         # If cache already has entries from a previous successful fetch, use them
         cached_labels = [k for k in self._bedrock_cache.keys() if "(" in k]

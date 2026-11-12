@@ -1,5 +1,6 @@
 import os
 import stat
+import logging
 import zipfile
 import shutil
 from datetime import datetime
@@ -7,7 +8,9 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException
 from app.config import settings
-from app.core.fs_utils import PROTECTED_INTERNAL_FILES, safe_extract_zip
+from app.core.fs_utils import PROTECTED_INTERNAL_FILES, format_size, safe_extract_zip
+
+logger = logging.getLogger("dockraft.backups")
 
 class BackupManager:
     def __init__(self):
@@ -25,16 +28,8 @@ class BackupManager:
                     if not target_dst.exists():
                         try:
                             shutil.move(str(item), str(target_dst))
-                        except Exception:
-                            pass
-
-    def _format_size(self, size_bytes: int) -> str:
-        if size_bytes < 1024 * 1024:
-            return f"{round(size_bytes / 1024, 1)} KB"
-        elif size_bytes < 1024 * 1024 * 1024:
-            return f"{round(size_bytes / (1024 * 1024), 1)} MB"
-        else:
-            return f"{round(size_bytes / (1024 * 1024 * 1024), 2)} GB"
+                        except Exception as e:
+                            logger.warning("Failed to migrate legacy backup '%s': %s", item.name, e)
 
     def get_available_targets(self) -> List[Dict[str, Any]]:
         """Returns top-level directories and important files in settings.data_dir."""
@@ -74,7 +69,7 @@ class BackupManager:
                     "name": item.name,
                     "is_dir": item.is_dir(),
                     "size_bytes": sz,
-                    "size_formatted": self._format_size(sz),
+                    "size_formatted": format_size(sz),
                     "category": "world" if is_world else ("plugin" if is_plugin else ("config" if is_config else "other"))
                 })
         except Exception:
@@ -108,7 +103,7 @@ class BackupManager:
                     backups.append({
                         "filename": item.name,
                         "size_bytes": stat.st_size,
-                        "size_formatted": self._format_size(stat.st_size),
+                        "size_formatted": format_size(stat.st_size),
                         "created_at": dt.strftime("%Y-%m-%d %H:%M:%S"),
                         "timestamp": stat.st_mtime,
                         "is_auto": "auto" in item.name.lower(),
@@ -204,7 +199,7 @@ class BackupManager:
                                     pass
 
             stat = target_zip.stat()
-            formatted_sz = self._format_size(stat.st_size)
+            formatted_sz = format_size(stat.st_size)
             _, scope_label = self._determine_scope(filename)
 
             try:

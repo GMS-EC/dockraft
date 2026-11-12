@@ -1,9 +1,13 @@
 import os
+import sys
 import re
 import json
 import secrets
+import logging
 from pathlib import Path
 from typing import Dict, Any
+
+logger = logging.getLogger("dockraft")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = BASE_DIR / "data"
@@ -33,7 +37,7 @@ def _read_version_from_changelog() -> str:
         except Exception:
             pass
 
-    return "1.4.0"
+    return "1.4.1"
 
 APP_VERSION = _read_version_from_changelog()
 
@@ -45,16 +49,19 @@ class Settings:
         self.backups_dir: Path = Path(os.getenv("BACKUPS_DIR", str(DEFAULT_BACKUPS_DIR))).resolve()
         self.admin_user: str = os.getenv("ADMIN_USER", os.getenv("ADMIN_USERNAME", "admin"))
         self.admin_password: str = os.getenv("ADMIN_PASSWORD", "")
-        _provided_key = os.getenv("SECRET_KEY", "")
+        # Ensure directories exist
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.backups_dir.mkdir(parents=True, exist_ok=True)
+        self.config_file: Path = self.data_dir / "dockraft_config.json"
+        self._legacy_config_file: Path = self.data_dir / "litemc_config.json"
+        self._secret_key_file: Path = self.data_dir / ".secret_key"
+
+        _provided_key = os.getenv("SECRET_KEY", "").strip()
         if _provided_key:
             self.secret_key: str = _provided_key
         else:
-            self.secret_key = secrets.token_hex(32)
-            print(
-                "[Dockraft] WARNING: SECRET_KEY no configurado. Se usó una clave aleatoria temporal.\n"
-                "           Los tokens de sesión se invalidarán en cada reinicio.\n"
-                "           Establece SECRET_KEY en tu .env para sesión persistente."
-            )
+            self.secret_key = self._load_or_create_secret_key()
+
         self.login_max_attempts: int = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
         self.login_cooldown_seconds: int = int(os.getenv("LOGIN_COOLDOWN_SECONDS", "600"))
         self.session_timeout_minutes: int = int(os.getenv("SESSION_TIMEOUT_MINUTES", "60"))
@@ -62,12 +69,6 @@ class Settings:
         # so session cookies are marked Secure and never sent over plain HTTP.
         self.https_enabled: bool = os.getenv("HTTPS_ENABLED", "false").lower() in ("true", "1", "yes")
         self.trust_proxy_headers: bool = os.getenv("TRUST_PROXY_HEADERS", "false").lower() in ("true", "1", "yes")
-        
-        # Ensure directories exist
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.backups_dir.mkdir(parents=True, exist_ok=True)
-        self.config_file: Path = self.data_dir / "dockraft_config.json"
-        self._legacy_config_file: Path = self.data_dir / "litemc_config.json"
         
         # Default runtime config
         self.runtime_config: Dict[str, Any] = {
@@ -98,6 +99,25 @@ class Settings:
         }
         self.load_runtime_config()
 
+    def _load_or_create_secret_key(self) -> str:
+        """Loads a persisted auto-generated SECRET_KEY from data/.secret_key, or creates one."""
+        try:
+            if self._secret_key_file.is_file():
+                persisted = self._secret_key_file.read_text(encoding="utf-8").strip()
+                if len(persisted) >= 32:
+                    return persisted
+        except Exception:
+            pass
+
+        generated = secrets.token_hex(32)
+        if "pytest" not in sys.modules:
+            try:
+                from app.core.fs_utils import atomic_write_text
+                atomic_write_text(self._secret_key_file, generated)
+            except Exception:
+                pass
+        return generated
+
     def load_runtime_config(self) -> None:
         target = self.config_file if self.config_file.exists() else (self._legacy_config_file if self._legacy_config_file.exists() else None)
         if target and target.exists():
@@ -106,7 +126,7 @@ class Settings:
                     saved = json.load(f)
                     self.runtime_config.update(saved)
             except Exception as e:
-                print(f"[Dockraft] Error loading config: {e}")
+                logger.error("[Dockraft] Error loading config: %s", e)
 
     def save_runtime_config(self, new_config: Dict[str, Any]) -> None:
         self.runtime_config.update(new_config)

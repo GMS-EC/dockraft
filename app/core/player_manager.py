@@ -131,31 +131,29 @@ class PlayerManager:
         """Debounced persist (kept as internal alias for existing callers)."""
         self._schedule_save()
 
-    def record_connection(self, player_name: str) -> None:
-        """Records a player join event."""
+    def _record_activity(self, player_name: str, event: str) -> None:
+        """Records a player join or leave activity event."""
         if not player_name:
             return
         now_dt = datetime.now().strftime("%d/%m/%Y %H:%M")
+        now_ts = time.time()
         with self._history_lock:
-            if player_name not in self._player_history:
-                self._player_history[player_name] = {}
-            self._player_history[player_name]["last_connection"] = now_dt
-            self._player_history[player_name]["last_timestamp"] = time.time()
+            entry = self._player_history.setdefault(player_name, {})
+            entry["last_connection"] = now_dt
+            entry["last_timestamp"] = now_ts
+            entry["last_event"] = event
+            if event == "leave":
+                entry["last_disconnection"] = now_dt
             self._trim_history()
         self._save_history()
 
+    def record_connection(self, player_name: str) -> None:
+        """Records a player join event."""
+        self._record_activity(player_name, "join")
+
     def record_disconnection(self, player_name: str) -> None:
         """Records a player leave event."""
-        if not player_name:
-            return
-        now_dt = datetime.now().strftime("%d/%m/%Y %H:%M")
-        with self._history_lock:
-            if player_name not in self._player_history:
-                self._player_history[player_name] = {}
-            self._player_history[player_name]["last_connection"] = now_dt
-            self._player_history[player_name]["last_timestamp"] = time.time()
-            self._trim_history()
-        self._save_history()
+        self._record_activity(player_name, "leave")
 
     def _read_json_file(self, filename: str) -> Any:
         """Reads a JSON file from settings.data_dir safely."""

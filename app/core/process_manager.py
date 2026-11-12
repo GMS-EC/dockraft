@@ -14,6 +14,9 @@ from fastapi import WebSocket
 from app.config import settings
 from app.core.fs_utils import atomic_write_text
 from app.core.activity_manager import activity_manager
+import logging
+
+logger = logging.getLogger("dockraft.process_manager")
 
 # Optimized Aikar's flags for modern Paper/Purpur/Java servers
 AIKAR_FLAGS = [
@@ -71,6 +74,9 @@ class ProcessManager:
         self._tps_alert_active: bool = False
         self._silent_tps_time: float = 0.0
         self._silent_list_time: float = 0.0
+        self._reader_task: Optional[asyncio.Task] = None
+        self._supervisor_task: Optional[asyncio.Task] = None
+        self._restart_task: Optional[asyncio.Task] = None
 
     def format_uptime(self, seconds: int) -> str:
         """Formats seconds into human-readable Spanish e.g. '2 horas, 27 minutos y 8 segundos'."""
@@ -452,6 +458,56 @@ class ProcessManager:
         # deque(maxlen=1000) handles eviction automatically — no manual pop needed
         self.log_buffer.append(text)
 
+    async def _handle_player_event(self, player: str, joined: bool) -> None:
+        """Handles player connection/disconnection tracking and webhook dispatch."""
+        clean_player = (player or "").strip()
+        if not clean_player:
+            return
+        if joined:
+            self.online_players.add(clean_player)
+        else:
+            self.online_players.discard(clean_player)
+
+        try:
+            from app.core.player_manager import player_manager
+            if joined:
+                await asyncio.to_thread(player_manager.record_connection, clean_player)
+            else:
+                await asyncio.to_thread(player_manager.record_disconnection, clean_player)
+        except Exception:
+            pass
+
+        try:
+            from app.core.webhook_manager import webhook_manager as wh
+            s_info = wh._get_server_info()
+            event_type = "player_join" if joined else "player_leave"
+            title = "👤 Jugador Conectado" if joined else "👤 Jugador Desconectado"
+            desc = (
+                f"El jugador **{clean_player}** se ha conectado al servidor."
+                if joined
+                else f"El jugador **{clean_player}** ha salido del servidor."
+            )
+            color = 0x238636 if joined else 0xd29922
+            status_text = (
+                f"🟢 Conectado ({len(self.online_players)} online)"
+                if joined
+                else f"⚪ Desconectado ({len(self.online_players)} online)"
+            )
+
+            wh.dispatch(
+                event_type,
+                title,
+                desc,
+                color=color,
+                fields=[
+                    {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
+                    {"name": "👤 Jugador", "value": f"`{clean_player}`", "inline": True},
+                    {"name": "📊 Estado", "value": status_text, "inline": True},
+                ],
+            )
+        except Exception:
+            pass
+
     async def _read_stream(self, stream: asyncio.StreamReader) -> None:
         """Reads stdout/stderr from process line by line."""
         while True:
@@ -497,110 +553,22 @@ class ProcessManager:
                     parts = clean_ansi.split("joined the game")[0].strip().split()
                     if parts:
                         player = parts[-1].lstrip(":")
-                        if player:
-                            self.online_players.add(player)
-                            try:
-                                from app.core.player_manager import player_manager
-                                await asyncio.to_thread(player_manager.record_connection, player)
-                            except Exception:
-                                pass
-                            try:
-                                from app.core.webhook_manager import webhook_manager as wh
-                                s_info = wh._get_server_info()
-                                wh.dispatch(
-                                    "player_join",
-                                    "👤 Jugador Conectado",
-                                    f"El jugador **{player}** se ha conectado al servidor.",
-                                    color=0x238636,
-                                    fields=[
-                                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
-                                        {"name": "👤 Jugador", "value": f"`{player}`", "inline": True},
-                                        {"name": "📊 Estado", "value": f"🟢 Conectado ({len(self.online_players)} online)", "inline": True}
-                                    ]
-                                )
-                            except Exception:
-                                pass
+                        await self._handle_player_event(player, joined=True)
                 elif "left the game" in line or "left the game" in clean_ansi:
                     parts = clean_ansi.split("left the game")[0].strip().split()
                     if parts:
                         player = parts[-1].lstrip(":")
-                        if player:
-                            self.online_players.discard(player)
-                            try:
-                                from app.core.player_manager import player_manager
-                                await asyncio.to_thread(player_manager.record_disconnection, player)
-                            except Exception:
-                                pass
-                            try:
-                                from app.core.webhook_manager import webhook_manager as wh
-                                s_info = wh._get_server_info()
-                                wh.dispatch(
-                                    "player_leave",
-                                    "👤 Jugador Desconectado",
-                                    f"El jugador **{player}** ha salido del servidor.",
-                                    color=0xd29922,
-                                    fields=[
-                                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
-                                        {"name": "👤 Jugador", "value": f"`{player}`", "inline": True},
-                                        {"name": "📊 Estado", "value": f"⚪ Desconectado ({len(self.online_players)} online)", "inline": True}
-                                    ]
-                                )
-                            except Exception:
-                                pass
+                        await self._handle_player_event(player, joined=False)
                 elif "Player connected:" in line or "Player connected:" in clean_ansi:
                     parts = clean_ansi.split("Player connected:")[1].strip().split(",")
                     if parts:
                         player = parts[0].strip()
-                        if player:
-                            self.online_players.add(player)
-                            try:
-                                from app.core.player_manager import player_manager
-                                await asyncio.to_thread(player_manager.record_connection, player)
-                            except Exception:
-                                pass
-                            try:
-                                from app.core.webhook_manager import webhook_manager as wh
-                                s_info = wh._get_server_info()
-                                wh.dispatch(
-                                    "player_join",
-                                    "👤 Jugador Conectado",
-                                    f"El jugador **{player}** se ha conectado al servidor.",
-                                    color=0x238636,
-                                    fields=[
-                                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
-                                        {"name": "👤 Jugador", "value": f"`{player}`", "inline": True},
-                                        {"name": "📊 Estado", "value": f"🟢 Conectado ({len(self.online_players)} online)", "inline": True}
-                                    ]
-                                )
-                            except Exception:
-                                pass
+                        await self._handle_player_event(player, joined=True)
                 elif "Player disconnected:" in line or "Player disconnected:" in clean_ansi:
                     parts = clean_ansi.split("Player disconnected:")[1].strip().split(",")
                     if parts:
                         player = parts[0].strip()
-                        if player:
-                            self.online_players.discard(player)
-                            try:
-                                from app.core.player_manager import player_manager
-                                await asyncio.to_thread(player_manager.record_disconnection, player)
-                            except Exception:
-                                pass
-                            try:
-                                from app.core.webhook_manager import webhook_manager as wh
-                                s_info = wh._get_server_info()
-                                wh.dispatch(
-                                    "player_leave",
-                                    "👤 Jugador Desconectado",
-                                    f"El jugador **{player}** ha salido del servidor.",
-                                    color=0xd29922,
-                                    fields=[
-                                        {"name": "🎮 Servidor", "value": f"`{s_info['name']}`", "inline": True},
-                                        {"name": "👤 Jugador", "value": f"`{player}`", "inline": True},
-                                        {"name": "📊 Estado", "value": f"⚪ Desconectado ({len(self.online_players)} online)", "inline": True}
-                                    ]
-                                )
-                            except Exception:
-                                pass
+                        await self._handle_player_event(player, joined=False)
 
                 # Check for silent list responses from automated polling
                 now_ts = time.time()
@@ -706,7 +674,7 @@ class ProcessManager:
                     await self.broadcast_message({"type": "log", "data": line})
 
             except Exception as loop_err:
-                print(f"[Dockraft] Error in _read_stream: {loop_err}")
+                logger.error("[Dockraft] Error in _read_stream: %s", loop_err)
 
     async def _process_supervisor(self) -> None:
         """Monitors the sub-process until completion."""
@@ -797,7 +765,7 @@ class ProcessManager:
                     restart_msg = f"[Dockraft] Caída inesperada detectada (código {exit_code}). Reiniciando servidor automáticamente en 3 segundos (intento {len(self._recent_crashes)}/3)..."
                     self._append_log(restart_msg)
                     await self.broadcast_message({"type": "log", "data": restart_msg})
-                    asyncio.create_task(self._delayed_restart(3))
+                    self._restart_task = asyncio.create_task(self._delayed_restart(3))
 
     async def _delayed_restart(self, delay: int = 3) -> None:
         """Safely restarts the server after a short delay and cleans stale locks."""
@@ -820,7 +788,7 @@ class ProcessManager:
             if _safe_flag_re.match(flag) and not flag.startswith(_blocked_prefixes):
                 validated_flags.append(flag)
             else:
-                print(f"[Dockraft] WARNING: Flag JVM descartado por no pasar validación: '{flag}'")
+                logger.warning("[Dockraft] WARNING: Flag JVM descartado por no pasar validación: '%s'", flag)
         return validated_flags
 
     async def start_server(self) -> Dict[str, Any]:
@@ -957,8 +925,8 @@ class ProcessManager:
                 pass
 
             # Start background stream reading
-            asyncio.create_task(self._read_stream(self.process.stdout))
-            asyncio.create_task(self._process_supervisor())
+            self._reader_task = asyncio.create_task(self._read_stream(self.process.stdout))
+            self._supervisor_task = asyncio.create_task(self._process_supervisor())
             self._tps_poller_task = asyncio.create_task(self._tps_poller_loop())
 
             try:
@@ -1155,7 +1123,7 @@ class ProcessManager:
 
     async def send_command(self, cmd_text: str, echo: bool = True, user: str = "admin") -> Dict[str, Any]:
         """Writes command to process stdin and records the activity."""
-        clean_cmd = (cmd_text or "").strip()
+        clean_cmd = (cmd_text or "").replace("\r", " ").replace("\n", " ").replace("\x00", "").strip()
         if not clean_cmd:
             return {"status": "error", "message": "Empty command"}
 

@@ -13,6 +13,9 @@ from app.core.process_manager import process_manager
 from app.core.backup_manager import backup_manager
 
 from app.core.fs_utils import atomic_write_json
+import logging
+
+logger = logging.getLogger("dockraft.scheduler")
 
 def get_server_timezone() -> ZoneInfo:
     tz_name = os.getenv("TZ", "America/Guayaquil")
@@ -46,7 +49,7 @@ class TaskScheduler:
                     if isinstance(data, list):
                         self.tasks = data
             except Exception as e:
-                print(f"[Dockraft] Error cargando tasks.json: {e}")
+                logger.error("[Dockraft] Error cargando tasks.json: %s", e)
                 self.tasks = []
         else:
             self.tasks = []
@@ -55,7 +58,7 @@ class TaskScheduler:
         try:
             atomic_write_json(self.tasks_file, self.tasks, indent=2)
         except Exception as e:
-            print(f"[Dockraft] Error guardando tasks.json: {e}")
+            logger.error("[Dockraft] Error guardando tasks.json: %s", e)
 
     def calculate_next_run(self, task: Dict[str, Any], from_dt: Optional[datetime] = None) -> Optional[str]:
         """Calculates next execution timestamp formatted in server timezone."""
@@ -97,7 +100,7 @@ class TaskScheduler:
 
                 return next_dt.strftime("%Y-%m-%d %H:%M:%S")
         except Exception as e:
-            print(f"[Dockraft] Error calculando próxima ejecución para tarea {task.get('id')}: {e}")
+            logger.error("[Dockraft] Error calculando próxima ejecución para tarea %s: %s", task.get("id"), e)
             return None
 
         return None
@@ -221,7 +224,7 @@ class TaskScheduler:
         result = {"status": "success", "action": action, "task_id": task.get("id")}
 
         if not process_manager.is_installed():
-            print(f"[Dockraft] Omitiendo tarea programada '{task_name}': ningún servidor instalado.")
+            logger.info("[Dockraft] Omitiendo tarea programada '%s': ningún servidor instalado.", task_name)
             return {
                 "status": "skipped",
                 "action": action,
@@ -229,7 +232,7 @@ class TaskScheduler:
                 "message": "Omitido: ningún servidor instalado actualmente"
             }
 
-        print(f"[Dockraft] Ejecutando tarea programada: '{task_name}' (Acción: {action})...")
+        logger.info("[Dockraft] Ejecutando tarea programada: '%s' (Acción: %s)...", task_name, action)
 
         try:
             if action == "start":
@@ -316,7 +319,7 @@ class TaskScheduler:
                     vers = await downloader.get_vanilla_versions()
                     latest = vers[0].get("id") if vers else "desconocida"
                 result["message"] = f"Verificación de actualizaciones completada. Última versión detectada: {latest}"
-                print(f"[Dockraft] {result['message']}")
+                logger.info("[Dockraft] %s", result["message"])
 
             else:
                 result["status"] = "error"
@@ -364,7 +367,7 @@ class TaskScheduler:
     async def scheduler_loop(self) -> None:
         """Continuous background loop checking for due scheduled tasks."""
         self._running = True
-        print(f"[Dockraft] TaskScheduler iniciado en zona horaria: {os.getenv('TZ', 'America/Guayaquil')}")
+        logger.info("[Dockraft] TaskScheduler iniciado en zona horaria: %s", os.getenv("TZ", "America/Guayaquil"))
         
         while self._running:
             try:
@@ -391,12 +394,12 @@ class TaskScheduler:
                             if now_dt >= next_dt:
                                 await self.execute_task_action(t)
                         except Exception as ex:
-                            print(f"[Dockraft] Error al evaluar tarea {t.get('id')}: {ex}")
+                            logger.error("[Dockraft] Error al evaluar tarea %s: %s", t.get("id"), ex)
 
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"[Dockraft] Error en scheduler_loop: {e}")
+                logger.error("[Dockraft] Error en scheduler_loop: %s", e)
                 await asyncio.sleep(5)
 
     def start_loop(self) -> None:

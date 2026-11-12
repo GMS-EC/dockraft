@@ -5,6 +5,37 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.4.1] - 2026-11-12
+
+### Seguridad (Security)
+- **Persistencia Automática de `SECRET_KEY` (`app/config.py`, `app/core/fs_utils.py`):**
+  - Cuando no se configura la variable de entorno `SECRET_KEY`, la clave generada se persiste automáticamente en `data/.secret_key` (protegida en `PROTECTED_INTERNAL_FILES`) para conservar las sesiones activas tras reiniciar la aplicación o el contenedor.
+- **Sanitización de Comandos de Consola (`app/core/process_manager.py`):**
+  - Limpieza de saltos de línea (`\r`, `\n`) y caracteres nulos (`\x00`) en `send_command()` para prevenir inyección multilínea en el flujo `stdin` del servidor.
+
+### Mejorado y Optimizado (Changed & Performance)
+- **Modularización Completa de `app/main.py` (`app/routers/`):**
+  - Extracción de los endpoints restantes hacia routers dedicados: `auth.py`, `server.py`, `installer.py` y `activity.py`, reduciendo `app/main.py` de ~1,600 a ~291 líneas.
+  - Eliminación de 18 esquemas Pydantic duplicados que permanecían huérfanos en `app/main.py`, además de ramas muertas (`inspect.isawaitable`) y scripts temporales (`scratch/`).
+- **Consolidación de Lógica Compartida:**
+  - Unificación del manejo de cookies de sesión (`set_session_cookies()` y `clear_session_cookies()` en `app/routers/auth.py`).
+  - Centralización de la sincronización de alias Java/Bedrock en `server.properties` (`_sync_property_aliases()` en `app/routers/server.py`).
+  - Unificación de la resolución de descargas entre `install_server` y `update_server` mediante `resolve_server_download()` (`app/routers/installer.py`).
+  - Extracción de `_handle_player_event()` en `app/core/process_manager.py` para centralizar el tracking y los webhooks de conexión/desconexión en formato Java y Bedrock.
+  - Centralización de `format_size()` en `app/core/fs_utils.py`, reutilizado por `backup_manager.py` y `plugin_manager.py`.
+- **Estabilidad de Tareas Asíncronas (`asyncio.create_task`):**
+  - Retención explícita de referencias fuertes para tareas en segundo plano mediante `_track_task()` / `_background_tasks` en `app/routers/installer.py` y atributos dedicados en `ProcessManager` y `app/main.py`, evitando su recolección prematura por el Garbage Collector en Python 3.11/3.12+.
+- **Estandarización de Logging:**
+  - Reemplazo de todas las llamadas `print()` en producción por `logging` estándar con niveles adecuados (`info`, `warning`, `error`, `debug`) y añadido de trazabilidad en bloques `except Exception:` relevantes (`downloader.py`, `java_manager.py`, `backup_manager.py`, `plugin_manager.py`).
+
+### Corregido (Fixed)
+- **Registro Diferenciado de Conexión y Desconexión de Jugadores (`app/core/player_manager.py`):**
+  - Unificación de `record_connection()` y `record_disconnection()` mediante `_record_activity()` para distinguir eventos `"join"` y `"leave"`, manteniendo compatibilidad con `last_connection` y registrando además `last_event` y `last_disconnection`.
+- **Limpieza de Importación Duplicada (`app/core/plugin_manager.py`):**
+  - Eliminación de un `import time` redundante dentro de `parse_console_update_line()`.
+
+---
+
 ## [1.4.0] - 2026-11-04
 
 ### Seguridad (Security)

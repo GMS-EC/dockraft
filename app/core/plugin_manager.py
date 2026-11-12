@@ -9,6 +9,10 @@ import httpx
 import yaml
 
 from app.config import settings
+from app.core.fs_utils import format_size
+import logging
+
+logger = logging.getLogger("dockraft.plugins")
 
 def parse_version_tuple(ver_str: str) -> tuple:
     """Extracts numeric segments from version string for safe comparison (e.g. 'v5.4.130-SNAPSHOT' -> (5, 4, 130))."""
@@ -125,8 +129,8 @@ class PluginManager:
         try:
             with open(self.cache_file, "w", encoding="utf-8") as f:
                 json.dump(self._detected_updates, f, indent=2)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Error saving plugin_updates.json cache: %s", e)
 
     def _load_cache(self):
         try:
@@ -145,8 +149,8 @@ class PluginManager:
                         self._detected_updates = cleaned
                         if len(cleaned) != len(data):
                             self._save_cache()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Error loading plugin_updates.json cache: %s", e)
 
     def dismiss_update(self, plugin_name: str) -> bool:
         """Removes a specific plugin update from the detected list and persists cache."""
@@ -188,8 +192,8 @@ class PluginManager:
                 n = (p.get("name") or "").strip()
                 if n and len(n) >= 2:
                     names[n.lower()] = n
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Error scanning installed plugin names: %s", e)
         self._cached_installed_names = names
         self._cached_installed_names_time = now
         return names
@@ -211,8 +215,8 @@ class PluginManager:
                     stem = re.sub(r'[-_]v?\d.*$', '', str(p.get("filename") or "")).strip().lower()
                     if stem and stem not in mapping and p_ver and p_ver != "Desconocida":
                         mapping[stem] = p_ver
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error caching installed plugin versions: %s", e)
             self._cached_installed_versions = mapping
             self._cached_installed_versions_time = now
 
@@ -335,7 +339,6 @@ class PluginManager:
                         if ver_num:
                             version = ver_num.group(1)
 
-        import time
         return {
             "plugin": plugin_name,
             "version": version or "Nueva",
@@ -384,8 +387,8 @@ class PluginManager:
                         {"name": "🔗 Enlace de Descarga", "value": f"<{url_str}>" if url_str else "`Ver en consola`", "inline": True}
                     ]
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to dispatch plugin_update webhook for %s: %s", entry.get("plugin"), e)
         else:
             if entry.get("url") and not self._detected_updates[p_key].get("url"):
                 self._detected_updates[p_key]["url"] = entry["url"]
@@ -487,8 +490,8 @@ class PluginManager:
                 for line in all_lines[start_idx:]:
                     entry = self.parse_console_update_line(line)
                     _process_entry(entry)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error scanning latest.log for plugin updates: %s", e)
 
         self._save_cache()
         return list(self._detected_updates.values())
@@ -547,8 +550,8 @@ class PluginManager:
                 async with httpx.AsyncClient(timeout=6.0, headers={"User-Agent": "Dockraft-Minecraft-Manager/1.0"}) as client:
                     tasks = [_resolve(client, (u.get("plugin") or "").strip()) for u in missing[:limit]]
                     await asyncio.gather(*tasks)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to enrich plugin update URLs from Spiget: %s", e)
 
         enriched = []
         changed_cache = False
@@ -577,7 +580,7 @@ class PluginManager:
             plugin_info = {
                 "filename": jar_path.name,
                 "file_size": jar_path.stat().st_size,
-                "file_size_formatted": self._format_size(jar_path.stat().st_size),
+                "file_size_formatted": format_size(jar_path.stat().st_size),
                 "name": jar_path.stem,
                 "version": "Desconocida",
                 "author": "",
@@ -617,9 +620,8 @@ class PluginManager:
                                 plugin_info["valid"] = True
                             if ver_m:
                                 plugin_info["version"] = ver_m.group(1).strip()
-            except Exception:
-                # If corrupt or non-readable jar, retain filename
-                pass
+            except Exception as e:
+                logger.debug("Error reading plugin.yml from %s: %s", jar_path.name, e)
 
             plugins.append(plugin_info)
 
@@ -726,8 +728,8 @@ class PluginManager:
                         {"name": "📊 Fuente", "value": "`SpigotMC / Spiget`", "inline": True}
                     ]
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to dispatch plugin_update webhook summary: %s", e)
 
         console_updates = self.get_detected_updates()
         if console_updates and not outdated:
@@ -753,8 +755,8 @@ class PluginManager:
                         {"name": "📊 Fuente", "value": "`Consola del Servidor`", "inline": True}
                     ]
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to dispatch console plugin_update webhook: %s", e)
 
         return {
             "total_installed": len(results),
@@ -762,15 +764,5 @@ class PluginManager:
             "plugins": results,
             "console_updates": console_updates
         }
-
-    def _format_size(self, size_bytes: int) -> str:
-        if size_bytes < 1024:
-            return f"{size_bytes} B"
-        elif size_bytes < 1024 * 1024:
-            return f"{size_bytes / 1024:.1f} KB"
-        elif size_bytes < 1024 * 1024 * 1024:
-            return f"{size_bytes / (1024 * 1024):.1f} MB"
-        else:
-            return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 plugin_manager = PluginManager()
