@@ -5,6 +5,14 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.4.3] - 2026-11-13
+
+### Corregido (Fixed)
+- **Compatibilidad CSP con Manejadores de Eventos Inline (`app/main.py`, `web/templates/login.html`, `web/static/js/login.js`):**
+  - Restauración de `'unsafe-inline'` en `script-src` del encabezado `Content-Security-Policy` para que los manejadores inline de los templates (`onclick`, `onchange`, `onsubmit`) funcionen en producción, y migración de los listeners de `login.html` a `addEventListener` en `login.js` para evitar envíos HTML nativos a `/api/auth/login`.
+
+---
+
 ## [1.4.2] - 2026-11-13
 
 ### Notas de Actualización (Upgrade Notes)

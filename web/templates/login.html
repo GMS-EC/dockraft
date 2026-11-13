@@ -30,7 +30,7 @@
       {% endif %}
     </div>
 
-    <form id="login-form" method="post" action="/api/auth/login" onsubmit="LoginApp.submitLogin(event)">
+    <form id="login-form" method="post" action="/api/auth/login">
       <!-- Username Field -->
       <div class="form-group" style="text-align: left; margin-bottom: 14px;">
         <label class="form-label" for="login-username" style="font-size: 0.84rem; color: #cbd5e1;" data-i18n="login_username_label">Usuario</label>
@@ -78,7 +78,6 @@
             type="button" 
             class="password-toggle-btn" 
             id="login-password-toggle" 
-            onclick="LoginApp.togglePasswordVisibility()" 
             title="Mostrar/Ocultar contraseña"
             data-i18n-title="login_password_toggle"
           >

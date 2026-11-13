@@ -231,4 +231,12 @@ const LoginApp = {
 
 document.addEventListener('DOMContentLoaded', () => {
   LoginApp.init();
+  const loginForm = document.getElementById('login-form');
+  if (loginForm) {
+    loginForm.addEventListener('submit', (e) => LoginApp.submitLogin(e));
+  }
+  const toggleBtn = document.getElementById('login-password-toggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => LoginApp.togglePasswordVisibility());
+  }
 });
