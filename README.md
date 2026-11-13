@@ -134,7 +134,7 @@ docker compose up -d
    cd dockraft
    ```
 
-2. (Opcional) Configura tus credenciales en un archivo `.env`:
+2. Configura tus credenciales en un archivo `.env` (recomendado definir `ADMIN_PASSWORD` y `SECRET_KEY`):
    ```bash
    cp .env.example .env
    ```
@@ -173,11 +173,13 @@ docker run -d \
 | :--- | :---: | :--- |
 | `PORT` | `8000` | Puerto web de acceso al panel. |
 | `ADMIN_USER` | `admin` | Nombre de usuario de inicio de sesión. |
-| `ADMIN_PASSWORD` | *(vacío)* | Contraseña del panel. Si se deja vacía, no se solicita inicio de sesión. |
-| `SECRET_KEY` | *(aleatoria)* | Clave para firmar sesiones criptográficas HMAC. |
+| `ADMIN_PASSWORD` | *(efímera)* | Contraseña del panel (obligatoria). Si se deja vacía, se genera una aleatoria efímera al arrancar y se imprime en los logs. |
+| `SECRET_KEY` | *(efímera)* | Clave para firmar sesiones criptográficas HMAC. Si no se define, se guarda en `DOCKRAFT_STATE_DIR` (`/app/.dockraft_state`, fuera de `/server_data`); defínela en `.env` para conservar sesiones al recrear el contenedor. |
 | `TZ` | `America/Guayaquil` | Zona horaria del servidor para tareas programadas y respaldos. |
 | `LOGIN_MAX_ATTEMPTS` | `5` | Intentos fallidos permitidos antes de aplicar rate limiting. |
 | `LOGIN_COOLDOWN_SECONDS` | `600` | Segundos de enfriamiento y bloqueo tras superar el límite de intentos (10 min). |
+| `TRUST_PROXY_HEADERS` | `false` | Actívalo (`true`) únicamente cuando Dockraft esté detrás de un proxy inverso de confianza (Nginx, Caddy, Traefik) para leer `X-Forwarded-For` / `X-Forwarded-Proto`. |
+| `TRUSTED_PROXIES` | `127.0.0.1,::1` | Lista separada por comas de IPs o rangos CIDR del proxy inverso de confianza (por ejemplo, la subred bridge de Docker). |
 
 ---
 
@@ -185,6 +187,11 @@ docker run -d \
 
 * **`/server_data`**: Aloja el servidor activo (mundos, plugins, mods, configuraciones y logs).
 * **`/server_backups`**: Carpeta aislada donde se guardan las copias de seguridad `.zip`.
+
+> **Permisos en Linux (`UID/GID 1000`)**: Desde `v1.4.2`, el contenedor se ejecuta como usuario sin privilegios `dockraft` (`1000:1000`). Si actualizas desde una versión anterior o creas carpetas locales previamente, asegura la propiedad antes de iniciar:
+> ```bash
+> chown -R 1000:1000 ./data ./backups
+> ```
 
 ---
 
@@ -294,7 +301,7 @@ docker compose up -d
    cd dockraft
    ```
 
-2. (Optional) Configure your environment variables:
+2. Configure your environment variables (recommended to set `ADMIN_PASSWORD` and `SECRET_KEY`):
    ```bash
    cp .env.example .env
    ```
@@ -333,11 +340,13 @@ docker run -d \
 | :--- | :---: | :--- |
 | `PORT` | `8000` | Web panel port. |
 | `ADMIN_USER` | `admin` | Administrator username for login. |
-| `ADMIN_PASSWORD` | *(empty)* | Web panel password. If empty, authentication is disabled (suitable for local testing). |
-| `SECRET_KEY` | *(random)* | Cryptographic key used to sign HMAC session tokens. |
+| `ADMIN_PASSWORD` | *(ephemeral)* | Web panel password (mandatory). If left empty, a random ephemeral password is generated on startup and printed to the container logs. |
+| `SECRET_KEY` | *(ephemeral)* | Cryptographic key used to sign HMAC session tokens. Stored in `DOCKRAFT_STATE_DIR` (`/app/.dockraft_state`, outside `/server_data`) when unset; define it in `.env` so sessions survive container recreations. |
 | `TZ` | `America/Guayaquil` | Server timezone for scheduled tasks and backup timestamps. |
 | `LOGIN_MAX_ATTEMPTS` | `5` | Maximum failed login attempts allowed before IP cooldown. |
 | `LOGIN_COOLDOWN_SECONDS` | `600` | Duration of lockout in seconds (10 minutes). |
+| `TRUST_PROXY_HEADERS` | `false` | Set to `true` only when Dockraft sits behind a trusted reverse proxy (Nginx, Caddy, Traefik) to honor `X-Forwarded-For` / `X-Forwarded-Proto`. |
+| `TRUSTED_PROXIES` | `127.0.0.1,::1` | Comma-separated list of trusted reverse proxy IPs or CIDR ranges (e.g., your Docker bridge subnet). |
 
 ---
 
@@ -345,6 +354,11 @@ docker run -d \
 
 * **`/server_data`**: Holds the active Minecraft server (worlds, plugins, mods, configs, and logs).
 * **`/server_backups`**: Isolated directory storing compressed `.zip` backup archives.
+
+> **Linux Volume Permissions (`UID/GID 1000`)**: Since `v1.4.2`, the container runs as the non-root `dockraft` user (`1000:1000`). When upgrading from earlier versions or pre-creating bind-mount folders, ensure host ownership matches before starting:
+> ```bash
+> chown -R 1000:1000 ./data ./backups
+> ```
 
 ---
 
