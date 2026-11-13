@@ -24,6 +24,16 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       # Clave secreta para firmas de sesión — CAMBIA ESTO en producción (usa: openssl rand -hex 32)
       - SECRET_KEY=${SECRET_KEY:-}
+      # Orígenes CORS permitidos (separados por coma)
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      # Seguridad de sesión y proxy inverso
+      - HTTPS_ENABLED=${HTTPS_ENABLED:-false}
+      - TRUST_PROXY_HEADERS=${TRUST_PROXY_HEADERS:-false}
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1}
+      # Rate limiting y expiración de sesión
+      - LOGIN_MAX_ATTEMPTS=${LOGIN_MAX_ATTEMPTS:-5}
+      - LOGIN_COOLDOWN_SECONDS=${LOGIN_COOLDOWN_SECONDS:-600}
+      - SESSION_TIMEOUT_MINUTES=${SESSION_TIMEOUT_MINUTES:-60}
     volumes:
       # Persistencia de todos los mundos, plugins, mods y configuraciones del servidor
       - ./data:/server_data
