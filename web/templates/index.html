@@ -3,28 +3,32 @@
 {% block title %}Dockraft — Panel de Control para Minecraft{% endblock %}
 
 {% block content %}
-  <!-- Top Navigation Header -->
-  {% include "components/header.html" %}
+  <div class="app-shell">
+    <!-- Top / Sidebar Navigation Header -->
+    {% include "components/header.html" %}
 
-  <!-- Server Overview & Metrics Banner -->
-  {% include "components/banner.html" %}
+    <div class="app-workspace">
+      <!-- Server Overview & Metrics Banner -->
+      {% include "components/banner.html" %}
 
-  <!-- Main Tabs View Container -->
-  <main class="main-container">
-    {% include "tabs/console.html" %}
-    {% include "tabs/metrics.html" %}
-    {% include "tabs/players.html" %}
-    {% include "tabs/tasks.html" %}
-    {% include "tabs/backups.html" %}
-    {% include "tabs/logs.html" %}
-    {% include "tabs/webhooks.html" %}
-    {% include "tabs/files.html" %}
-    {% include "tabs/settings.html" %}
-    {% include "tabs/installer.html" %}
-  </main>
+      <!-- Main Tabs View Container -->
+      <main class="main-container">
+        {% include "tabs/console.html" %}
+        {% include "tabs/metrics.html" %}
+        {% include "tabs/players.html" %}
+        {% include "tabs/tasks.html" %}
+        {% include "tabs/backups.html" %}
+        {% include "tabs/logs.html" %}
+        {% include "tabs/webhooks.html" %}
+        {% include "tabs/files.html" %}
+        {% include "tabs/settings.html" %}
+        {% include "tabs/installer.html" %}
+      </main>
 
-  <!-- Panel Footer -->
-  {% include "footer.html" %}
+      <!-- Panel Footer -->
+      {% include "footer.html" %}
+    </div>
+  </div>
 
   <!-- Operation Modals -->
   {% include "components/modals.html" %}

@@ -5,6 +5,35 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.5.0] - 2026-11-13
+
+### Cambiado (Changed)
+- **Rediseño Visual del Frontend (`web/static/css/style.css`, `web/static/css/redesign.css`, `web/templates/base.html`, `web/templates/index.html`, `web/templates/components/banner.html`, `web/templates/tabs/console.html`):**
+  - Adopción de la paleta *Mineral Slate & Moss* (`#141619` Basalt, `#1b1e23` Andesite, `#23272e` Slate, `#e5e7eb` Chalk, `#3ca374` Moss) con tipografías `Outfit` y `JetBrains Mono` y consola inspirada en Nord (`#101215` / `#d8dee9`).
+  - Navegación con barra lateral fija en escritorio (`244px`, `>= 1141px`), barra superior adaptable en móvil (`<= 1140px`) y tira de telemetría sticky (`.server-overview-banner`).
+  - Unificación de estilos de tablas, tarjetas y badges en Jugadores, Tareas Programadas, Backups y Métricas.
+  - Rediseño del modal de tareas programadas (`#task-modal`) con selector segmentado de programación.
+- **Rediseño de Webhooks y Notificaciones (`web/templates/tabs/webhooks.html`, `web/templates/components/modals.html`, `web/static/js/webhooks.js`):**
+  - Reorganización de los eventos desencadenantes en una grilla de 3 columnas con switches de activación/desactivación y autoguardado inmediato (`saveEvents()`).
+  - Agrupación de los canales de notificación (Discord, Telegram, Correo Electrónico) dentro del modal `#webhooks-channels-modal` y ajuste de `z-index: 1050` en `#webhook-config-modal`.
+- **Nuevos Logos SVG y PWA (`web/static/img/dockraft_logo.svg`, `web/static/img/dockraft_mark.svg`, `web/templates/base.html`, `web/templates/components/header.html`, `web/templates/components/footer.html`, `web/templates/login.html`, `web/static/manifest.json`, `web/static/sw.js`, `README.md`):**
+  - Reemplazo integral de los logos PNG por `dockraft_logo.svg` y `dockraft_mark.svg` en toda la interfaz, metadatos PWA, `README.md` y Service Worker (`dockraft-v13`).
+- **Simplificación de Ajustes (`web/templates/tabs/settings.html`, `web/static/js/i18n-ext/i18n-settings.js`):**
+  - Limpieza de textos y etiquetas en la vista de configuración del servidor.
+
+### Corregido (Fixed)
+- **Integridad de Layout y Controles (`web/templates/tabs/installer.html`, `web/templates/tabs/settings.html`, `web/static/js/installer.js`):**
+  - Eliminación de un cierre `</div>` huérfano en `installer.html`.
+  - Corrección del ancho del input `#setting-session-timeout` en `settings.html`.
+  - Persistencia del estado deshabilitado de `#btn-install-server` al cambiar de pestaña durante una instalación activa en `installer.js`.
+
+### Eliminado (Removed)
+- **Activos y Código Obsoleto:**
+  - Eliminación de los archivos de imagen obsoletos `web/static/img/dockraft_logo.png` y `web/static/img/logo.svg`.
+  - Retiro del badge de edición `#settings-badge-edition`, el banner de ejecución nativa C++ en `settings.html` (junto con sus claves `t_setting_native_*` en `i18n-settings.js`) y el botón redundante `#btn-save-webhooks` en `webhooks.html`.
+
+---
+
 ## [1.4.3] - 2026-11-13
 
 ### Corregido (Fixed)

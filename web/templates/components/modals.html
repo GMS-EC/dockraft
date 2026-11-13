@@ -121,7 +121,7 @@
 </div>
 
 <!-- Modal: Webhook Channel Configuration -->
-<div class="modal-backdrop" id="webhook-config-modal">
+<div class="modal-backdrop" id="webhook-config-modal" style="z-index: 1050;">
   <div class="modal-box" style="max-width: 520px;">
     <div class="modal-header">
       <h3 id="webhook-modal-title" style="display: flex; align-items: center; gap: 8px;">
@@ -372,17 +372,17 @@
 
       <div class="form-group">
         <label class="form-label" data-i18n="t_modal_task_sched_label">Tipo de Programación Temporal</label>
-        <div style="display: flex; gap: 16px; margin-top: 6px;">
-          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
+        <div class="task-sched-options">
+          <label class="task-sched-option">
             <input type="radio" name="task-schedule-type" value="interval" checked onchange="Tasks.onScheduleTypeChange(this.value)">
-            <span style="display: inline-flex; align-items: center; gap: 4px;">
+            <span class="task-sched-pill">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               <span data-i18n="t_modal_task_sched_interval">Por Intervalo</span>
             </span>
           </label>
-          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
+          <label class="task-sched-option">
             <input type="radio" name="task-schedule-type" value="cron" onchange="Tasks.onScheduleTypeChange(this.value)">
-            <span style="display: inline-flex; align-items: center; gap: 4px;">
+            <span class="task-sched-pill">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               <span data-i18n="t_modal_task_sched_cron">Por Expresión Cron</span>
             </span>

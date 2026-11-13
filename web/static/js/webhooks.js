@@ -8,6 +8,10 @@ const Webhooks = {
     if (this._initialized) return;
     this._initialized = true;
     window.addEventListener('dockraft:language_changed', () => this.refreshLanguage());
+
+    document.querySelectorAll('#tab-webhooks input[id^="webhook-event-"]').forEach((el) => {
+      el.addEventListener('change', () => this.saveEvents());
+    });
   },
 
   refreshLanguage() {
@@ -142,6 +146,16 @@ const Webhooks = {
     }
   },
 
+  openChannelsModal() {
+    const modal = document.getElementById('webhooks-channels-modal');
+    if (modal) modal.classList.add('open');
+  },
+
+  closeChannelsModal() {
+    const modal = document.getElementById('webhooks-channels-modal');
+    if (modal) modal.classList.remove('open');
+  },
+
   openModal(channel) {
     this.currentModalChannel = channel;
     const modal = document.getElementById('webhook-config-modal');
@@ -197,6 +211,36 @@ const Webhooks = {
       const ch = channel.toUpperCase();
       App.showToast(isEnabled ? I18n.fmt('t_webhook_channel_enabled', [ch]) : I18n.fmt('t_webhook_channel_disabled', [ch]), 'info');
     } catch (err) {
+      App.showToast(err.message, 'danger');
+    }
+  },
+
+  async saveEvents() {
+    const events = {
+      server_start: document.getElementById('webhook-event-start')?.checked || false,
+      server_stop: document.getElementById('webhook-event-stop')?.checked || false,
+      server_crash: document.getElementById('webhook-event-crash')?.checked || false,
+      backup_created: document.getElementById('webhook-event-backup')?.checked || false,
+      task_executed: document.getElementById('webhook-event-task')?.checked || false,
+      player_join: document.getElementById('webhook-event-player')?.checked || false,
+      player_leave: document.getElementById('webhook-event-player-leave')?.checked || false,
+      low_tps: document.getElementById('webhook-event-lowtps')?.checked || false,
+      plugin_update: document.getElementById('webhook-event-plugin')?.checked || false
+    };
+
+    try {
+      const res = await fetch('/api/webhooks/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || I18n.t('t_webhook_err_save'));
+
+      this.config = data.config || { ...(this.config || {}), events };
+      App.showToast(I18n.t('t_webhook_saved_success'), 'success');
+    } catch (err) {
+      console.error("[Webhooks]", err);
       App.showToast(err.message, 'danger');
     }
   },

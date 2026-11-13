@@ -36,15 +36,15 @@
           </div>
 
           <!-- 3. Caducidad de Sesión por Inactividad -->
-          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 0; padding-top: 10px; border-top: 1px solid rgba(48, 54, 61, 0.6);">
-            <div>
-              <label class="form-label" style="margin-bottom: 2px; color: #f0f6fc;" for="{{ prefix }}setting-session-timeout" data-i18n="settings_session_timeout_label">
+          <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 0; padding-top: 10px; border-top: 1px solid var(--border-color);">
+            <div style="flex: 1; min-width: 0;">
+              <label class="form-label" style="margin-bottom: 2px;" for="{{ prefix }}setting-session-timeout" data-i18n="settings_session_timeout_label">
                 Caducidad de sesión (minutos)
               </label>
               <div class="field-hint" data-i18n="settings_session_timeout_hint">Tiempo de inactividad tras el cual la sesión expira automáticamente por seguridad (por defecto: 60 min).</div>
             </div>
-            <div style="flex-shrink: 0; width: 90px; margin-left: 14px;">
-              <input type="number" class="form-input" id="{{ prefix }}setting-session-timeout" min="5" max="10080" step="5" value="60" style="text-align: center; padding: 4px 8px;">
+            <div style="flex-shrink: 0; width: 90px;">
+              <input type="number" class="form-input" id="{{ prefix }}setting-session-timeout" min="5" max="10080" step="5" value="60" style="width: 100%; text-align: center; padding: 6px 8px;">
             </div>
           </div>
         </div>
@@ -60,7 +60,6 @@
         <div class="settings-server-title">
           <span id="settings-badge-title">Servidor Vanilla</span>
           <span class="badge" id="settings-badge-version" style="background-color: var(--bg-subtle);">v26.2</span>
-          <span class="badge" id="settings-badge-edition" style="background-color: rgba(56, 139, 253, 0.15); color: #58a6ff;">Java Edition</span>
         </div>
         <div class="settings-server-sub" id="settings-badge-sub" data-i18n="t_setting_header_sub">Configuración de opciones de juego y rendimiento adaptadas a tu servidor.</div>
       </div>
@@ -221,14 +220,7 @@
       <div class="card">
         <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          <span data-i18n="t_setting_bedrock_perf_title">Rendimiento y Red de Bedrock (C++ Nativo)</span>
-        </div>
-
-        <div class="info-banner info">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          <div>
-            <strong data-i18n="t_setting_native_strong">Ejecución Nativa en C++:</strong> <span data-i18n="t_setting_native_text">Bedrock Dedicated Server corre directamente sobre Linux sin Máquina Virtual Java (JVM). No utiliza flags Java ni asignación de memoria heap (-Xmx).</span>
-          </div>
+          <span data-i18n="t_setting_bedrock_perf_title">Rendimiento y Red de Bedrock</span>
         </div>
 
         <div class="form-group">

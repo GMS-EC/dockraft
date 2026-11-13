@@ -15,6 +15,14 @@ const Installer = {
       this.eventsSetup = true;
     }
     this.init();
+    if (this.isInstalling) {
+      const btn = document.getElementById('btn-install-server');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = I18n.t('t_install_btn_downloading');
+      }
+      return;
+    }
     await this.checkLockState();
     await this.loadJavaRuntimes();
     await this.selectType(this.selectedType);
@@ -139,9 +147,14 @@ const Installer = {
         sub.style.display = 'none';
       }
       if (btn) {
-        btn.disabled = false;
-        btn.textContent = I18n.t('t_install_btn_install');
-        btn.className = "btn btn-primary";
+        if (this.isInstalling) {
+          btn.disabled = true;
+          btn.textContent = I18n.t('t_install_btn_downloading');
+        } else {
+          btn.disabled = false;
+          btn.textContent = I18n.t('t_install_btn_install');
+          btn.className = "btn btn-primary";
+        }
       }
     }
   },
