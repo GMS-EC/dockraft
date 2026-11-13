@@ -4,8 +4,9 @@ import time
 import logging
 import asyncio
 from typing import Any, Optional, List
+from urllib.parse import urlparse
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Request, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, status
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -40,13 +41,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-        # CSP: allow same-origin scripts/styles + Google Fonts + inline styles (needed for Jinja templates)
+        # CSP: disallow inline scripts; allow same-origin scripts, styles, and mc-heads avatars
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
+            "script-src 'self'; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data:; "
+            "img-src 'self' data: https://mc-heads.net; "
             "connect-src 'self' ws: wss:;"
         )
         return response
@@ -147,23 +148,42 @@ app.include_router(tasks_router.router)
 app.include_router(plugins_router.router)
 
 
+def _is_allowed_ws_origin(websocket: WebSocket) -> bool:
+    """Validates WebSocket Origin header against ALLOWED_ORIGINS or same-host policy (CSWSH defense)."""
+    origin = (websocket.headers.get("origin") or "").strip()
+    if not origin:
+        return True
+    if _allowed_origins:
+        return "*" in _allowed_origins or origin in _allowed_origins
+    host = (websocket.headers.get("host") or "").strip().lower()
+    if not host:
+        return False
+    parsed = urlparse(origin)
+    return parsed.scheme in ("http", "https") and parsed.netloc.lower() == host
+
+
 # --- WebSocket Console & Stats Hub ---
 @app.websocket("/ws/console")
-async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(None)):
-    if settings.admin_password:
-        cookie_token = (
-            websocket.cookies.get("dockraft_token")
-            or websocket.cookies.get("dockraft_session")
-            or websocket.cookies.get("litemc_token")
-        )
-        effective_token = token or cookie_token
-        if not effective_token or not verify_session_token(effective_token):
-            await websocket.accept()
-            await websocket.close(code=4001)
-            return
+async def websocket_console(websocket: WebSocket):
+    auth_header = websocket.headers.get("authorization") or ""
+    bearer_token = auth_header[7:].strip() if auth_header.startswith("Bearer ") else None
+    cookie_token = (
+        websocket.cookies.get("dockraft_token")
+        or websocket.cookies.get("dockraft_session")
+        or websocket.cookies.get("litemc_token")
+    )
+    effective_token = bearer_token or cookie_token
+    if (
+        not _is_allowed_ws_origin(websocket)
+        or not settings.admin_password
+        or not effective_token
+        or not verify_session_token(effective_token)
+    ):
+        await websocket.close(code=4001)
+        return
 
     await websocket.accept()
-    process_manager.connected_websockets.add(websocket)
+    process_manager.connected_websockets[websocket] = effective_token
 
     try:
         initial_stats = process_manager.get_stats()
@@ -180,6 +200,12 @@ async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(N
         async def stats_pusher():
             while True:
                 await asyncio.sleep(2)
+                if not settings.admin_password or not verify_session_token(effective_token):
+                    try:
+                        await websocket.close(code=4001)
+                    except Exception:
+                        pass
+                    break
                 try:
                     await websocket.send_json({
                         "type": "stats",
@@ -192,13 +218,11 @@ async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(N
 
         while True:
             data = await websocket.receive_json()
+            if not settings.admin_password or not verify_session_token(effective_token):
+                await websocket.close(code=4001)
+                break
             msg_type = data.get("type")
             if msg_type == "command":
-                if settings.admin_password and effective_token:
-                    if not verify_session_token(effective_token):
-                        await websocket.send_json({"type": "log", "data": "[Dockraft] Sesión caducada por seguridad o inactividad."})
-                        await websocket.close(code=4001)
-                        break
                 cmd = data.get("command", "")
                 await process_manager.send_command(cmd)
 
@@ -207,7 +231,7 @@ async def websocket_console(websocket: WebSocket, token: Optional[str] = Query(N
     except Exception:
         pass
     finally:
-        process_manager.connected_websockets.discard(websocket)
+        process_manager.connected_websockets.pop(websocket, None)
         if "stats_task" in locals() and not stats_task.done():
             stats_task.cancel()
 

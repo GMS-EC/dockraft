@@ -341,10 +341,14 @@ class PlayerManager:
 
         # 2. Iterate through currently tracked online players to ensure disconnection across all server flavors
         online_list = list(process_manager.online_players)
+        kicked_count = 0
         for p in online_list:
-            await process_manager.send_command(f"kick {p} {reason_clean}")
+            safe_p = _validate_player_name(p)
+            if safe_p:
+                await process_manager.send_command(f"kick {safe_p} {reason_clean}")
+                kicked_count += 1
 
-        count = len(online_list)
+        count = kicked_count
         process_manager.online_players.clear()
 
         msg = f"Se ha expulsado a todos los jugadores ({count} conectados)." if count > 0 else "Se ha enviado la orden de expulsión a todos los jugadores (@a)."

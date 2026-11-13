@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -10,22 +10,22 @@ router = APIRouter(tags=["tasks"])
 
 class TaskCreateRequest(BaseModel):
     name: str
-    action: str
+    action: Literal["start", "stop", "restart", "command", "backup"]
     command: Optional[str] = ""
-    schedule_type: str = "interval"
+    schedule_type: Literal["interval", "cron", "once"] = "interval"
     interval_value: Optional[int] = 1
-    interval_unit: Optional[str] = "days"
+    interval_unit: Optional[Literal["minutes", "hours", "days"]] = "days"
     cron_expression: Optional[str] = "0 4 * * *"
     enabled: Optional[bool] = True
 
 
 class TaskUpdateRequest(BaseModel):
     name: Optional[str] = None
-    action: Optional[str] = None
+    action: Optional[Literal["start", "stop", "restart", "command", "backup"]] = None
     command: Optional[str] = None
-    schedule_type: Optional[str] = None
+    schedule_type: Optional[Literal["interval", "cron", "once"]] = None
     interval_value: Optional[int] = None
-    interval_unit: Optional[str] = None
+    interval_unit: Optional[Literal["minutes", "hours", "days"]] = None
     cron_expression: Optional[str] = None
     enabled: Optional[bool] = None
 

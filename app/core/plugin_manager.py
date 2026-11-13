@@ -229,9 +229,13 @@ class PluginManager:
 
         # Strip ANSI escape codes
         clean = re.sub(r'\x1b\[[0-9;]*[mGKF]', '', line).strip()
+        if re.search(r'\[Async Chat Thread[^\]]*\]:\s*(?:\[Not Secure\]\s*)?<[^>]{1,32}>\s+', clean, re.IGNORECASE):
+            return None
         # Strip standard server log prefix: [12:34:56 INFO]: or [INFO]:
         clean = re.sub(r'^\[\d{2}:\d{2}:\d{2}\s+(?:INFO|WARN|WARNING|ADVERTENCIA|ERROR)\]:\s*', '', clean)
         clean = re.sub(r'^\[(?:INFO|WARN|WARNING|ADVERTENCIA|ERROR)\]\s*', '', clean)
+        if re.match(r'^(?:\[Not Secure\]\s*)?<[^>]{1,32}>\s+', clean):
+            return None
 
         # Reject negative phrases first (false positives: "already up to date", etc.)
         if self.is_negative_notice(clean):
@@ -537,8 +541,8 @@ class PluginManager:
                     low = name.lower()
                     if isinstance(items, list):
                         for it in items:
-                            item_name = str(it.get("name", "")).lower()
-                            if item_name == low or low in item_name:
+                            item_name = str(it.get("name", "")).strip().lower()
+                            if item_name == low:
                                 match = it
                                 break
                     if match and match.get("id"):
@@ -593,7 +597,18 @@ class PluginManager:
                 with zipfile.ZipFile(jar_path, "r") as z:
                     yml_candidates = [n for n in z.namelist() if n.lower() == "plugin.yml" or n.lower().endswith("/plugin.yml")]
                     if yml_candidates:
-                        raw_yml = z.read(yml_candidates[0]).decode("utf-8", errors="replace")
+                        yml_info = z.getinfo(yml_candidates[0])
+                        if yml_info.file_size > 1024 * 1024:
+                            logger.warning("Skipping oversized plugin.yml in %s (%d bytes)", jar_path.name, yml_info.file_size)
+                            raw_yml = ""
+                        else:
+                            with z.open(yml_info, "r") as yf:
+                                raw_bytes = yf.read(1024 * 1024 + 1)
+                            if len(raw_bytes) > 1024 * 1024:
+                                logger.warning("Skipping oversized plugin.yml stream in %s", jar_path.name)
+                                raw_yml = ""
+                            else:
+                                raw_yml = raw_bytes.decode("utf-8", errors="replace")
                         parsed = None
                         try:
                             parsed = yaml.safe_load(raw_yml)
@@ -650,38 +665,53 @@ class PluginManager:
             return result
 
         try:
-            # 1. Search Spiget for plugin name (URL-encoded)
-            from urllib.parse import quote as _url_quote
-            search_url = f"{self.spiget_base_url}/search/resources/{_url_quote(name, safe='')}?size=5"
-            resp = await client.get(search_url)
-            if resp.status_code == 200:
+            # 0. Prefer explicit SpigotMC resource ID from plugin.yml website if present
+            explicit_id = None
+            website = str(plugin.get("website") or "")
+            spigot_m = re.search(r"spigotmc\.org/resources/(?:[^/]+\.)?(\d+)", website, re.I)
+            if spigot_m:
+                explicit_id = spigot_m.group(1)
+
+            if explicit_id:
+                res_id = int(explicit_id)
+                result["spigot_id"] = res_id
+                result["spigot_url"] = f"https://www.spigotmc.org/resources/{res_id}/"
+            else:
+                # 1. Search Spiget for plugin name (URL-encoded) and require exact name match
+                from urllib.parse import quote as _url_quote
+                search_url = f"{self.spiget_base_url}/search/resources/{_url_quote(name, safe='')}?size=5"
+                resp = await client.get(search_url)
+                if resp.status_code != 200:
+                    return result
                 items = resp.json()
-                if isinstance(items, list) and items:
-                    # Find exact or best match; never fall back to an arbitrary resource.
-                    match = None
-                    clean_name_lower = name.lower()
-                    for item in items:
-                        item_name = str(item.get("name", "")).lower()
-                        if item_name == clean_name_lower or clean_name_lower in item_name:
-                            match = item
-                            break
-                    if not match:
-                        result["not_on_spigot"] = True
-                        return result
+                if not isinstance(items, list) or not items:
+                    result["not_on_spigot"] = True
+                    return result
 
-                    res_id = match.get("id")
-                    result["spigot_id"] = res_id
-                    result["spigot_url"] = f"https://www.spigotmc.org/resources/{res_id}/"
+                match = None
+                clean_name_lower = name.strip().lower()
+                for item in items:
+                    item_name = str(item.get("name", "")).strip().lower()
+                    if item_name == clean_name_lower:
+                        match = item
+                        break
+                if not match:
+                    result["not_on_spigot"] = True
+                    return result
 
-                    # 2. Get latest version of this resource
-                    ver_url = f"{self.spiget_base_url}/resources/{res_id}/versions/latest"
-                    ver_resp = await client.get(ver_url)
-                    if ver_resp.status_code == 200:
-                        ver_data = ver_resp.json()
-                        latest_name = str(ver_data.get("name", "")).strip()
-                        if latest_name:
-                            result["latest_version"] = latest_name
-                            result["has_update"] = is_newer_version(result["version"], latest_name)
+                res_id = match.get("id")
+                result["spigot_id"] = res_id
+                result["spigot_url"] = f"https://www.spigotmc.org/resources/{res_id}/"
+
+            # 2. Get latest version of this resource
+            ver_url = f"{self.spiget_base_url}/resources/{res_id}/versions/latest"
+            ver_resp = await client.get(ver_url)
+            if ver_resp.status_code == 200:
+                ver_data = ver_resp.json()
+                latest_name = str(ver_data.get("name", "")).strip()
+                if latest_name:
+                    result["latest_version"] = latest_name
+                    result["has_update"] = is_newer_version(result["version"], latest_name)
         except Exception as e:
             result["check_error"] = str(e)
 

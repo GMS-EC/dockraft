@@ -1,3 +1,16 @@
+// Hydrate SSR initial state without inline <script> (CSP script-src 'self')
+(function() {
+  try {
+    const statsEl = document.getElementById('server-initial-stats');
+    const cfgEl = document.getElementById('server-initial-config');
+    window.__INITIAL_STATS__ = statsEl ? JSON.parse(statsEl.textContent) : null;
+    window.__INITIAL_CONFIG__ = cfgEl ? JSON.parse(cfgEl.textContent) : null;
+  } catch (e) {
+    window.__INITIAL_STATS__ = null;
+    window.__INITIAL_CONFIG__ = null;
+  }
+})();
+
 // Global fetch interceptor to handle 401 Unauthorized / Session Expiration immediately
 (function() {
   const originalFetch = window.fetch;

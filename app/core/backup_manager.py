@@ -40,7 +40,12 @@ class BackupManager:
 
         try:
             for item in sorted(settings.data_dir.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
-                if item.name in excluded or item.name.endswith(".tmp") or item.name.endswith(".pid"):
+                if (
+                    item.name in excluded
+                    or item.name.lower() in PROTECTED_INTERNAL_FILES
+                    or item.name.endswith(".tmp")
+                    or item.name.endswith(".pid")
+                ):
                     continue
 
                 sz = 0
@@ -151,7 +156,7 @@ class BackupManager:
 
         # Protected / excluded directories and files
         excluded_dirs = {"backups", ".git", ".idea", "__pycache__"}
-        excluded_files = {"session.lock", "dockraft.pid", "litemc.pid"}
+        excluded_files = {"session.lock", "dockraft.pid", "litemc.pid"} | PROTECTED_INTERNAL_FILES
 
         # Determine roots to include based on scope
         selected_roots: List[Path] = []
@@ -165,13 +170,17 @@ class BackupManager:
             for item in settings.data_dir.iterdir():
                 if item.is_dir() and (item.name.lower().startswith("world") or item.name.lower() in ["worlds", "plugins", "mods", "config"]):
                     selected_roots.append(item)
-                elif item.is_file() and (item.name in ["server.properties", "eula.txt"] or item.name.endswith(".yml") or item.name.endswith(".json")):
+                elif (
+                    item.is_file()
+                    and item.name.lower() not in excluded_files
+                    and (item.name in ["server.properties", "eula.txt"] or item.name.endswith(".yml") or item.name.endswith(".json"))
+                ):
                     selected_roots.append(item)
         elif clean_scope == "custom" and targets:
             for t in targets:
                 clean_t = Path(t).name
                 cand = settings.data_dir / clean_t
-                if cand.exists() and clean_t not in excluded_dirs:
+                if cand.exists() and clean_t not in excluded_dirs and clean_t.lower() not in excluded_files:
                     selected_roots.append(cand)
         else:  # full
             selected_roots = [settings.data_dir]
@@ -181,17 +190,28 @@ class BackupManager:
         try:
             with zipfile.ZipFile(target_zip, 'w', compression_mode, **compress_kwargs) as zf:
                 for root_item in selected_roots:
+                    if root_item.is_symlink():
+                        continue
                     if root_item.is_file():
+                        if root_item.name.lower() in excluded_files or root_item.name.endswith(".tmp"):
+                            continue
                         rel = root_item.relative_to(settings.data_dir)
                         zf.write(root_item, arcname=str(rel))
                     elif root_item.is_dir():
-                        for root, dirs, files in os.walk(root_item):
+                        for root, dirs, files in os.walk(root_item, followlinks=False):
                             rel_root = Path(root).relative_to(settings.data_dir)
-                            dirs[:] = [d for d in dirs if d not in excluded_dirs and not str(rel_root / d).startswith("backups")]
+                            dirs[:] = [
+                                d for d in dirs
+                                if d not in excluded_dirs
+                                and not str(rel_root / d).startswith("backups")
+                                and not (Path(root) / d).is_symlink()
+                            ]
                             for file in files:
-                                if file in excluded_files or file.endswith(".tmp"):
+                                if file.lower() in excluded_files or file.endswith(".tmp"):
                                     continue
                                 file_path = Path(root) / file
+                                if file_path.is_symlink():
+                                    continue
                                 arcname = str(rel_root / file)
                                 try:
                                     zf.write(file_path, arcname=arcname)
@@ -241,7 +261,11 @@ class BackupManager:
         self._ensure_dir()
         clean_name = Path(filename).name
         target = (self.backups_dir / clean_name).resolve()
-        if not target.is_relative_to(self.backups_dir.resolve()) or not target.exists():
+        if (
+            not target.is_relative_to(self.backups_dir.resolve())
+            or not target.is_file()
+            or target.is_symlink()
+        ):
             raise HTTPException(status_code=404, detail="Backup file not found")
         return target
 

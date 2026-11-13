@@ -5,15 +5,50 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.4.2] - 2026-11-13
+
+### Notas de Actualización (Upgrade Notes)
+
+- **Usuario no privilegiado en Docker (`UID/GID 1000`):** El contenedor deja de ejecutarse como `root` (`UID 0`) y pasa al usuario `dockraft` (`1000:1000`). En despliegues existentes con volúmenes montados como `root`, ejecuta `chown -R 1000:1000 ./data ./backups` antes de iniciar la nueva imagen.
+- **Autenticación obligatoria (`ADMIN_PASSWORD`):** Se elimina el modo _fail-open_; si `ADMIN_PASSWORD` está vacío, se genera una contraseña aleatoria temporal en los logs de arranque. Define `ADMIN_PASSWORD` y `SECRET_KEY` en `.env` para conservar credenciales y sesiones entre recreaciones del contenedor.
+- **Re-inicio de sesión y Proxy inverso:** Los tokens de sesión existentes se invalidarán una única vez tras actualizar debido al nuevo formato vinculado a la contraseña. Si usas proxy inverso con `TRUST_PROXY_HEADERS=true`, configura `TRUSTED_PROXIES` con la IP/CIDR del proxy (por defecto `127.0.0.1,::1`).
+
+### Seguridad (Security)
+
+- **Eliminación de Acceso _Fail-Open_ y Aislamiento de Secretos (`app/config.py`, `app/core/security.py`, `app/routers/auth.py`, `app/main.py`, `Dockerfile`):**
+  - Bloqueo estricto de `get_current_user()`, `is_authenticated()`, `verify_admin_credentials()`, `POST /api/auth/login` y `WS /ws/console` cuando `ADMIN_PASSWORD` está vacío, con generación automática de contraseña efímera en arranque fuera de pruebas.
+  - Aislamiento del entorno de subprocesos Minecraft/Forge mediante _allowlist_ (`build_sanitized_subprocess_env()`) en `ProcessManager.start_server()` y `DownloadManager.install_forge_server()`, evitando exponer `ADMIN_PASSWORD` y `SECRET_KEY`.
+  - Traslado y migración automática de `.secret_key` fuera de `data/` hacia `panel_state_dir` (`/app/.dockraft_state/.secret_key`) con permisos `0o600`/`0o700`, y eliminación del `chmod` permisivo (`0o644`/`0o755`) en `clean_stale_session_locks()` y `safe_extract_zip()`.
+- **Sesiones, WebSocket `/ws/console` y Rate Limiting (`app/core/security.py`, `app/routers/auth.py`, `app/main.py`, `app/core/process_manager.py`):**
+  - Persistencia atómica y acotada (`_MAX_REVOKED_TOKENS = 10000`) de `_revoked_tokens` en `.revoked_tokens.json`, rechazando tokens forjados o con marca temporal futura, y vinculación de tokens HMAC a la huella de `ADMIN_PASSWORD`.
+  - Revocación de todos los portadores (`Bearer` y cookies) en `logout` y del token anterior en `/api/auth/refresh`.
+  - Defensa contra CSWSH en `/ws/console` validando `Origin` antes de `accept()`, eliminación de `?token=` en query string, y cierre automático (`4001`) en `stats_pusher()` y `broadcast_message()` al expirar o revocarse la sesión.
+  - Protección contra _bypass_ de `LoginRateLimiter` validando que el _peer_ pertenezca a `TRUSTED_PROXIES` y tomando la IP no confiable más a la derecha en `X-Forwarded-For`.
+- **Protección de Backups, Archivos, Diagnósticos y Cadena de Suministro (`app/core/fs_utils.py`, `backup_manager.py`, `file_manager.py`, `diagnostic_manager.py`, `downloader.py`, `plugin_manager.py`, `app/routers/installer.py`):**
+  - Exclusión de `PROTECTED_INTERNAL_FILES` (incluyendo `plugin_updates.json` y `dockraft_players.json`) de `create_backup()` y `get_available_targets()`, además de rechazo de compresión de raíz y symlinks en `FileManager` y `BackupManager`.
+  - Límites anti-ZipBomb por streaming (`max_entries`, `max_total_bytes`, `max_ratio`) en `safe_extract_zip()` y validación de tamaño de `plugin.yml`.
+  - Bloqueo de symlinks y redacción completa de secretos (`admin_password`, `secret_key`, variables de entorno, `webhooks.json` y `rcon.password`) en `DiagnosticManager.share_to_mclogs()`.
+  - Verificación criptográfica `SHA-256` (PaperMC) / `SHA-1` (Mojang), validación de dominios HTTPS tras redirecciones y rechazo de `build_id` inexistente en `get_paper_build()`.
+  - Coincidencia exacta o por ID explícito de SpigotMC en `PluginManager` (eliminando confusión por subcadena en Spiget).
+- **Frontera de Consola, Webhooks, DOM XSS y Endurecimiento General (`process_manager.py`, `player_manager.py`, `webhook_manager.py`, `activity_manager.py`, `task_scheduler.py`, `web/static/js/`):**
+  - Filtrado de líneas de chat (`_is_chat_line()`) antes de procesar eventos de consola/plugins/TPS y validación de nombres de jugador en `online_players` y `kick_all_players()`.
+  - Escape HTML en Telegram y Email (`_send_email_sync`), `allowed_mentions={"parse": []}` y escape de enlaces Markdown en Discord.
+  - Corrección de DOM XSS en `Files.buildUploadItemElement()` (`targetDir`) e `Installer.loadUpdateInfo()`, validación del formato `version.json['id']`, eliminación de `'unsafe-inline'` en `script-src` del CSP y adición de `rel="noopener noreferrer"` en enlaces externos.
+  - Validación de `java_path`, comprobación _case-insensitive_ de archivos protegidos, bloqueo `RLock` y neutralización de fórmulas CSV en `ActivityManager`, validación de enums en `tasks.py`, iteración segura en `scheduler_loop()` y ocultación de detalles internos de error en `WebhookManager.test_channel()`.
+
+---
+
 ## [1.4.1] - 2026-11-12
 
 ### Seguridad (Security)
+
 - **Persistencia Automática de `SECRET_KEY` (`app/config.py`, `app/core/fs_utils.py`):**
   - Cuando no se configura la variable de entorno `SECRET_KEY`, la clave generada se persiste automáticamente en `data/.secret_key` (protegida en `PROTECTED_INTERNAL_FILES`) para conservar las sesiones activas tras reiniciar la aplicación o el contenedor.
 - **Sanitización de Comandos de Consola (`app/core/process_manager.py`):**
   - Limpieza de saltos de línea (`\r`, `\n`) y caracteres nulos (`\x00`) en `send_command()` para prevenir inyección multilínea en el flujo `stdin` del servidor.
 
 ### Mejorado y Optimizado (Changed & Performance)
+
 - **Modularización Completa de `app/main.py` (`app/routers/`):**
   - Extracción de los endpoints restantes hacia routers dedicados: `auth.py`, `server.py`, `installer.py` y `activity.py`, reduciendo `app/main.py` de ~1,600 a ~291 líneas.
   - Eliminación de 18 esquemas Pydantic duplicados que permanecían huérfanos en `app/main.py`, además de ramas muertas (`inspect.isawaitable`) y scripts temporales (`scratch/`).
@@ -29,6 +64,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Reemplazo de todas las llamadas `print()` en producción por `logging` estándar con niveles adecuados (`info`, `warning`, `error`, `debug`) y añadido de trazabilidad en bloques `except Exception:` relevantes (`downloader.py`, `java_manager.py`, `backup_manager.py`, `plugin_manager.py`).
 
 ### Corregido (Fixed)
+
 - **Registro Diferenciado de Conexión y Desconexión de Jugadores (`app/core/player_manager.py`):**
   - Unificación de `record_connection()` y `record_disconnection()` mediante `_record_activity()` para distinguir eventos `"join"` y `"leave"`, manteniendo compatibilidad con `last_connection` y registrando además `last_event` y `last_disconnection`.
 - **Limpieza de Importación Duplicada (`app/core/plugin_manager.py`):**
@@ -39,6 +75,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 ## [1.4.0] - 2026-11-04
 
 ### Seguridad (Security)
+
 - **Protección contra SSRF en Webhooks (`app/core/webhook_manager.py`):**
   - Validación estricta del esquema (`http`/`https`) y resolución DNS con bloqueo de direcciones IP privadas, loopback (`127.0.0.1`), link-local (`169.254.169.254`) y rangos reservados antes de despachar notificaciones o pruebas de webhook.
 - **Protección Anti-Zip Bomb y Cuotas en Importación/Restauración (`app/main.py`, `app/core/backup_manager.py`, `app/core/file_manager.py`):**
@@ -53,6 +90,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Bloqueo explícito de flags peligrosos de ejecución arbitraria (`-XX:OnOutOfMemoryError`, `-XX:OnError`, `-XX:AbortVMOnException`, `-javaagent`, `-agentlib`, `-agentpath`).
 
 ### Mejorado y Optimizado (Changed & Performance)
+
 - ** Modularización del Backend con APIRouter (`app/routers/`):**
   - Desacoplamiento de endpoints de `app/main.py` en módulos dedicados: `auth.py`, `server.py`, `files.py`, `backups.py`, `players.py`, `tasks.py` y `plugins.py`.
 - **Optimización Asíncrona y de I/O (`app/core/`):**
@@ -69,16 +107,18 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Reparación automática de permisos POSIX en archivos extraídos y directorios del mundo (`level.dat`) antes del arranque, y eliminación de dependencias innecesarias (`passlib`, `pydantic-settings`).
 
 ### Corregido (Fixed)
+
 - **Carga del Logo de la Aplicación (`web/templates/`):**
   - Unificación del recurso gráfico en `/static/img/dockraft_logo.png` en `base.html`, `login.html`, `components/header.html`, `footer.html`, `manifest.json` y `sw.js`.
 - **Títulos de la Sección de Actualizaciones del Instalador (`installer.html`, `i18n-installer.js`):**
-  - Eliminación de la numeración fija (`1.` y `2.`) en las tarjetas *Parches del Motor (Compilación / Build)* y *Versión del Juego (Minecraft)* para mantener coherencia visual tanto en motores con builds (Paper/Purpur) como en motores de tarjeta única (Vanilla/Fabric/Forge/Bedrock).
+  - Eliminación de la numeración fija (`1.` y `2.`) en las tarjetas _Parches del Motor (Compilación / Build)_ y _Versión del Juego (Minecraft)_ para mantener coherencia visual tanto en motores con builds (Paper/Purpur) como en motores de tarjeta única (Vanilla/Fabric/Forge/Bedrock).
 
 ---
 
 ## [1.3.3] - 2026-10-14
 
 ### Añadido (Added)
+
 - **Módulo y Ventana Modal Exclusiva para Actualización y Cambio de Compilaciones (Builds):**
   - **Tarjeta Exclusiva de Compilación (`#installer-build-card`):** Bloque visual destacado en la pestaña de Instalación, independiente del selector de versiones de Minecraft, que muestra la versión base instalada (`26.3`), la compilación activa (`#186`), y notifica de inmediato cuando hay una nueva compilación oficial disponible con el botón `Cambiar / Actualizar Build`.
   - **Ventana Modal Dedicada (`#modal-change-build`):** Diseñada específicamente para clarificar al usuario la diferencia entre la versión base del juego y la compilación del motor:
@@ -105,6 +145,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 ## [1.3.2] - 2026-09-22
 
 ### Corregido (Fixed)
+
 - **Extracción Automática de Versión de la Aplicación en Docker:**
   - `CHANGELOG.md` ahora se copia explícitamente en la imagen Docker (`Dockerfile`), permitiendo que `_read_version_from_changelog()` lea la versión real dinámicamente tanto en local como dentro de contenedores.
   - Se amplió la búsqueda a múltiples rutas posibles (`BASE_DIR`, `/app`, `cwd`) y se actualizó el valor de respaldo a `1.3.2` (eliminando la versión `1.0.0` que quedaba residual si el archivo no se encontraba).
@@ -131,6 +172,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 ## [1.3.1] - 2026-09-20
 
 ### Corregido (Fixed)
+
 - **Unificación de Diálogos de Confirmación Flotantes:**
   - Sustitución del cuadro de diálogo nativo del navegador (`confirm()`) por la ventana modal flotante del panel (`App.confirm()`) al limpiar los avisos de actualización de plugins en el Instalador (`clearAllConsoleUpdates`), garantizando una estética visual coherente y con diseño oscuro unificado.
 - **Depuración de Diccionarios y Traducciones:**
@@ -138,6 +180,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Incorporación de la clave de traducción `t_file_upload_cancel_confirm` en español e inglés para la confirmación al cerrar el gestor de subidas con transferencias activas.
 
 ### Modificado (Changed)
+
 - **Cache-Busting de Recursos del Cliente:**
   - Actualización de parámetros de versión de recursos en `base.html`, `footer.html` e `index.html` a `v1.3.1`.
 
@@ -146,6 +189,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 ## [1.3.0] - 2026-09-20
 
 ### Agregado (Added)
+
 - **Administrador de Subidas Flotante (Upload Manager Widget):**
   - Panel flotante moderno y minimizable en la esquina inferior derecha (estilo Google Drive/OneDrive).
   - Visualización del progreso individual y global con contador de bytes transferidos, porcentaje en tiempo real y velocidad de transferencia en MB/s (`XMLHttpRequest.upload.onprogress`).
@@ -163,10 +207,12 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Nuevas cadenas de traducción en español e inglés para todos los estados de subida, badges, botones y textos de arrastre en `i18n-files.js`.
 
 ### Modificado (Changed)
+
 - **Cache-Busting de Recursos del Cliente:**
   - Incremento de versiones de scripts y estilos en `base.html`, `footer.html`, `index.html` y módulos correspondientes a `v1.3.0`.
 
 ### Corregido (Fixed)
+
 - **Salto al inicio al subir archivos:**
   - Solucionado el colapso del contenedor que restablecía el scroll a `0` y la pérdida de la ruta actual durante las recargas de la lista de archivos.
 - **Incompatibilidad en llamada a BackupManager:**
@@ -177,6 +223,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 ## [1.2.0] - 2026-09-15
 
 ### Agregado (Added)
+
 - **Monitoreo de Espacio en Disco y Alerta Inteligente en Métricas:**
   - Nueva tarjeta KPI de Espacio en Disco en la pestaña de Métricas que muestra en tiempo real los GB usados vs límite asignado, porcentaje de uso y espacio libre disponible.
   - Barra de progreso visual compacta con cambio de color automático (cian para estado normal, ámbar para advertencia y rojo para crítico).
@@ -199,6 +246,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Suite de pruebas para telemetría de rendimiento y almacenamiento en disco (`tests/test_metrics_telemetry.py`).
 
 ### Modificado (Changed)
+
 - **Estandarización Visual de Iconos (Sin Emojis):**
   - Sustitución de todos los emojis residuales (`⚠️`) por iconos vectoriales SVG limpios y consistentes en las pestañas de Instalador, Archivos y Métricas.
   - Unificación de estilos y badges de estado.
@@ -208,6 +256,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Actualización de versiones de scripts `files.js?v=1.2.4`, `i18n-files.js?v=1.2.4`, `metrics.js?v=1.2.4`, `i18n-metrics.js?v=1.2.4` e `installer.js?v=1.2.4`.
 
 ### Corregido (Fixed)
+
 - **Desplazamiento y Espacio Blanco del Teclado Virtual en Login Móvil:**
   - Corrección del espacio en blanco al desplegar el teclado en teléfonos móviles mediante la directiva `interactive-widget=resizes-content` en el viewport, altura dinámica `100dvh`, declaración de `color-scheme: dark` y fondo oscuro permanente en la etiqueta `html`.
 - **Eliminación de Advertencias Duplicadas en el Instalador:**
@@ -218,6 +267,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 ## [1.1.0] - 2026-09-15
 
 ### Agregado (Added)
+
 - **Paginación en Registros de Actividad:**
   - Selector interactivo de cantidad de registros por página (15, 25, 50, 100 registros).
   - Controles de navegación dinámica con páginas numeradas, botones previo/siguiente y elipsis inteligente (`web/templates/tabs/logs.html` y `web/static/js/logs.js`).
@@ -238,6 +288,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Nuevas suites de pruebas unitarias para clasificación de versiones PaperMC (`tests/test_paper_classification.py`) y supresión de comandos silenciosos (`tests/test_silent_commands.py`).
 
 ### Modificado (Changed)
+
 - **Centralización i18n de Versión en Footer y Cache-Busting de Cliente:**
   - La versión del panel mostrada en el pie de página ahora se administra de forma centralizada en el diccionario de traducciones (`web/static/js/i18n.js` con clave `footer_version`), respetando la arquitectura de internacionalización del proyecto.
   - Se incrementaron los parámetros de versión de los scripts en `index.html`, `base.html` y el Service Worker PWA (`dockraft-v7`) para garantizar una actualización instantánea en el navegador sin retención de scripts antiguos en caché.
@@ -250,6 +301,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Reemplazo de directivas de plantilla en atributos `style=""` por condicionales HTML completos, eliminando advertencias y errores de analizadores CSS y JavaScript.
 
 ### Corregido (Fixed)
+
 - **Índice de Versiones en Purpur:**
   - Corrección en `app/core/task_scheduler.py` para leer la versión más reciente en el índice `vers[0]` (la API de Purpur retorna versiones en orden descendente).
 - **Llamada de Copia de Seguridad Preventiva:**
@@ -257,6 +309,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Soporte de compatibilidad para el alias `compress` en `app/core/backup_manager.py`.
 
 ### Seguridad (Security)
+
 - **Mitigación contra Zip Slip por Enlaces Simbólicos:**
   - Inspección con `stat.S_ISLNK` en la restauración de respaldos (`backup_manager.py`) y en la descompresión de archivos (`file_manager.py`) para rechazar archivos zip con enlaces simbólicos que apunten fuera de la raíz de datos.
 - **Sanitización Preventiva de Credenciales:**
@@ -267,6 +320,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 ## [1.0.0] - 2026-09-10
 
 ### Agregado (Added)
+
 - **Panel de Control Web Dockraft:**
   - Interfaz web moderna, responsiva y temática oscura para la administración de servidores de Minecraft Java y Bedrock.
   - Soporte para múltiples motores de servidor: PaperMC, Purpur, Vanilla, Fabric, Bedrock y Forge.

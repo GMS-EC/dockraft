@@ -1,3 +1,4 @@
+import html
 import json
 import logging
 import asyncio
@@ -169,11 +170,23 @@ class WebhookManager:
         now_local = datetime.now()
         footer_time = now_local.strftime("%d/%m/%Y %H:%M")
 
+        def _esc_md_links(val: str) -> str:
+            return str(val).replace("[", "\\[").replace("]", "\\]")
+
+        safe_fields = [
+            {
+                "name": _esc_md_links(f.get("name", "")),
+                "value": _esc_md_links(f.get("value", "")),
+                "inline": bool(f.get("inline", False)),
+            }
+            for f in (effective_fields or [])
+        ]
+
         embed = {
-            "title": title,
-            "description": message,
+            "title": _esc_md_links(title),
+            "description": _esc_md_links(message),
             "color": color,
-            "fields": effective_fields,
+            "fields": safe_fields,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "footer": {
                 "text": f"Dockraft — Minecraft Server Manager • {footer_time}",
@@ -186,6 +199,7 @@ class WebhookManager:
         payload = {
             "username": bot_username,
             "avatar_url": "https://cdn-icons-png.flaticon.com/512/606/606545.png",
+            "allowed_mentions": {"parse": []},
             "embeds": [embed]
         }
 
@@ -205,13 +219,14 @@ class WebhookManager:
 
         effective_fields = fields if fields is not None else self._build_default_fields("info")
 
-        # Convert markdown **bold** to HTML <b>
-        clean_msg = message
+        # Escape HTML first, then convert markdown **bold** to HTML <b>
+        safe_title = html.escape(str(title))
+        clean_msg = html.escape(str(message))
         while "**" in clean_msg:
             clean_msg = clean_msg.replace("**", "<b>", 1).replace("**", "</b>", 1)
 
         html_lines = [
-            f"<b>{title}</b>",
+            f"<b>{safe_title}</b>",
             "",
             clean_msg,
             ""
@@ -219,8 +234,8 @@ class WebhookManager:
 
         if effective_fields:
             for f in effective_fields:
-                fname = f.get("name", "")
-                fval = str(f.get("value", "")).replace("`", "")
+                fname = html.escape(str(f.get("name", "")))
+                fval = html.escape(str(f.get("value", "")).replace("`", ""))
                 html_lines.append(f"{fname}: <code>{fval}</code>")
             html_lines.append("")
 
@@ -287,11 +302,13 @@ class WebhookManager:
         body_plain = "\n".join(plain_lines)
 
         # HTML table rows for fields
+        safe_subject = html.escape(str(subject))
+        safe_server_name = html.escape(str(server_name))
         fields_rows = ""
         if effective_fields:
             for f in effective_fields:
-                fname = f.get("name", "")
-                fval = str(f.get("value", "")).replace("`", "")
+                fname = html.escape(str(f.get("name", "")))
+                fval = html.escape(str(f.get("value", "")).replace("`", ""))
                 fields_rows += f"""
                 <tr>
                   <td style="padding: 10px 16px; border-bottom: 1px solid #21262d; font-size: 13px; font-weight: 600; color: #8b949e; width: 38%;">
@@ -303,8 +320,8 @@ class WebhookManager:
                 </tr>
                 """
 
-        # Format body HTML
-        body_html = body.replace("\n", "<br>")
+        # Format body HTML safely
+        body_html = html.escape(str(body)).replace("\n", "<br>")
         while "**" in body_html:
             body_html = body_html.replace("**", "<strong>", 1).replace("**", "</strong>", 1)
 
@@ -319,7 +336,7 @@ class WebhookManager:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{subject}</title>
+  <title>{safe_subject}</title>
 </head>
 <body style="margin: 0; padding: 24px 12px; background-color: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #e6edf3; -webkit-font-smoothing: antialiased;">
   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; margin: 0 auto; background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
@@ -334,7 +351,7 @@ class WebhookManager:
             </td>
             <td style="text-align: right; vertical-align: middle;">
               <span style="display: inline-block; padding: 4px 10px; background: rgba(56, 139, 253, 0.15); border: 1px solid rgba(56, 139, 253, 0.3); border-radius: 12px; font-size: 11px; font-weight: 600; color: #58a6ff;">
-                🎮 {server_name}
+                🎮 {safe_server_name}
               </span>
             </td>
           </tr>
@@ -351,7 +368,7 @@ class WebhookManager:
     <tr>
       <td style="padding: 24px 24px 20px 24px;">
         <h2 style="margin: 0 0 16px 0; color: #f0f6fc; font-size: 18px; font-weight: 700;">
-          {subject}
+          {safe_subject}
         </h2>
 
         <!-- Message Body Callout -->
@@ -370,7 +387,7 @@ class WebhookManager:
     <tr>
       <td style="padding: 14px 24px; background-color: #0d1117; border-top: 1px solid #21262d; text-align: center;">
         <p style="margin: 0; font-size: 11px; color: #8b949e; line-height: 1.5;">
-          Notificación generada automáticamente por <strong>Dockraft</strong> para el servidor <em>{server_name}</em>.<br>
+          Notificación generada automáticamente por <strong>Dockraft</strong> para el servidor <em>{safe_server_name}</em>.<br>
           <span style="color: #6e7681;">⏰ {now_str}</span>
         </p>
       </td>
@@ -429,7 +446,8 @@ class WebhookManager:
                 
             return {"status": "success", "message": f"Notificación de prueba enviada a {channel.capitalize()} correctamente."}
         except Exception as e:
-            return {"status": "error", "message": f"Error al enviar notificación a {channel}: {str(e)}"}
+            logger.warning("[Dockraft Webhooks] test_channel('%s') failed: %s", channel, e)
+            return {"status": "error", "message": f"No se pudo enviar la notificación de prueba a {channel.capitalize()}. Revisa la configuración y los registros del panel."}
 
     def dispatch(self, event_type: str, title: str, message: str, color: int = 0x388bfd, fields: Optional[List[Dict[str, Any]]] = None) -> None:
         """Dispatches event notifications asynchronously to all configured and enabled channels."""

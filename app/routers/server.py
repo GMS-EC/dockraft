@@ -78,8 +78,22 @@ class RuntimeConfigUpdate(BaseModel):
     def validate_server_file(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             v = v.strip()
-            if not v or ".." in v or "/" in v or "\\" in v or v in PROTECTED_INTERNAL_FILES:
+            if not v or ".." in v or "/" in v or "\\" in v or v.lower() in PROTECTED_INTERNAL_FILES:
                 raise ValueError("Nombre de archivo ejecutable del servidor no válido")
+        return v
+
+    @field_validator("java_path")
+    @classmethod
+    def validate_java_path(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                return "java"
+            if any(ch in v for ch in (";", "|", "&", "$", "`", ">", "<", "\n", "\r")):
+                raise ValueError("Ruta de Java contiene caracteres no permitidos")
+            exe_name = Path(v).name.lower()
+            if not (exe_name == "java" or exe_name == "java.exe" or exe_name.startswith("java")):
+                raise ValueError("La ruta debe apuntar a un binario de Java válido")
         return v
 
 
@@ -320,7 +334,7 @@ async def import_server(file: UploadFile = File(...), accept_eula: bool = Form(T
                 safe_extract_zip,
                 temp_zip,
                 settings.data_dir,
-                lambda member: Path(member.filename).parts[0] in PROTECTED_INTERNAL_FILES if Path(member.filename).parts else False,
+                lambda member: Path(member.filename).parts[0].lower() in PROTECTED_INTERNAL_FILES if Path(member.filename).parts else False,
             )
             file_manager.invalidate_quota_cache()
         except ValueError as ve:

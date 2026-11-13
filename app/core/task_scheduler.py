@@ -378,7 +378,7 @@ class TaskScheduler:
                 now_dt = self.now()
                 tz = self.get_tz()
 
-                for t in self.tasks:
+                for t in list(self.tasks):
                     if not t.get("enabled", True):
                         continue
 

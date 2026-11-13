@@ -306,7 +306,10 @@ class FileManager:
         if not target.exists():
             raise HTTPException(status_code=404, detail="Elemento no encontrado")
 
-        if target == self.base_dir:
+        if target.is_symlink():
+            raise HTTPException(status_code=400, detail="No se permiten enlaces simbólicos")
+
+        if target.resolve() == self.base_dir.resolve():
             raise HTTPException(status_code=400, detail="No se puede duplicar el directorio raíz")
 
         parent = target.parent
@@ -330,9 +333,17 @@ class FileManager:
                 idx += 1
             dest = parent / candidate
 
-            total_size = sum(f.stat().st_size for f in target.rglob('*') if f.is_file())
+            total_size = sum(
+                f.stat().st_size
+                for f in target.rglob('*')
+                if not f.is_symlink() and f.is_file()
+            )
             self._check_disk_quota(extra_bytes=total_size)
-            shutil.copytree(target, dest)
+
+            def _ignore_symlinks(dir_path: str, names: List[str]) -> List[str]:
+                return [n for n in names if (Path(dir_path) / n).is_symlink()]
+
+            shutil.copytree(target, dest, ignore=_ignore_symlinks)
 
         return {"status": "duplicated", "new_name": dest.name}
 
@@ -341,6 +352,13 @@ class FileManager:
         target = self._resolve_safe_path(relative_path)
         if not target.exists():
             raise HTTPException(status_code=404, detail="Elemento no encontrado")
+
+        if target.is_symlink():
+            raise HTTPException(status_code=400, detail="No se permiten enlaces simbólicos")
+
+        base_resolved = self.base_dir.resolve()
+        if target.resolve() == base_resolved:
+            raise HTTPException(status_code=400, detail="No se puede comprimir el directorio raíz")
 
         parent = target.parent
         zip_name = f"{target.name}.zip"
@@ -355,9 +373,14 @@ class FileManager:
                 if target.is_file():
                     zf.write(target, arcname=target.name)
                 else:
-                    for root, _, files in os.walk(target):
+                    for root, dirs, files in os.walk(target, followlinks=False):
+                        dirs[:] = [d for d in dirs if not (Path(root) / d).is_symlink()]
                         for file in files:
                             file_path = Path(root) / file
+                            if file_path.is_symlink() or file.lower() in PROTECTED_INTERNAL_FILES:
+                                continue
+                            if not file_path.resolve().is_relative_to(base_resolved):
+                                continue
                             arcname = file_path.relative_to(parent)
                             zf.write(file_path, arcname=str(arcname))
             return {"status": "compressed", "archive_name": dest_zip.name}
@@ -413,18 +436,26 @@ class FileManager:
 
         self._check_disk_quota(extra_bytes=1024 * 1024)
 
+        base_resolved = self.base_dir.resolve()
         try:
             with zipfile.ZipFile(dest_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
                 for p in paths:
                     target = self._resolve_safe_path(p)
-                    if not target.exists() or target == self.base_dir:
+                    if not target.exists() or target.is_symlink() or target.resolve() == base_resolved:
                         continue
                     if target.is_file():
+                        if target.name.lower() in PROTECTED_INTERNAL_FILES:
+                            continue
                         zf.write(target, arcname=target.name)
                     else:
-                        for root, _, files in os.walk(target):
+                        for root, dirs, files in os.walk(target, followlinks=False):
+                            dirs[:] = [d for d in dirs if not (Path(root) / d).is_symlink()]
                             for file in files:
                                 file_path = Path(root) / file
+                                if file_path.is_symlink() or file.lower() in PROTECTED_INTERNAL_FILES:
+                                    continue
+                                if not file_path.resolve().is_relative_to(base_resolved):
+                                    continue
                                 arcname = Path(target.name) / file_path.relative_to(target)
                                 zf.write(file_path, arcname=str(arcname).replace("\\", "/"))
 

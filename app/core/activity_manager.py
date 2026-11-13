@@ -26,7 +26,7 @@ class ActivityManager:
         self._custom_log_file = Path(log_file) if log_file else None
         self.max_entries = max_entries
         self.retention_days = retention_days
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._save_timer: Optional[threading.Timer] = None
         self._save_pending: bool = False
 
@@ -154,27 +154,28 @@ class ActivityManager:
         Categories: console, server, backup, update, player, security, task, file
         Statuses: success, warning, error, info
         """
-        self._ensure_loaded()
-        now = datetime.now()
-        entry = {
-            "id": self._next_id,
-            "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "iso": now.isoformat(),
-            "created_at": time.time(),
-            "category": category,
-            "action": action,
-            "details": details,
-            "user": user or "admin",
-            "status": status
-        }
-        self._next_id += 1
-        self._entries.append(entry)
-        # Enforce the in-memory ring buffer immediately (debounced write trims the disk copy).
-        limit = self.max_entries or self.MAX_ENTRIES
-        if len(self._entries) > limit:
-            self._entries = self._entries[-limit:]
-        self._save()
-        return entry
+        with self._lock:
+            self._ensure_loaded()
+            now = datetime.now()
+            entry = {
+                "id": self._next_id,
+                "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
+                "iso": now.isoformat(),
+                "created_at": time.time(),
+                "category": category,
+                "action": action,
+                "details": details,
+                "user": user or "admin",
+                "status": status
+            }
+            self._next_id += 1
+            self._entries.append(entry)
+            # Enforce the in-memory ring buffer immediately (debounced write trims the disk copy).
+            limit = self.max_entries or self.MAX_ENTRIES
+            if len(self._entries) > limit:
+                self._entries = self._entries[-limit:]
+            self._save()
+            return entry
 
     def get_logs(
         self,
@@ -249,18 +250,25 @@ class ActivityManager:
         if format_type == "csv":
             import csv
             import io
+
+            def _csv_safe(val: Any) -> Any:
+                s = str(val) if val is not None else ""
+                if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
+                    return f"'{s}"
+                return s
+
             output = io.StringIO()
             writer = csv.writer(output)
             writer.writerow(["id", "timestamp", "category", "action", "details", "user", "status"])
             for e in self._entries:
                 writer.writerow([
-                    e.get("id", ""),
-                    e.get("timestamp", ""),
-                    e.get("category", ""),
-                    e.get("action", ""),
-                    e.get("details", ""),
-                    e.get("user", "admin"),
-                    e.get("status", "info")
+                    _csv_safe(e.get("id", "")),
+                    _csv_safe(e.get("timestamp", "")),
+                    _csv_safe(e.get("category", "")),
+                    _csv_safe(e.get("action", "")),
+                    _csv_safe(e.get("details", "")),
+                    _csv_safe(e.get("user", "admin")),
+                    _csv_safe(e.get("status", "info")),
                 ])
             return output.getvalue()
 

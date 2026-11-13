@@ -20,7 +20,7 @@ services:
       - TZ=${TZ:-America/Guayaquil}
       # Usuario administrador para acceder al panel web
       - ADMIN_USER=${ADMIN_USER:-admin}
-      # Contraseña para acceder al panel (dejar vacío si no deseas requerir login en red local)
+      # Contraseña OBLIGATORIA para acceder al panel (si se deja vacía, se generará una aleatoria en los logs de inicio)
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       # Clave secreta para firmas de sesión — CAMBIA ESTO en producción (usa: openssl rand -hex 32)
       - SECRET_KEY=${SECRET_KEY:-}

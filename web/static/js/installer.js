@@ -705,7 +705,10 @@ const Installer = {
           select.appendChild(opt);
         });
         if (items.length === 0) {
-          select.innerHTML = `<option value="${data.current_version}">${data.current_version}</option>`;
+          const opt = document.createElement('option');
+          opt.value = data.current_version || '';
+          opt.textContent = data.current_version || '';
+          select.appendChild(opt);
         }
       }
 

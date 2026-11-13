@@ -1,16 +1,46 @@
+import os
+import json
 import hmac
 import hashlib
+import ipaddress
 import secrets
 import time
-from typing import Optional, Dict, Any, Tuple, Set
+from typing import Optional, Dict, Any, Tuple, Set, List
 from fastapi import HTTPException, Security, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
 
-# --- Token Revocation Store (Fix #3) ---
-# In-memory set of revoked token strings. Tokens added here on logout
-# are rejected by verify_session_token() even if their HMAC is valid.
-_revoked_tokens: Set[str] = set()
+# --- Token Revocation Store ---
+# Persisted set of revoked token strings (bounded to prevent DoS memory exhaustion).
+_MAX_REVOKED_TOKENS = 10000
+_CLOCK_SKEW_SECONDS = 60
+
+
+def _load_revoked_tokens() -> Set[str]:
+    revoked_file = getattr(settings, "_revoked_tokens_file", None)
+    if not revoked_file or not revoked_file.is_file():
+        return set()
+    try:
+        data = json.loads(revoked_file.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return {str(tok) for tok in data if isinstance(tok, str) and ":" in tok}
+    except Exception:
+        pass
+    return set()
+
+
+def _save_revoked_tokens() -> None:
+    revoked_file = getattr(settings, "_revoked_tokens_file", None)
+    if not revoked_file:
+        return
+    try:
+        from app.core.fs_utils import atomic_write_text
+        atomic_write_text(revoked_file, json.dumps(sorted(_revoked_tokens)), mode=0o600)
+    except Exception:
+        pass
+
+
+_revoked_tokens: Set[str] = _load_revoked_tokens()
 
 security_bearer = HTTPBearer(auto_error=False)
 
@@ -138,11 +168,16 @@ def get_token_age(token: str) -> Optional[int]:
     except Exception:
         return None
 
+def _password_fingerprint() -> str:
+    """Returns a short fingerprint of the active admin_password so rotation invalidates prior tokens."""
+    return hashlib.sha256((settings.admin_password or "").encode()).hexdigest()[:12]
+
+
 def create_session_token() -> str:
-    """Generates an HMAC session token based on secret key, timestamp, and random nonce."""
+    """Generates an HMAC session token bound to timestamp, nonce, and active password fingerprint."""
     timestamp = str(int(time.time()))
     nonce = secrets.token_hex(8)
-    payload = f"{timestamp}:{nonce}"
+    payload = f"{timestamp}:{nonce}:{_password_fingerprint()}"
     signature = hmac.new(
         settings.secret_key.encode(),
         payload.encode(),
@@ -150,22 +185,30 @@ def create_session_token() -> str:
     ).hexdigest()
     return f"{payload}:{signature}"
 
+
 def verify_session_token(token: str, max_age_seconds: Optional[int] = None) -> bool:
-    """Verifies the authenticity and expiration of the session token.
+    """Verifies the authenticity, password epoch, and expiration of the session token.
     Returns False if the token has been explicitly revoked via revoke_token().
     """
-    if not token or ":" not in token:
+    if not settings.admin_password or not token or ":" not in token:
         return False
-    # Fix #3: Reject explicitly revoked tokens (e.g. after logout)
     if token in _revoked_tokens:
         return False
     if max_age_seconds is None:
         max_age_seconds = get_session_max_age()
     try:
         payload, signature = token.rsplit(":", 1)
-        timestamp_str = payload.split(":", 1)[0]
+        parts = payload.split(":")
+        if len(parts) != 3:
+            return False
+        timestamp_str, _nonce, pwd_fp = parts
         token_time = int(timestamp_str)
-        if time.time() - token_time > max_age_seconds:
+        now = time.time()
+        if token_time - now > _CLOCK_SKEW_SECONDS:
+            return False
+        if now - token_time > max_age_seconds:
+            return False
+        if not hmac.compare_digest(pwd_fp, _password_fingerprint()):
             return False
         expected_sig = hmac.new(
             settings.secret_key.encode(),
@@ -178,19 +221,27 @@ def verify_session_token(token: str, max_age_seconds: Optional[int] = None) -> b
 
 
 def revoke_token(token: str) -> None:
-    """Adds a token to the revocation set so it is immediately rejected,
-    regardless of whether its HMAC signature is still valid.
-    Expired tokens are pruned from the set automatically to prevent memory growth.
+    """Adds a verified, non-expired token to the persisted revocation set.
+    Ignores forged, future-dated, or already-expired tokens and bounds memory size.
     """
-    if not token:
+    if not token or not verify_session_token(token):
         return
     _revoked_tokens.add(token)
     _cleanup_revoked_tokens()
+    if len(_revoked_tokens) > _MAX_REVOKED_TOKENS:
+        def _tok_ts(tok: str) -> int:
+            try:
+                return int(tok.split(":", 1)[0])
+            except Exception:
+                return 0
+        newest = sorted(_revoked_tokens, key=_tok_ts, reverse=True)[:_MAX_REVOKED_TOKENS]
+        _revoked_tokens.clear()
+        _revoked_tokens.update(newest)
+    _save_revoked_tokens()
 
 
 def _cleanup_revoked_tokens() -> None:
-    """Removes tokens from the revocation set that have already expired naturally,
-    so the set does not grow unbounded over time."""
+    """Removes tokens from the revocation set that have already expired naturally or are future-dated."""
     now = time.time()
     max_age = get_session_max_age()
     to_remove: Set[str] = set()
@@ -198,7 +249,7 @@ def _cleanup_revoked_tokens() -> None:
         if ":" in tok:
             try:
                 token_time = int(tok.split(":", 1)[0])
-                if now - token_time > max_age:
+                if (now - token_time > max_age) or (token_time - now > _CLOCK_SKEW_SECONDS):
                     to_remove.add(tok)
             except Exception:
                 to_remove.add(tok)  # malformed — drop it
@@ -209,7 +260,7 @@ def _cleanup_revoked_tokens() -> None:
 def verify_admin_credentials(username: Optional[str], password: str) -> bool:
     """Validates provided username and password using constant-time comparison."""
     if not settings.admin_password:
-        return True
+        return False
     
     # Check username if configured
     expected_user = getattr(settings, "admin_user", "admin")
@@ -237,7 +288,11 @@ async def get_current_user(
     WebSocket connections handle ?token= separately in their own endpoint.
     """
     if not settings.admin_password:
-        return True
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     token = None
     if auth and auth.credentials:
@@ -264,7 +319,7 @@ def is_authenticated(request: Request) -> bool:
     Fix #2: '?token=' query param removed — tokens must not appear in URLs.
     """
     if not settings.admin_password:
-        return True
+        return False
 
     token = None
     auth_header = request.headers.get("Authorization")
@@ -280,29 +335,120 @@ def is_authenticated(request: Request) -> bool:
     return bool(token and verify_session_token(token))
 
 
+def get_all_tokens_from_request(request: Request) -> List[str]:
+    """Extracts all distinct session tokens from Authorization header and session cookies."""
+    tokens: List[str] = []
+    seen: Set[str] = set()
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        tok = auth_header[7:].strip()
+        if tok and tok not in seen:
+            seen.add(tok)
+            tokens.append(tok)
+    for cookie_name in ("dockraft_token", "dockraft_session", "litemc_token"):
+        tok = request.cookies.get(cookie_name)
+        if tok and tok not in seen:
+            seen.add(tok)
+            tokens.append(tok)
+    return tokens
+
+
 def get_token_from_request(request: Request) -> Optional[str]:
     """Helper to extract the active session token from a request.
     Used by the logout endpoint to revoke the token server-side.
     """
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        return auth_header[7:].strip()
-    for cookie_name in ("dockraft_token", "dockraft_session", "litemc_token"):
-        tok = request.cookies.get(cookie_name)
-        if tok:
-            return tok
-    return None
+    tokens = get_all_tokens_from_request(request)
+    return tokens[0] if tokens else None
+
+
+def _is_trusted_proxy(ip_str: str) -> bool:
+    """Returns True if ip_str matches any IP or CIDR in settings.trusted_proxies."""
+    if not ip_str:
+        return False
+    try:
+        addr = ipaddress.ip_address(ip_str.strip())
+    except ValueError:
+        return False
+    for entry in getattr(settings, "trusted_proxies", ["127.0.0.1", "::1"]):
+        try:
+            if addr in ipaddress.ip_network(entry, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 def get_client_ip(request: Request) -> str:
-    """Extracts the client IP, honoring X-Forwarded-For / X-Real-IP when TRUST_PROXY_HEADERS is enabled."""
-    if getattr(settings, "trust_proxy_headers", False):
+    """Extracts the client IP, honoring X-Forwarded-For / X-Real-IP only from trusted proxies."""
+    peer_ip = request.client.host if request.client else "unknown"
+    if getattr(settings, "trust_proxy_headers", False) and _is_trusted_proxy(peer_ip):
         xff = request.headers.get("X-Forwarded-For", "").strip()
         if xff:
-            first_ip = xff.split(",")[0].strip()
-            if first_ip:
-                return first_ip
+            hops = [h.strip() for h in xff.split(",") if h.strip()]
+            # Walk right-to-left, skipping trusted proxies, to find the rightmost untrusted client IP
+            for hop in reversed(hops):
+                try:
+                    ipaddress.ip_address(hop)
+                except ValueError:
+                    continue
+                if not _is_trusted_proxy(hop):
+                    return hop
+            # All hops were trusted proxies; return leftmost valid IP if any
+            for hop in hops:
+                try:
+                    ipaddress.ip_address(hop)
+                    return hop
+                except ValueError:
+                    continue
         x_real_ip = request.headers.get("X-Real-IP", "").strip()
         if x_real_ip:
-            return x_real_ip
-    return request.client.host if request.client else "unknown"
+            try:
+                ipaddress.ip_address(x_real_ip)
+                return x_real_ip
+            except ValueError:
+                pass
+    return peer_ip
+
+
+_SAFE_SUBPROCESS_ENV_KEYS = frozenset({
+    "PATH",
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "TZ",
+    "TERM",
+    "TMPDIR",
+    "TEMP",
+    "TMP",
+    "JAVA_HOME",
+    "JRE_HOME",
+    "LD_LIBRARY_PATH",
+    "SYSTEMROOT",
+    "COMSPEC",
+    "WINDIR",
+    "PATHEXT",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+    "OS",
+    "PROGRAMFILES",
+    "PROGRAMFILES(X86)",
+    "COMMONPROGRAMFILES",
+    "LOCALAPPDATA",
+    "APPDATA",
+})
+
+
+def build_sanitized_subprocess_env(extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """Returns a minimal subprocess environment without panel secrets or Dockraft credentials."""
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k.upper() in _SAFE_SUBPROCESS_ENV_KEYS
+    }
+    if extra:
+        env.update(extra)
+    return env

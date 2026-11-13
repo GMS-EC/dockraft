@@ -70,6 +70,9 @@ async def resolve_server_download(
     target_file = "server.jar"
     is_zip = False
     resolved_build = build
+    expected_sha256: Optional[str] = None
+    expected_sha1: Optional[str] = None
+    allowed_hosts: Optional[set] = None
 
     if server_type in ["paper", "folia", "velocity"]:
         if build is not None:
@@ -78,6 +81,8 @@ async def resolve_server_download(
             info = await downloader.get_paper_latest_build(server_type, version)
         download_url = info["download_url"]
         resolved_build = info.get("build")
+        expected_sha256 = info.get("sha256")
+        allowed_hosts = {"papermc.io"}
     elif server_type == "purpur":
         if build is not None:
             info = await downloader.get_purpur_build(version, build)
@@ -85,22 +90,29 @@ async def resolve_server_download(
             info = await downloader.get_purpur_latest_build(version)
         download_url = info["download_url"]
         resolved_build = info.get("build")
+        allowed_hosts = {"purpurmc.org"}
     elif server_type == "vanilla":
         versions = await downloader.get_vanilla_versions()
         match = next((v for v in versions if v["id"] == version), None)
         if not match:
             raise HTTPException(status_code=404, detail="Version manifest not found")
-        download_url = await downloader.get_vanilla_download_url(match["url"])
+        v_info = await downloader.get_vanilla_download_info(match["url"])
+        download_url = str(v_info["url"])
+        expected_sha1 = v_info.get("sha1")
+        allowed_hosts = {"mojang.com"}
     elif server_type == "fabric":
         download_url = await downloader.get_fabric_download_url(version)
+        allowed_hosts = {"fabricmc.net"}
     elif server_type == "bedrock":
         platform = "win" if sys.platform == "win32" else "linux"
         download_url = await downloader.get_bedrock_download_url(version, platform=platform)
         target_file = "bedrock-server.zip"
         is_zip = True
+        allowed_hosts = {"minecraft.net", "azureedge.net", "minecraft-cdn.net"}
     elif server_type == "forge":
         download_url = await downloader.get_forge_download_url(version)
         target_file = "forge-installer.jar"
+        allowed_hosts = {"minecraftforge.net"}
     else:
         raise HTTPException(status_code=400, detail=unsupported_detail)
 
@@ -109,6 +121,9 @@ async def resolve_server_download(
         "target_file": target_file,
         "is_zip": is_zip,
         "build": resolved_build,
+        "expected_sha256": expected_sha256,
+        "expected_sha1": expected_sha1,
+        "allowed_hosts": allowed_hosts,
     }
 
 
@@ -252,13 +267,22 @@ async def install_server(req: InstallRequest):
         target_file = dl_info["target_file"]
         is_zip = dl_info["is_zip"]
         server_build = dl_info["build"]
+        expected_sha256 = dl_info.get("expected_sha256")
+        expected_sha1 = dl_info.get("expected_sha1")
+        allowed_hosts = dl_info.get("allowed_hosts")
 
         if req.server_type == "forge":
             java_bin = req.java_path or "java"
 
             async def forge_install_pipeline():
                 try:
-                    installer_path = await downloader.download_file(download_url, target_file)
+                    installer_path = await downloader.download_file(
+                        download_url,
+                        target_file,
+                        expected_sha256=expected_sha256,
+                        expected_sha1=expected_sha1,
+                        allowed_hosts=allowed_hosts,
+                    )
                     res = await downloader.install_forge_server(installer_path, java_bin=java_bin)
                     settings.save_runtime_config({
                         "server_file": res.get("server_file", "run.sh")
@@ -268,7 +292,16 @@ async def install_server(req: InstallRequest):
 
             _track_task(forge_install_pipeline())
         else:
-            _track_task(downloader.download_file(download_url, target_file, is_zip=is_zip))
+            _track_task(
+                downloader.download_file(
+                    download_url,
+                    target_file,
+                    is_zip=is_zip,
+                    expected_sha256=expected_sha256,
+                    expected_sha1=expected_sha1,
+                    allowed_hosts=allowed_hosts,
+                )
+            )
 
         resolved_server_file = (
             ("bedrock_server.exe" if sys.platform == "win32" else "bedrock_server")
@@ -582,6 +615,9 @@ async def update_server(req: UpdateRequest):
         target_file = dl_info["target_file"]
         is_zip = dl_info["is_zip"]
         new_build = dl_info["build"]
+        expected_sha256 = dl_info.get("expected_sha256")
+        expected_sha1 = dl_info.get("expected_sha1")
+        allowed_hosts = dl_info.get("allowed_hosts")
 
         was_running = process_manager.get_status() != "OFFLINE"
 
@@ -633,6 +669,9 @@ async def update_server(req: UpdateRequest):
                         target_file,
                         preserve_existing_configs=True,
                         verify_integrity=True,
+                        expected_sha256=expected_sha256,
+                        expected_sha1=expected_sha1,
+                        allowed_hosts=allowed_hosts,
                     )
                     res = await downloader.install_forge_server(installer_path, java_bin=java_path)
                     settings.save_runtime_config({
@@ -646,6 +685,9 @@ async def update_server(req: UpdateRequest):
                         is_zip=is_zip,
                         preserve_existing_configs=True,
                         verify_integrity=True,
+                        expected_sha256=expected_sha256,
+                        expected_sha1=expected_sha1,
+                        allowed_hosts=allowed_hosts,
                     )
                     if old_server_file and old_server_file != target_file and not is_zip:
                         old_path = settings.data_dir / old_server_file

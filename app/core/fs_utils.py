@@ -12,13 +12,15 @@ PROTECTED_INTERNAL_FILES: Set[str] = {
     "webhooks.json",
     "tasks.json",
     "activity_logs.json",
+    "plugin_updates.json",
+    "dockraft_players.json",
     ".install_lock",
     ".console_plugin_updates.json",
     ".secret_key",
 }
 
 
-def atomic_write_bytes(file_path: Union[str, Path], data: bytes) -> None:
+def atomic_write_bytes(file_path: Union[str, Path], data: bytes, mode: Optional[int] = None) -> None:
     """
     Safely and atomically writes bytes to a file by first writing to a temporary file
     in the same directory, syncing to physical disk, and atomically replacing the target.
@@ -32,6 +34,8 @@ def atomic_write_bytes(file_path: Union[str, Path], data: bytes) -> None:
             f.write(data)
             f.flush()
             os.fsync(f.fileno())
+        if mode is not None and os.name != "nt":
+            os.chmod(tmp_path, mode)
         os.replace(tmp_path, path)
     except Exception:
         if tmp_path.exists():
@@ -42,7 +46,12 @@ def atomic_write_bytes(file_path: Union[str, Path], data: bytes) -> None:
         raise
 
 
-def atomic_write_text(file_path: Union[str, Path], content: str, encoding: str = "utf-8") -> None:
+def atomic_write_text(
+    file_path: Union[str, Path],
+    content: str,
+    encoding: str = "utf-8",
+    mode: Optional[int] = None,
+) -> None:
     """
     Safely and atomically writes text to a file by writing to a temporary file in the
     same directory, syncing to physical disk, and replacing the target atomically.
@@ -55,6 +64,8 @@ def atomic_write_text(file_path: Union[str, Path], content: str, encoding: str =
             f.write(content)
             f.flush()
             os.fsync(f.fileno())
+        if mode is not None and os.name != "nt":
+            os.chmod(tmp_path, mode)
         os.replace(tmp_path, path)
     except Exception:
         if tmp_path.exists():
@@ -92,37 +103,68 @@ def safe_extract_zip(
     zip_path: Union[str, Path],
     dest_dir: Union[str, Path],
     skip_member_fn: Optional[Callable[[zipfile.ZipInfo], bool]] = None,
+    max_entries: int = 20000,
+    max_total_bytes: int = 2 * 1024 * 1024 * 1024,
+    max_ratio: float = 100.0,
 ) -> int:
     """
-    Validates a ZIP archive against ZipSlip path traversal and symlink attacks
-    before extracting members into dest_dir. Returns total extracted bytes.
-    Raises ValueError if an unsafe entry is detected.
+    Validates a ZIP archive against ZipSlip, symlinks, and ZipBomb amplification limits
+    before streaming members into dest_dir. Returns total extracted bytes.
+    Raises ValueError if an unsafe entry or limit violation is detected.
     """
     dest_resolved = Path(dest_dir).resolve()
     total_extracted = 0
     with zipfile.ZipFile(zip_path, "r") as zf:
         members = zf.infolist()
+        if len(members) > max_entries:
+            raise ValueError(f"Zip exceeds maximum entry limit ({max_entries})")
+
         for member in members:
             if stat.S_ISLNK(member.external_attr >> 16):
                 raise ValueError("Zip contains unsafe symbolic links")
             member_path = (dest_resolved / member.filename).resolve()
             if not member_path.is_relative_to(dest_resolved):
                 raise ValueError("Zip contains unsafe paths (ZipSlip)")
+            if member.compress_size > 0 and (member.file_size / member.compress_size) > max_ratio:
+                raise ValueError("Zip compression ratio exceeds safe limit (ZipBomb)")
 
         for member in members:
             if skip_member_fn and skip_member_fn(member):
                 continue
-            extracted_path = Path(zf.extract(member, dest_resolved))
+            member_path = (dest_resolved / member.filename).resolve()
+            if member.is_dir():
+                member_path.mkdir(parents=True, exist_ok=True)
+                if os.name != "nt":
+                    try:
+                        os.chmod(member_path, stat.S_IMODE(member_path.stat().st_mode) | 0o700)
+                    except OSError:
+                        pass
+                continue
+
+            member_path.parent.mkdir(parents=True, exist_ok=True)
+            member_bytes = 0
+            with zf.open(member, "r") as src, open(member_path, "wb") as dst:
+                while True:
+                    chunk = src.read(65536)
+                    if not chunk:
+                        break
+                    member_bytes += len(chunk)
+                    total_extracted += len(chunk)
+                    if total_extracted > max_total_bytes:
+                        raise ValueError("Zip extracted size exceeds safe limit (ZipBomb)")
+                    if (
+                        member.compress_size > 0
+                        and member_bytes > 10 * 1024 * 1024
+                        and (member_bytes / member.compress_size) > max_ratio
+                    ):
+                        raise ValueError("Zip compression ratio exceeds safe limit (ZipBomb)")
+                    dst.write(chunk)
+
             if os.name != "nt":
                 try:
-                    cur_mode = stat.S_IMODE(extracted_path.stat().st_mode)
-                    if extracted_path.is_dir():
-                        os.chmod(extracted_path, cur_mode | 0o755)
-                    else:
-                        os.chmod(extracted_path, cur_mode | 0o644)
+                    os.chmod(member_path, stat.S_IMODE(member_path.stat().st_mode) | 0o600)
                 except OSError:
                     pass
-            total_extracted += max(0, int(member.file_size or 0))
     return total_extracted
 
 

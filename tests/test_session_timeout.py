@@ -55,16 +55,21 @@ def test_custom_session_timeout():
         settings.runtime_config["session_timeout_minutes"] = 10  # 10 minutes = 600s
         assert get_session_max_age() == 600
         
+        from app.core.security import _password_fingerprint
+        fp = _password_fingerprint()
+
         # Token created 700 seconds ago is expired
         past_time = str(int(time.time()) - 700)
-        sig = hmac.new(settings.secret_key.encode(), past_time.encode(), hashlib.sha256).hexdigest()
-        token = f"{past_time}:{sig}"
+        payload1 = f"{past_time}:nonce1:{fp}"
+        sig = hmac.new(settings.secret_key.encode(), payload1.encode(), hashlib.sha256).hexdigest()
+        token = f"{payload1}:{sig}"
         assert verify_session_token(token) is False
         
         # Token created 300 seconds ago is still valid
         recent_time = str(int(time.time()) - 300)
-        sig2 = hmac.new(settings.secret_key.encode(), recent_time.encode(), hashlib.sha256).hexdigest()
-        token2 = f"{recent_time}:{sig2}"
+        payload2 = f"{recent_time}:nonce2:{fp}"
+        sig2 = hmac.new(settings.secret_key.encode(), payload2.encode(), hashlib.sha256).hexdigest()
+        token2 = f"{payload2}:{sig2}"
         assert verify_session_token(token2) is True
     finally:
         if orig is not None:

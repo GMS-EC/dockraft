@@ -48,13 +48,32 @@ class Settings:
         self.data_dir: Path = Path(os.getenv("DATA_DIR", str(DEFAULT_DATA_DIR))).resolve()
         self.backups_dir: Path = Path(os.getenv("BACKUPS_DIR", str(DEFAULT_BACKUPS_DIR))).resolve()
         self.admin_user: str = os.getenv("ADMIN_USER", os.getenv("ADMIN_USERNAME", "admin"))
-        self.admin_password: str = os.getenv("ADMIN_PASSWORD", "")
+        self.admin_password: str = os.getenv("ADMIN_PASSWORD", "").strip()
+        if not self.admin_password and "pytest" not in sys.modules:
+            self.admin_password = secrets.token_urlsafe(18)
+            logger.warning(
+                "[Dockraft] ADMIN_PASSWORD is not set! Generated an ephemeral password for user '%s': %s "
+                "(set ADMIN_PASSWORD in your environment to configure a fixed password)",
+                self.admin_user,
+                self.admin_password,
+            )
+
         # Ensure directories exist
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.backups_dir.mkdir(parents=True, exist_ok=True)
+        default_state_dir = BASE_DIR / ".dockraft_state"
+        self.panel_state_dir: Path = Path(os.getenv("DOCKRAFT_STATE_DIR", str(default_state_dir))).resolve()
+        self.panel_state_dir.mkdir(parents=True, exist_ok=True)
+        if os.name != "nt":
+            try:
+                os.chmod(self.panel_state_dir, 0o700)
+            except OSError:
+                pass
+
         self.config_file: Path = self.data_dir / "dockraft_config.json"
         self._legacy_config_file: Path = self.data_dir / "litemc_config.json"
-        self._secret_key_file: Path = self.data_dir / ".secret_key"
+        self._secret_key_file: Path = self.panel_state_dir / ".secret_key"
+        self._legacy_secret_key_file: Path = self.data_dir / ".secret_key"
 
         _provided_key = os.getenv("SECRET_KEY", "").strip()
         if _provided_key:
@@ -69,6 +88,9 @@ class Settings:
         # so session cookies are marked Secure and never sent over plain HTTP.
         self.https_enabled: bool = os.getenv("HTTPS_ENABLED", "false").lower() in ("true", "1", "yes")
         self.trust_proxy_headers: bool = os.getenv("TRUST_PROXY_HEADERS", "false").lower() in ("true", "1", "yes")
+        _raw_proxies = os.getenv("TRUSTED_PROXIES", "127.0.0.1,::1")
+        self.trusted_proxies: list[str] = [p.strip() for p in _raw_proxies.split(",") if p.strip()]
+        self._revoked_tokens_file: Path = self.panel_state_dir / ".revoked_tokens.json"
         
         # Default runtime config
         self.runtime_config: Dict[str, Any] = {
@@ -100,20 +122,42 @@ class Settings:
         self.load_runtime_config()
 
     def _load_or_create_secret_key(self) -> str:
-        """Loads a persisted auto-generated SECRET_KEY from data/.secret_key, or creates one."""
+        """Loads a persisted auto-generated SECRET_KEY from panel_state_dir/.secret_key, or creates one."""
         try:
             if self._secret_key_file.is_file():
+                if os.name != "nt":
+                    try:
+                        os.chmod(self._secret_key_file, 0o600)
+                    except OSError:
+                        pass
                 persisted = self._secret_key_file.read_text(encoding="utf-8").strip()
                 if len(persisted) >= 32:
                     return persisted
         except Exception:
             pass
 
+        # Migrate legacy secret key out of data_dir if present
+        legacy_file = getattr(self, "_legacy_secret_key_file", None)
+        if legacy_file and legacy_file.is_file():
+            try:
+                persisted = legacy_file.read_text(encoding="utf-8").strip()
+                if len(persisted) >= 32:
+                    if "pytest" not in sys.modules:
+                        from app.core.fs_utils import atomic_write_text
+                        atomic_write_text(self._secret_key_file, persisted, mode=0o600)
+                        try:
+                            legacy_file.unlink()
+                        except OSError:
+                            pass
+                    return persisted
+            except Exception:
+                pass
+
         generated = secrets.token_hex(32)
         if "pytest" not in sys.modules:
             try:
                 from app.core.fs_utils import atomic_write_text
-                atomic_write_text(self._secret_key_file, generated)
+                atomic_write_text(self._secret_key_file, generated, mode=0o600)
             except Exception:
                 pass
         return generated

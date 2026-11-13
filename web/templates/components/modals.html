@@ -271,7 +271,7 @@
       <div style="background-color:var(--bg-main); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:14px; font-size:0.85rem; color:var(--text-muted); line-height:1.6; margin-bottom:14px;">
         <span data-i18n="t_modal_eula_body_a">Al hacer clic en </span><strong data-i18n="t_modal_eula_body_strong">Aceptar EULA</strong><span data-i18n="t_modal_eula_body_b">, declaras tu conformidad con las directrices de monetización, directrices de marca y términos legales oficiales de Mojang.</span>
         <br><br>
-        <a href="https://account.mojang.com/documents/minecraft_eula" target="_blank" style="color:#58a6ff; text-decoration:underline; font-weight:500;" data-i18n="t_modal_eula_link">
+        <a href="https://account.mojang.com/documents/minecraft_eula" target="_blank" rel="noopener noreferrer" style="color:#58a6ff; text-decoration:underline; font-weight:500;" data-i18n="t_modal_eula_link">
           Leer los términos oficiales del EULA de Minecraft ↗
         </a>
       </div>
@@ -495,7 +495,7 @@
       <!-- Share Log Tab Pane -->
       <div id="diag-pane-share" style="display: none;">
         <p style="font-size: 0.86rem; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px;">
-          <span data-i18n="t_modal_diag_share_intro_a">Esta función sube automáticamente los registros recientes de tu servidor al servicio oficial y seguro de </span><a href="https://mclo.gs" target="_blank" style="color: #58a6ff; text-decoration: underline;">mclo.gs</a><span data-i18n="t_modal_diag_share_intro_b">.</span>
+          <span data-i18n="t_modal_diag_share_intro_a">Esta función sube automáticamente los registros recientes de tu servidor al servicio oficial y seguro de </span><a href="https://mclo.gs" target="_blank" rel="noopener noreferrer" style="color: #58a6ff; text-decoration: underline;">mclo.gs</a><span data-i18n="t_modal_diag_share_intro_b">.</span>
           <br><strong style="color: #c9d1d9;" data-i18n="t_modal_diag_share_anon">Las direcciones IP públicas, nombres de usuarios privados y contraseñas son anonimizadas automáticamente</strong><span data-i18n="t_modal_diag_share_anon_tail"> antes de ser publicadas.</span>
         </p>
 
@@ -511,7 +511,7 @@
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="text" id="diag-share-url" class="form-input" readonly style="flex: 1; font-family: var(--font-mono); font-size: 0.85rem;">
             <button class="btn btn-outline" onclick="Console.copyShareUrl()" style="white-space: nowrap;" data-i18n="t_modal_diag_copy_link">Copiar Enlace</button>
-            <a id="diag-share-link" href="#" target="_blank" class="btn btn-primary" style="white-space: nowrap;" data-i18n="t_modal_diag_open">Abrir</a>
+            <a id="diag-share-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="white-space: nowrap;" data-i18n="t_modal_diag_open">Abrir</a>
           </div>
         </div>
       </div>

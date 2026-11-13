@@ -1380,6 +1380,7 @@ const Files = {
     const ext = (item.name.split('.').pop() || '').toLowerCase();
     const iconSvg = this.getFileIcon(ext);
     const destName = item.targetDir ? `/${item.targetDir}` : '/data';
+    const safeDestName = this.escapeHtml(destName);
 
     const div = document.createElement('div');
     div.className = 'upload-item';
@@ -1391,7 +1392,7 @@ const Files = {
           <span class="upload-item-icon">${iconSvg}</span>
           <div class="upload-item-names">
             <span class="upload-item-filename" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</span>
-            <span class="upload-item-dest">${this.trf('t_file_upload_to_folder', [destName], `en ${destName}`)}</span>
+            <span class="upload-item-dest">${this.trf('t_file_upload_to_folder', [safeDestName], `en ${safeDestName}`)}</span>
           </div>
         </div>
         <div class="upload-item-status-ctrl">

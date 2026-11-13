@@ -13,6 +13,7 @@ from typing import Set, List, Deque, Dict, Any, Optional
 from fastapi import WebSocket
 from app.config import settings
 from app.core.fs_utils import atomic_write_text
+from app.core.security import build_sanitized_subprocess_env, verify_session_token
 from app.core.activity_manager import activity_manager
 import logging
 
@@ -43,7 +44,7 @@ class ProcessManager:
     def __init__(self):
         self.process: Optional[asyncio.subprocess.Process] = None
         self.status: str = "OFFLINE"  # OFFLINE, STARTING, RUNNING, STOPPING
-        self.connected_websockets: Set[WebSocket] = set()
+        self.connected_websockets: Dict[WebSocket, str] = {}
         self.log_buffer: Deque[str] = deque(maxlen=1000)
         self._reader_task: Optional[asyncio.Task] = None
         self._stats_task: Optional[asyncio.Task] = None
@@ -142,7 +143,7 @@ class ProcessManager:
                 in_data_dir = (data_dir_str in p_cwd) or (data_dir_str in cmd_str) or ("/server_data" in p_cwd) or ("/server_data" in cmd_str)
 
                 if "bedrock_server" in name or "bedrock_server" in cmd_str:
-                    if in_data_dir or not p_cwd:
+                    if in_data_dir:
                         is_mc = True
                 elif "java" in name or "java" in cmd_str:
                     if in_data_dir:
@@ -171,29 +172,6 @@ class ProcessManager:
                     pass
         except Exception:
             pass
-        if sys.platform != "win32":
-            try:
-                for root, dirs, files in os.walk(settings.data_dir):
-                    for d in dirs:
-                        try:
-                            dp = os.path.join(root, d)
-                            cur = os.stat(dp).st_mode & 0o777
-                            if (cur & 0o755) != 0o755:
-                                os.chmod(dp, cur | 0o755)
-                        except OSError:
-                            pass
-                    for f in files:
-                        if f == ".secret_key":
-                            continue
-                        try:
-                            fp = os.path.join(root, f)
-                            cur = os.stat(fp).st_mode & 0o777
-                            if (cur & 0o644) != 0o644:
-                                os.chmod(fp, cur | 0o644)
-                        except OSError:
-                            pass
-            except Exception:
-                pass
         return removed
 
     def get_status(self) -> str:
@@ -445,14 +423,22 @@ class ProcessManager:
         }
 
     async def broadcast_message(self, message: Dict[str, Any]) -> None:
-        """Sends a JSON message to all connected clients."""
-        dead_sockets = set()
-        for ws in self.connected_websockets:
+        """Sends a JSON message to all connected and still-authenticated clients."""
+        dead_sockets: List[WebSocket] = []
+        for ws, tok in list(self.connected_websockets.items()):
+            if not verify_session_token(tok):
+                dead_sockets.append(ws)
+                try:
+                    await ws.close(code=4001)
+                except Exception:
+                    pass
+                continue
             try:
                 await ws.send_json(message)
             except Exception:
-                dead_sockets.add(ws)
-        self.connected_websockets.difference_update(dead_sockets)
+                dead_sockets.append(ws)
+        for ws in dead_sockets:
+            self.connected_websockets.pop(ws, None)
 
     def _append_log(self, text: str) -> None:
         # deque(maxlen=1000) handles eviction automatically — no manual pop needed
@@ -460,7 +446,8 @@ class ProcessManager:
 
     async def _handle_player_event(self, player: str, joined: bool) -> None:
         """Handles player connection/disconnection tracking and webhook dispatch."""
-        clean_player = (player or "").strip()
+        from app.core.player_manager import _validate_player_name
+        clean_player = _validate_player_name((player or "").strip().lstrip(":"))
         if not clean_player:
             return
         if joined:
@@ -508,8 +495,20 @@ class ProcessManager:
         except Exception:
             pass
 
+    @staticmethod
+    def _is_chat_line(clean_ansi: str) -> bool:
+        """Detects player chat lines so untrusted chat text cannot trigger control-plane parsers."""
+        if not clean_ansi:
+            return False
+        if re.search(r'\[Async Chat Thread[^\]]*\]:\s*(?:\[Not Secure\]\s*)?<[^>]{1,32}>\s+', clean_ansi, re.IGNORECASE):
+            return True
+        stripped = re.sub(r'^\[\d{2}:\d{2}:\d{2}\s+(?:INFO|WARN|WARNING|ADVERTENCIA|ERROR)\]:\s*', '', clean_ansi.strip())
+        stripped = re.sub(r'^\[(?:INFO|WARN|WARNING|ADVERTENCIA|ERROR)\]\s*', '', stripped)
+        return bool(re.match(r'^(?:\[Not Secure\]\s*)?<[^>]{1,32}>\s+', stripped))
+
     async def _read_stream(self, stream: asyncio.StreamReader) -> None:
         """Reads stdout/stderr from process line by line."""
+        from app.core.player_manager import _validate_player_name
         while True:
             try:
                 line_bytes = await stream.readline()
@@ -519,6 +518,7 @@ class ProcessManager:
                 suppress_console = False
 
                 clean_ansi = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', line)
+                is_chat = self._is_chat_line(clean_ansi)
 
                 # Check if server is running
                 if self.status == "STARTING":
@@ -545,26 +545,26 @@ class ProcessManager:
                             pass
 
                 # Check if server halted due to EULA
-                if "agree to the EULA" in line or "agree to the EULA" in clean_ansi or "Go to eula.txt" in line:
+                if not is_chat and ("agree to the EULA" in line or "agree to the EULA" in clean_ansi or "Go to eula.txt" in line):
                     await self.broadcast_message({"type": "eula_required"})
 
                 # Track player join/leave for live player count and player history
-                if "joined the game" in line or "joined the game" in clean_ansi:
+                if not is_chat and ("joined the game" in line or "joined the game" in clean_ansi):
                     parts = clean_ansi.split("joined the game")[0].strip().split()
                     if parts:
                         player = parts[-1].lstrip(":")
                         await self._handle_player_event(player, joined=True)
-                elif "left the game" in line or "left the game" in clean_ansi:
+                elif not is_chat and ("left the game" in line or "left the game" in clean_ansi):
                     parts = clean_ansi.split("left the game")[0].strip().split()
                     if parts:
                         player = parts[-1].lstrip(":")
                         await self._handle_player_event(player, joined=False)
-                elif "Player connected:" in line or "Player connected:" in clean_ansi:
+                elif not is_chat and ("Player connected:" in line or "Player connected:" in clean_ansi):
                     parts = clean_ansi.split("Player connected:")[1].strip().split(",")
                     if parts:
                         player = parts[0].strip()
                         await self._handle_player_event(player, joined=True)
-                elif "Player disconnected:" in line or "Player disconnected:" in clean_ansi:
+                elif not is_chat and ("Player disconnected:" in line or "Player disconnected:" in clean_ansi):
                     parts = clean_ansi.split("Player disconnected:")[1].strip().split(",")
                     if parts:
                         player = parts[0].strip()
@@ -586,37 +586,40 @@ class ProcessManager:
                 # Authoritative player reconciliation: the tps poller periodically issues
                 # "list"; the server replies "There are N ... online: name1, name2".
                 # Supports Vanilla, Paper, and Essentials (Spanish & English)
-                if ("players online:" in clean_ansi or "jugadores en linea" in clean_ansi.lower() or "jugadores en línea" in clean_ansi.lower()) and self.status in ("RUNNING", "STARTING"):
+                if not is_chat and ("players online:" in clean_ansi or "jugadores en linea" in clean_ansi.lower() or "jugadores en línea" in clean_ansi.lower()) and self.status in ("RUNNING", "STARTING"):
                     try:
                         if re.search(r'Hay 0 jugadores|There are 0 (?:of|\/)', clean_ansi, re.IGNORECASE) or "0 players online" in clean_ansi.lower():
                             self.online_players.clear()
                         elif "online:" in clean_ansi.lower():
                             after = clean_ansi.split("online:", 1)[1].strip()
-                            raw_names = [n.strip().lstrip(":") for n in after.split(",") if n.strip()]
-                            if after == ":" or not raw_names:
+                            raw_names = [_validate_player_name(n.strip().lstrip(":")) for n in after.split(",") if n.strip()]
+                            valid_names = {n for n in raw_names if n}
+                            if after == ":" or not valid_names:
                                 self.online_players.clear()
                             else:
-                                self.online_players = {n for n in raw_names if n}
+                                self.online_players = valid_names
                         elif "en linea:" in clean_ansi.lower() or "en línea:" in clean_ansi.lower():
                             sep = "en linea:" if "en linea:" in clean_ansi.lower() else "en línea:"
                             after = clean_ansi.split(sep, 1)[1].strip()
-                            raw_names = [n.strip().lstrip(":") for n in after.split(",") if n.strip()]
-                            if after == ":" or not raw_names:
+                            raw_names = [_validate_player_name(n.strip().lstrip(":")) for n in after.split(",") if n.strip()]
+                            valid_names = {n for n in raw_names if n}
+                            if after == ":" or not valid_names:
                                 self.online_players.clear()
                             else:
-                                self.online_players = {n for n in raw_names if n}
+                                self.online_players = valid_names
                     except Exception:
                         pass
 
                 # Intercept Plugin Update notices in console output
-                try:
-                    from app.core.plugin_manager import plugin_manager
-                    plugin_manager.handle_console_line(clean_ansi)
-                except Exception:
-                    pass
+                if not is_chat:
+                    try:
+                        from app.core.plugin_manager import plugin_manager
+                        plugin_manager.handle_console_line(clean_ansi)
+                    except Exception:
+                        pass
 
                 # Intercept TPS line (Paper / Purpur / Spigot / Fabric Carpet)
-                tps_m = re.search(r'TPS from last 1m, 5m, 15m:\s*([0-9\.\*]+)[,\s]+([0-9\.\*]+)[,\s]+([0-9\.\*]+)', clean_ansi)
+                tps_m = None if is_chat else re.search(r'TPS from last 1m, 5m, 15m:\s*([0-9\.\*]+)[,\s]+([0-9\.\*]+)[,\s]+([0-9\.\*]+)', clean_ansi)
                 if tps_m:
                     if (now_ts - self._silent_tps_time) < 4.0:
                         suppress_console = True
@@ -823,7 +826,7 @@ class ProcessManager:
 
         # Build command line
         cmd: List[str] = []
-        env = os.environ.copy()
+        env = build_sanitized_subprocess_env()
         cpu_cores = int(cfg.get("cpu_cores", 0) or 0)
 
         if server_type == "bedrock":

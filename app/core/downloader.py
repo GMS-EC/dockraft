@@ -1,15 +1,17 @@
 import os
 import sys
 import re
+import hashlib
 import logging
 import httpx
 import asyncio
 import zipfile
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Callable, Union
+from typing import List, Dict, Any, Optional, Callable, Union, Set
 from app.config import settings
 from app.core.fs_utils import PROTECTED_INTERNAL_FILES, atomic_write_text, safe_extract_zip
+from app.core.security import build_sanitized_subprocess_env
 
 logger = logging.getLogger("dockraft.downloader")
 
@@ -154,7 +156,9 @@ class DownloadManager:
                     bid_int = int(build_id)
                     target_build = next((b for b in builds if int(b.get("id", -1)) == bid_int), None)
                 except (ValueError, TypeError):
-                    pass
+                    target_build = None
+                if not target_build:
+                    raise ValueError(f"Requested build {build_id} not found for {project} {version}")
 
             if not target_build:
                 def _build_priority(b):
@@ -172,10 +176,12 @@ class DownloadManager:
 
             download_name = dl_obj.get("name", f"{project}-{version}.jar")
             download_url = dl_obj.get("url")
+            sha256 = (dl_obj.get("checksums") or {}).get("sha256")
             return {
                 "build": build_num,
                 "file_name": download_name,
-                "download_url": download_url
+                "download_url": download_url,
+                "sha256": sha256,
             }
 
     async def get_paper_latest_build(self, project: str, version: str) -> Dict[str, Any]:
@@ -288,8 +294,8 @@ class DownloadManager:
                 if v.get("type") in ["release", "snapshot"]
             ]
 
-    async def get_vanilla_download_url(self, version_meta_url: str) -> str:
-        """Fetches the official server.jar URL from Mojang version metadata."""
+    async def get_vanilla_download_info(self, version_meta_url: str) -> Dict[str, Optional[str]]:
+        """Fetches the official server.jar URL and SHA-1 from Mojang version metadata."""
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(version_meta_url)
             resp.raise_for_status()
@@ -298,7 +304,12 @@ class DownloadManager:
             url = server_info.get("url")
             if not url:
                 raise ValueError("No server download found in version metadata")
-            return url
+            return {"url": url, "sha1": server_info.get("sha1")}
+
+    async def get_vanilla_download_url(self, version_meta_url: str) -> str:
+        """Fetches the official server.jar URL from Mojang version metadata."""
+        info = await self.get_vanilla_download_info(version_meta_url)
+        return str(info["url"])
 
     async def get_vanilla_latest(self) -> Dict[str, str]:
         """Fetches latest release and snapshot version IDs from Mojang Version Manifest."""
@@ -532,6 +543,7 @@ class DownloadManager:
         proc = await asyncio.create_subprocess_exec(
             java_bin, "-jar", str(installer_path), "--installServer",
             cwd=str(settings.data_dir),
+            env=build_sanitized_subprocess_env(),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
@@ -612,13 +624,14 @@ class DownloadManager:
         preserve_existing_configs: bool = False,
         headers: Optional[Dict[str, str]] = None,
         progress_callback: Optional[Callable[[int, int], None]] = None,
-        verify_integrity: bool = True
+        verify_integrity: bool = True,
+        expected_sha256: Optional[str] = None,
+        expected_sha1: Optional[str] = None,
+        allowed_hosts: Optional[Set[str]] = None,
     ) -> Path:
         """
-        Streams download to target path with progress tracking and anti-corruption verification.
-        If is_zip is True, extracts the contents into settings.data_dir.
-        If preserve_existing_configs is True, avoids overwriting server.properties,
-        permissions.json, allowlist.json, and worlds/ folder.
+        Streams download to target path with progress tracking, domain/redirect validation,
+        cryptographic hash verification, and anti-corruption verification.
         """
         dest_path = settings.data_dir / target_filename
         temp_download_path = settings.data_dir / f".{target_filename}.download.tmp"
@@ -634,10 +647,21 @@ class DownloadManager:
         if headers:
             default_headers.update(headers)
 
+        def _is_host_allowed(host: str) -> bool:
+            if not allowed_hosts:
+                return True
+            h = (host or "").lower()
+            return any(h == dom or h.endswith("." + dom) for dom in allowed_hosts)
+
         try:
+            sha256_hasher = hashlib.sha256() if expected_sha256 else None
+            sha1_hasher = hashlib.sha1() if expected_sha1 else None
             async with httpx.AsyncClient(timeout=60.0, follow_redirects=True, headers=default_headers) as client:
                 async with client.stream("GET", url) as response:
                     response.raise_for_status()
+                    final_host = (response.url.host or "").lower()
+                    if allowed_hosts and (response.url.scheme != "https" or not _is_host_allowed(final_host)):
+                        raise ValueError(f"Download redirected to unexpected host: {response.url}")
                     total_size = int(response.headers.get("content-length", 0))
                     self.active_download["total"] = total_size
                     downloaded = 0
@@ -645,6 +669,10 @@ class DownloadManager:
                     with open(temp_download_path, "wb") as f:
                         async for chunk in response.aiter_bytes(chunk_size=65536):
                             f.write(chunk)
+                            if sha256_hasher:
+                                sha256_hasher.update(chunk)
+                            if sha1_hasher:
+                                sha1_hasher.update(chunk)
                             downloaded += len(chunk)
                             self.active_download["downloaded"] = downloaded
                             if total_size > 0:
@@ -652,6 +680,15 @@ class DownloadManager:
                                 self.active_download["percent"] = pct
                             if progress_callback:
                                 progress_callback(downloaded, total_size)
+
+            if expected_sha256 and sha256_hasher:
+                actual_256 = sha256_hasher.hexdigest().lower()
+                if actual_256 != expected_sha256.strip().lower():
+                    raise ValueError(f"SHA-256 checksum mismatch for {target_filename}")
+            if expected_sha1 and sha1_hasher:
+                actual_1 = sha1_hasher.hexdigest().lower()
+                if actual_1 != expected_sha1.strip().lower():
+                    raise ValueError(f"SHA-1 checksum mismatch for {target_filename}")
 
             if verify_integrity:
                 self.verify_file_integrity(temp_download_path, "zip" if (is_zip or target_filename.endswith(".zip")) else "jar")
@@ -822,7 +859,9 @@ class DownloadManager:
                         import json
                         v_data = json.loads(zf.read("version.json").decode("utf-8", errors="ignore"))
                         if "id" in v_data:
-                            return str(v_data["id"])
+                            vid = str(v_data["id"]).strip()
+                            if re.fullmatch(r'[0-9A-Za-z.\-_]{1,32}', vid):
+                                return vid
 
                     # Check META-INF/MANIFEST.MF
                     if "META-INF/MANIFEST.MF" in zf.namelist():

@@ -12,6 +12,7 @@ from app.core.security import (
     get_session_max_age,
     revoke_token,
     get_token_from_request,
+    get_all_tokens_from_request,
     get_client_ip,
 )
 from app.core.activity_manager import activity_manager
@@ -39,9 +40,15 @@ def set_session_cookies(response: Response, token: str, max_age: int) -> None:
 
 
 def clear_session_cookies(response: Response) -> None:
-    """Deletes both current and legacy session cookies."""
-    for cookie_name in ("dockraft_token", "litemc_token"):
-        response.delete_cookie(key=cookie_name, samesite="lax")
+    """Deletes all session cookies with consistent security flags."""
+    _secure = settings.https_enabled
+    for cookie_name in ("dockraft_token", "dockraft_session", "litemc_token"):
+        response.delete_cookie(
+            key=cookie_name,
+            httponly=True,
+            secure=_secure,
+            samesite="lax",
+        )
 
 
 @router.get("/api/auth/status")
@@ -56,8 +63,10 @@ async def auth_status(user: bool = Depends(get_current_user)):
 
 
 @router.post("/api/auth/refresh")
-async def auth_refresh(response: Response, user: bool = Depends(get_current_user)):
-    """Refreshes the active session token and sliding cookie timestamp."""
+async def auth_refresh(request: Request, response: Response, user: bool = Depends(get_current_user)):
+    """Refreshes the active session token, revoking the previous token(s)."""
+    for tok in get_all_tokens_from_request(request):
+        revoke_token(tok)
     new_token = create_session_token()
     max_age = get_session_max_age()
     set_session_cookies(response, new_token, max_age)
@@ -82,14 +91,7 @@ async def auth_login(req: LoginRequest, request: Request, response: Response):
             headers={"Retry-After": str(remaining)},
         )
 
-    # 2. If no admin password is configured, grant access directly
-    if not settings.admin_password:
-        login_limiter.record_success(client_ip)
-        token = create_session_token()
-        set_session_cookies(response, token, max_age)
-        return {"status": "success", "token": token, "session_timeout_minutes": max_age // 60}
-
-    # 3. Verify admin credentials (username + password)
+    # 2. Verify admin credentials (username + password; fail-closed if admin_password is empty)
     if verify_admin_credentials(req.username, req.password):
         login_limiter.record_success(client_ip)
         token = create_session_token()
@@ -104,7 +106,7 @@ async def auth_login(req: LoginRequest, request: Request, response: Response):
             )
         except Exception:
             pass
-        return {"status": "success", "token": token, "session_timeout_minutes": max_age // 60}
+        return {"status": "success", "session_timeout_minutes": max_age // 60}
 
     # 4. Record failed attempt and check if threshold reached
     remaining_attempts, cooldown = login_limiter.record_failure(client_ip)
@@ -144,9 +146,8 @@ async def auth_login(req: LoginRequest, request: Request, response: Response):
 
 @router.post("/api/auth/logout")
 async def auth_logout(request: Request, response: Response):
-    current_token = get_token_from_request(request)
-    if current_token:
-        revoke_token(current_token)
+    for tok in get_all_tokens_from_request(request):
+        revoke_token(tok)
     clear_session_cookies(response)
     try:
         activity_manager.log("security", "Cierre de sesión", "Sesión cerrada por el usuario", user="admin", status="info")
@@ -157,9 +158,8 @@ async def auth_logout(request: Request, response: Response):
 
 @router.get("/logout")
 async def logout_page(request: Request):
-    current_token = get_token_from_request(request)
-    if current_token:
-        revoke_token(current_token)
+    for tok in get_all_tokens_from_request(request):
+        revoke_token(tok)
     redirect_resp = RedirectResponse(url="/login", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
     clear_session_cookies(redirect_resp)
     return redirect_resp

@@ -1,7 +1,9 @@
+import os
 import re
+import json
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import httpx
 from app.config import settings
 
@@ -48,7 +50,10 @@ class DiagnosticManager:
         if not crash_dir.exists():
             return None
 
-        crash_files = [f for f in crash_dir.iterdir() if f.is_file() and f.name.endswith(".txt")]
+        crash_files = [
+            f for f in crash_dir.iterdir()
+            if not f.is_symlink() and f.is_file() and f.name.endswith(".txt")
+        ]
         if not crash_files:
             return None
 
@@ -60,6 +65,8 @@ class DiagnosticManager:
         # Sort descending by parsed timestamp
         reports.sort(key=lambda x: x[0], reverse=True)
         latest_ts, latest_file = reports[0]
+        if latest_file.is_symlink() or not latest_file.resolve().is_relative_to(settings.data_dir.resolve()):
+            return None
 
         now = time.time()
         # If since_timestamp provided, crash must have occurred during or after that start time
@@ -82,9 +89,11 @@ class DiagnosticManager:
 
     def _read_log_tail(self, path: Path, max_lines: int = 300, max_bytes: int = 512 * 1024) -> str:
         """Efficiently reads the last `max_lines` lines without loading the whole file."""
-        if not path.exists():
+        if not path.exists() or path.is_symlink():
             return ""
         try:
+            if not path.resolve().is_relative_to(settings.data_dir.resolve()):
+                return ""
             file_size = path.stat().st_size
             with open(path, "rb") as f:
                 start = max(0, file_size - max_bytes)
@@ -327,11 +336,46 @@ class DiagnosticManager:
         if not content or not content.strip():
             return {"success": False, "error": "El registro está vacío."}
 
-        # Redact any sensitive passwords or secret keys before sharing externally
-        if settings.admin_password and len(settings.admin_password) >= 3:
-            content = content.replace(settings.admin_password, "********")
-        if getattr(settings, "secret_key", None) and len(settings.secret_key) >= 6:
-            content = content.replace(settings.secret_key, "********")
+        # Redact all sensitive passwords, keys, webhook credentials, and RCON passwords before sharing externally
+        secrets_to_redact: List[str] = []
+        if settings.admin_password:
+            secrets_to_redact.append(settings.admin_password)
+        if getattr(settings, "secret_key", None):
+            secrets_to_redact.append(settings.secret_key)
+
+        for env_key, env_val in os.environ.items():
+            if not env_val or len(env_val) < 4:
+                continue
+            upper_k = env_key.upper()
+            if any(marker in upper_k for marker in ("PASSWORD", "SECRET", "TOKEN", "CREDENTIAL", "API_KEY", "AUTH")):
+                secrets_to_redact.append(env_val)
+
+        webhooks_file = settings.data_dir / "webhooks.json"
+        if webhooks_file.is_file() and not webhooks_file.is_symlink():
+            try:
+                wh_data = json.loads(webhooks_file.read_text(encoding="utf-8", errors="replace"))
+                if isinstance(wh_data, dict):
+                    for k, v in wh_data.items():
+                        if isinstance(v, str) and v and any(m in k.lower() for m in ("password", "token", "secret", "webhook_url", "url")):
+                            secrets_to_redact.append(v)
+            except Exception:
+                pass
+
+        props_file = settings.data_dir / "server.properties"
+        if props_file.is_file() and not props_file.is_symlink():
+            try:
+                for line in props_file.read_text(encoding="utf-8", errors="replace").splitlines():
+                    stripped = line.strip()
+                    if stripped.startswith("rcon.password="):
+                        rcon_pwd = stripped.split("=", 1)[1].strip()
+                        if rcon_pwd:
+                            secrets_to_redact.append(rcon_pwd)
+            except Exception:
+                pass
+
+        for secret_val in sorted(set(secrets_to_redact), key=len, reverse=True):
+            if secret_val:
+                content = content.replace(secret_val, "********")
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
