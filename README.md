@@ -117,6 +117,13 @@ services:
       - ADMIN_USER=admin
       - ADMIN_PASSWORD=MiContraseñaSegura
       - SECRET_KEY=genera_una_clave_secreta_con_openssl
+      - ALLOWED_ORIGINS=
+      - HTTPS_ENABLED=false
+      - TRUST_PROXY_HEADERS=false
+      - TRUSTED_PROXIES=127.0.0.1,::1
+      - LOGIN_MAX_ATTEMPTS=5
+      - LOGIN_COOLDOWN_SECONDS=600
+      - SESSION_TIMEOUT_MINUTES=60
     volumes:
       - ./data:/server_data
       - ./backups:/server_backups
@@ -284,6 +291,13 @@ services:
       - ADMIN_USER=admin
       - ADMIN_PASSWORD=MySecurePassword
       - SECRET_KEY=generate_a_secret_key_with_openssl
+      - ALLOWED_ORIGINS=
+      - HTTPS_ENABLED=false
+      - TRUST_PROXY_HEADERS=false
+      - TRUSTED_PROXIES=127.0.0.1,::1
+      - LOGIN_MAX_ATTEMPTS=5
+      - LOGIN_COOLDOWN_SECONDS=600
+      - SESSION_TIMEOUT_MINUTES=60
     volumes:
       - ./data:/server_data
       - ./backups:/server_backups
