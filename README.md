@@ -113,17 +113,17 @@ services:
       - "25565:25565"     # Minecraft Java (TCP)
       - "19132:19132/udp" # Minecraft Bedrock (UDP)
     environment:
-      - TZ=America/Guayaquil
-      - ADMIN_USER=admin
-      - ADMIN_PASSWORD=MiContraseñaSegura
-      - SECRET_KEY=genera_una_clave_secreta_con_openssl
-      - ALLOWED_ORIGINS=
-      - HTTPS_ENABLED=false
-      - TRUST_PROXY_HEADERS=false
-      - TRUSTED_PROXIES=127.0.0.1,::1
-      - LOGIN_MAX_ATTEMPTS=5
-      - LOGIN_COOLDOWN_SECONDS=600
-      - SESSION_TIMEOUT_MINUTES=60
+      - TZ=America/Guayaquil                       # Zona horaria para respaldos y tareas programadas
+      - ADMIN_USER=admin                           # Usuario del panel web
+      - ADMIN_PASSWORD=MiContraseñaSegura          # Contraseña obligatoria (si está vacía, genera una aleatoria en logs)
+      - SECRET_KEY=genera_una_clave_secreta_con_openssl # Clave HMAC para firmar sesiones (genera con: openssl rand -hex 32)
+      - ALLOWED_ORIGINS=                           # Orígenes CORS permitidos separados por coma (vacío = sin restricción LAN)
+      - HTTPS_ENABLED=false                        # true si usas proxy HTTPS (Nginx/Caddy) para activar cookie Secure
+      - TRUST_PROXY_HEADERS=false                  # true solo detrás de un proxy inverso de confianza
+      - TRUSTED_PROXIES=127.0.0.1,::1              # IPs o subredes CIDR del proxy inverso de confianza
+      - LOGIN_MAX_ATTEMPTS=5                       # Intentos fallidos antes de bloquear la IP
+      - LOGIN_COOLDOWN_SECONDS=600                 # Segundos de bloqueo tras superar el límite (600 = 10 min)
+      - SESSION_TIMEOUT_MINUTES=60                 # Minutos de inactividad antes de cerrar sesión
     volumes:
       - ./data:/server_data
       - ./backups:/server_backups
@@ -287,17 +287,17 @@ services:
       - "25565:25565"     # Minecraft Java (TCP)
       - "19132:19132/udp" # Minecraft Bedrock (UDP)
     environment:
-      - TZ=America/Guayaquil
-      - ADMIN_USER=admin
-      - ADMIN_PASSWORD=MySecurePassword
-      - SECRET_KEY=generate_a_secret_key_with_openssl
-      - ALLOWED_ORIGINS=
-      - HTTPS_ENABLED=false
-      - TRUST_PROXY_HEADERS=false
-      - TRUSTED_PROXIES=127.0.0.1,::1
-      - LOGIN_MAX_ATTEMPTS=5
-      - LOGIN_COOLDOWN_SECONDS=600
-      - SESSION_TIMEOUT_MINUTES=60
+      - TZ=America/Guayaquil                       # Timezone for backups and scheduled tasks
+      - ADMIN_USER=admin                           # Web panel administrator username
+      - ADMIN_PASSWORD=MySecurePassword            # Mandatory password (if empty, a random one is printed in startup logs)
+      - SECRET_KEY=generate_a_secret_key_with_openssl # HMAC key for session signing (generate with: openssl rand -hex 32)
+      - ALLOWED_ORIGINS=                           # Comma-separated allowed CORS origins (empty = unrestricted for LAN)
+      - HTTPS_ENABLED=false                        # Set to true behind an HTTPS reverse proxy (Nginx/Caddy) for Secure cookies
+      - TRUST_PROXY_HEADERS=false                  # Set to true only behind a trusted reverse proxy
+      - TRUSTED_PROXIES=127.0.0.1,::1              # Trusted reverse proxy IPs or CIDR subnets
+      - LOGIN_MAX_ATTEMPTS=5                       # Failed login attempts allowed before IP cooldown
+      - LOGIN_COOLDOWN_SECONDS=600                 # Lockout duration in seconds after max attempts (600 = 10 min)
+      - SESSION_TIMEOUT_MINUTES=60                 # Minutes of inactivity before session expires
     volumes:
       - ./data:/server_data
       - ./backups:/server_backups
