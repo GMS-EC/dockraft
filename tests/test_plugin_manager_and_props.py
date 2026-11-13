@@ -425,8 +425,15 @@ def test_realscoreboard_uptodate_notice_ignored():
     assert plugin_manager.parse_console_update_line(line) is None
 
 def test_app_version_auto_read():
+    import re
+    from pathlib import Path
     from app.config import APP_VERSION
-    assert APP_VERSION == "1.5.0"
+
+    changelog = Path(__file__).resolve().parent.parent / "CHANGELOG.md"
+    content = changelog.read_text(encoding="utf-8")
+    match = re.search(r'^##\s+\[(\d+\.\d+\.\d+(?:-[A-Za-z0-9\.\-]+)?)\]', content, re.MULTILINE)
+    assert match is not None, "CHANGELOG.md debe contener al menos una cabecera ## [X.Y.Z]"
+    assert APP_VERSION == match.group(1)
 
 def test_installed_version_suppresses_outdated_notice(monkeypatch):
     # When CMILib 1.6.0.0 is installed on disk, notice for 1.6.0.0 must be suppressed
