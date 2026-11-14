@@ -11,7 +11,6 @@ from app.core.security import (
     login_limiter,
     get_session_max_age,
     revoke_token,
-    get_token_from_request,
     get_all_tokens_from_request,
     get_client_ip,
 )

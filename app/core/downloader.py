@@ -540,12 +540,14 @@ class DownloadManager:
 
     async def install_forge_server(self, installer_path: Path, java_bin: str = "java") -> Dict[str, Any]:
         """Runs 'java -jar <installer> --installServer' inside settings.data_dir."""
+        extra_kw = {"creationflags": 0x08000000} if sys.platform == "win32" else {}
         proc = await asyncio.create_subprocess_exec(
             java_bin, "-jar", str(installer_path), "--installServer",
             cwd=str(settings.data_dir),
             env=build_sanitized_subprocess_env(),
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
+            **extra_kw,
         )
         stdout, stderr = await proc.communicate()
         if proc.returncode != 0:
@@ -553,7 +555,18 @@ class DownloadManager:
             raise RuntimeError(f"Forge --installServer failed: {err_msg[:300]}")
 
         # Detect generated launch script or jar
+        run_bat = settings.data_dir / "run.bat"
         run_sh = settings.data_dir / "run.sh"
+        if run_bat.exists():
+            try:
+                bat_txt = run_bat.read_text(encoding="utf-8", errors="replace")
+                cleaned_bat = re.sub(r"(?im)^\s*pause\b.*$", "", bat_txt)
+                if cleaned_bat != bat_txt:
+                    atomic_write_text(run_bat, cleaned_bat)
+            except Exception:
+                pass
+        if sys.platform == "win32" and run_bat.exists():
+            return {"server_file": "run.bat", "is_script": True}
         if run_sh.exists():
             if sys.platform != "win32":
                 try:
@@ -769,7 +782,11 @@ class DownloadManager:
         cfg = settings.runtime_config
         s_type = cfg.get("server_type", "paper")
         s_name = cfg.get("server_name", "Mi Servidor Dockraft")
-        default_port = 19132 if s_type == "bedrock" else 25565
+        env_mc_port = os.getenv("MC_PORT", "").strip()
+        if env_mc_port.isdigit() and 1 <= int(env_mc_port) <= 65535:
+            default_port = int(env_mc_port)
+        else:
+            default_port = 19132 if s_type == "bedrock" else 25565
 
         if not prop_file.exists():
             try:

@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import hmac
 import hashlib
@@ -449,6 +450,23 @@ def build_sanitized_subprocess_env(extra: Optional[Dict[str, str]] = None) -> Di
         for k, v in os.environ.items()
         if k.upper() in _SAFE_SUBPROCESS_ENV_KEYS
     }
+    if os.name != "nt" and getattr(sys, "frozen", False):
+        orig_ld = os.environ.get("LD_LIBRARY_PATH_ORIG")
+        if orig_ld is not None:
+            if orig_ld:
+                env["LD_LIBRARY_PATH"] = orig_ld
+            else:
+                env.pop("LD_LIBRARY_PATH", None)
+        elif "LD_LIBRARY_PATH" in env:
+            bundle_roots = [p for p in (getattr(sys, "_MEIPASS", ""), os.environ.get("APPDIR", "")) if p]
+            kept = [
+                part for part in env["LD_LIBRARY_PATH"].split(":")
+                if part and not any(part.startswith(root) for root in bundle_roots)
+            ]
+            if kept:
+                env["LD_LIBRARY_PATH"] = ":".join(kept)
+            else:
+                env.pop("LD_LIBRARY_PATH", None)
     if extra:
         env.update(extra)
     return env

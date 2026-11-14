@@ -29,12 +29,42 @@ const LoginApp = {
       expiredEl.style.display = 'flex';
     }
 
+    // Auto-fill credentials when opened from the local Desktop Launcher (#autofill=...)
+    let autofilled = false;
+    if (window.location.hash && window.location.hash.startsWith('#autofill=')) {
+      try {
+        const rawB64 = window.location.hash.slice('#autofill='.length);
+        const normB64 = rawB64.replace(/-/g, '+').replace(/_/g, '/');
+        const padB64 = normB64 + '='.repeat((4 - (normB64.length % 4)) % 4);
+        const binary = atob(padB64);
+        const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+        const payload = JSON.parse(new TextDecoder().decode(bytes));
+        const userInput = document.getElementById('login-username');
+        const passInput = document.getElementById('login-password');
+        if (userInput && payload.u) userInput.value = payload.u;
+        if (passInput && payload.p) passInput.value = payload.p;
+        if (payload.l && (payload.l === 'es' || payload.l === 'en') && typeof I18n !== 'undefined' && typeof I18n.setLanguage === 'function') {
+          I18n.setLanguage(payload.l);
+        }
+        autofilled = Boolean(payload.u && payload.p);
+      } catch (_e) {
+        // Ignore malformed autofill hash
+      } finally {
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+    }
+
     // Delay focus so mobile password managers (Bitwarden, etc.) have time
     // to inject credentials before we force focus on an input field.
     setTimeout(() => {
       const userInput = document.getElementById('login-username');
       const passInput = document.getElementById('login-password');
-      if (userInput && !userInput.value) {
+      const submitBtn = document.getElementById('btn-login-submit');
+      if (autofilled && submitBtn && !submitBtn.disabled) {
+        submitBtn.focus();
+      } else if (userInput && !userInput.value) {
         userInput.focus();
       } else if (passInput && !passInput.value) {
         passInput.focus();

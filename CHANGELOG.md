@@ -5,6 +5,20 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.6.0] - 2026-11-13
+
+### Añadido (Added)
+- **Versiones Nativas de Escritorio para Windows y Linux AppImage (`launcher.py`, `packaging/windows/*`, `packaging/linux/*`, `.github/workflows/release.yml`):**
+  - Aplicación de bandeja del sistema (`pystray`) bilingüe (`ES` / `EN`) con 5 acciones unificadas: **Instancias**, **Nueva instancia**, **Editar configuraciones**, **Acerca de** (créditos de autor, licencia GPLv3 y buscador de actualizaciones contra GitHub Releases y `CHANGELOG.md`) y **Salir**.
+  - **Configuración Inicial en el Primer Arranque y Soporte Bilingüe (`ES` / `EN`)**: Al iniciar Dockraft por primera vez, se abre automáticamente la ventana de configuración global para definir el idioma (`🌐 ES` / `🌐 EN`), la carpeta principal y las credenciales maestras antes de crear la primera instancia, sincronizando también el idioma con el panel web (`#autofill=...` en `web/static/js/login.js`).
+  - **Gestor de Instancias moderno en Tkinter**: Interfaz oscura con bordes redondeados y barra de título nativa oscura en Windows 11 (DWM), soporte para múltiples instancias simultáneas con validación de puertos Web/Minecraft en tiempo real, encendido/apertura con auto-relleno de sesión, edición rápida de puertos, detención individual con guardado limpio del mundo y eliminación de instancias con confirmación.
+  - **Jerarquía Unificada en una Sola Carpeta con Backups Protegidos**: Organización automática de `launcher_config.json`, `instancias/<nombre>` y `backups/backup-<nombre>` dentro de `<Carpeta-principal>` (`app/config.py`, `launcher.py`) para mantener todos los datos de la app en una única ubicación fácil de respaldar o restablecer, conservando los backups intactos al eliminar instancias individuales.
+  - **Integración nativa con el Sistema Operativo**: Creación en 1 clic de accesos directos en Escritorio y Menú Inicio (`.lnk` en Windows y `.desktop` en Linux) y configuración asistida de reglas TCP/UDP en el Firewall (Windows Defender Firewall / UFW).
+  - **Gestor Automático de Runtimes Java (`app/core/java_manager.py`, `app/core/downloader.py`, `app/core/process_manager.py`)**: Descarga y provisión automática bajo demanda de Eclipse Temurin JRE 17, 21 y 25 cuando se ejecuta fuera de Docker en Windows o Linux.
+  - **Pipeline CI/CD de Releases y Versionado Automático desde `CHANGELOG.md` (`.github/workflows/release.yml`, `packaging/windows/installer.iss`, `packaging/windows/build_windows.ps1`, `packaging/linux/build_appimage.sh`)**: Detección automática de la versión directamente desde `CHANGELOG.md` (incluyendo Inno Setup Preprocessor en `installer.iss`) y publicación automatizada en GitHub Releases de `Dockraft-Setup-<version>.exe` y `Dockraft-<version>-x86_64.AppImage` junto al código fuente (`Source code`).
+
+---
+
 ## [1.5.0] - 2026-11-13
 
 ### Añadido (Added)

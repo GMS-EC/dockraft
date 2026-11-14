@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import time
 import logging
@@ -61,6 +62,22 @@ _autostart_task: Optional[asyncio.Task] = None
 async def lifespan(app: FastAPI):
     """Application startup and shutdown lifecycle manager."""
     global _autostart_task
+    app.state.event_loop = asyncio.get_running_loop()
+    if sys.platform == "win32":
+        loop = asyncio.get_running_loop()
+        orig_handler = loop.get_exception_handler()
+
+        def _win_quiet_reset_handler(lp, context):
+            exc = context.get("exception")
+            if isinstance(exc, ConnectionResetError) and getattr(exc, "winerror", None) == 10054:
+                return
+            if orig_handler:
+                orig_handler(lp, context)
+            else:
+                lp.default_exception_handler(context)
+
+        loop.set_exception_handler(_win_quiet_reset_handler)
+
     task_scheduler.start_loop()
     metrics_manager.start()
 

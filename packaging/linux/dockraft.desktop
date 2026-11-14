@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Dockraft
+GenericName=Minecraft Server Manager
+Comment=Gestor de servidores Minecraft con panel web e instancias separadas
+Exec=Dockraft %F
+Icon=dockraft
+Terminal=false
+Categories=Utility;Game;Network;
+StartupWMClass=Dockraft

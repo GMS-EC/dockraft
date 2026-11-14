@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HERE="$(dirname "$(readlink -f "$0")")"
+export APPDIR="$HERE"
+export LD_LIBRARY_PATH_ORIG="${LD_LIBRARY_PATH:-}"
+export PATH="$HERE/usr/bin:$PATH"
+
+exec "$HERE/usr/bin/Dockraft" "$@"

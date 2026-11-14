@@ -1,10 +1,12 @@
 import os
+import sys
 import shutil
 import logging
 import subprocess
 import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+from app.core.security import build_sanitized_subprocess_env
 
 logger = logging.getLogger("dockraft.java")
 
@@ -13,12 +15,15 @@ class JavaManager:
     def get_java_version(binary_path: str) -> Optional[int]:
         """Runs '<binary> -version' and extracts the major version (8, 11, 17, 21)."""
         try:
+            extra_kw = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)} if sys.platform == "win32" else {}
             res = subprocess.run(
                 [binary_path, "-version"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=3
+                timeout=3,
+                env=build_sanitized_subprocess_env(),
+                **extra_kw,
             )
             output = res.stderr or res.stdout
             # Match 1.8.0_xxx or 11.0.x or 17.0.x or 21.0.x
@@ -53,7 +58,9 @@ class JavaManager:
             Path("/usr/lib/jvm"),
             Path("/usr/java"),
             Path("/opt/java"),
-            Path("/docker-java-home")
+            Path("/docker-java-home"),
+            Path.home() / ".jdks",
+            Path.home() / ".sdkman" / "candidates" / "java",
         ]
         for base in linux_jvm_dirs:
             if base.exists() and base.is_dir():
@@ -75,9 +82,14 @@ class JavaManager:
         win_dirs = [
             Path(r"C:\Program Files\Java"),
             Path(r"C:\Program Files\Eclipse Adoptium"),
+            Path(r"C:\Program Files\Microsoft"),
             Path(r"C:\Program Files\BellSoft"),
-            Path(r"C:\Program Files\Zulu")
+            Path(r"C:\Program Files\Zulu"),
+            Path.home() / ".jdks",
         ]
+        local_app_data = os.getenv("LOCALAPPDATA")
+        if local_app_data:
+            win_dirs.append(Path(local_app_data) / "Programs" / "Eclipse Adoptium")
         for base in win_dirs:
             if base.exists() and base.is_dir():
                 for sub in base.iterdir():

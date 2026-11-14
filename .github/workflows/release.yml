@@ -1,23 +1,120 @@
-name: GitHub Release
+name: GitHub Release & Desktop Builds
 
 on:
   push:
     tags:
       - 'v*.*.*'
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    name: Publicar GitHub Release
+  build-windows:
+    name: Construir Windows (.exe)
+    runs-on: windows-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r packaging/windows/requirements-windows.txt
+
+      - name: Asegurar Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe") -and -not (Get-Command ISCC.exe -ErrorAction SilentlyContinue)) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Construir ejecutable e instalador Windows
+        shell: pwsh
+        env:
+          DOCKRAFT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |
+          .\packaging\windows\build_windows.ps1
+
+      - name: Subir artefacto Windows (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dockraft-windows
+          path: dist/Dockraft-Setup-*.exe
+          if-no-files-found: error
+
+  build-linux:
+    name: Construir Linux (.AppImage)
     runs-on: ubuntu-latest
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
+      - name: Instalar dependencias de sistema (GTK/AppIndicator + AppImage tools)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            curl file desktop-file-utils \
+            python3-tk tk-dev \
+            libgtk-3-0 gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1 \
+            libgirepository1.0-dev libcairo2-dev pkg-config gcc
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r packaging/linux/requirements-linux.txt
+          pip install "PyGObject>=3.46,<3.52" || echo "PyGObject optional; falling back to python-xlib"
+
+      - name: Validar archivo .desktop
+        run: desktop-file-validate packaging/linux/dockraft.desktop
+
+      - name: Construir AppImage Linux
+        env:
+          DOCKRAFT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |
+          chmod +x packaging/linux/build_appimage.sh packaging/linux/AppRun
+          ./packaging/linux/build_appimage.sh
+
+      - name: Subir artefacto AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: dockraft-linux
+          path: dist/Dockraft-*.AppImage
+          if-no-files-found: error
+
+  release:
+    name: Publicar GitHub Release
+    needs: [build-windows, build-linux]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Descargar artefactos compilados (.exe y .AppImage)
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
       - name: Crear y Publicar GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          files: |
+            release-assets/Dockraft-Setup-*.exe
+            release-assets/Dockraft-*.AppImage
