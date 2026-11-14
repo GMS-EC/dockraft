@@ -161,6 +161,41 @@ jobs:
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extraer notas de versión desde CHANGELOG.md
+        env:
+          VERSION: ${{ needs.detect-version.outputs.version }}
+          TAG_NAME: ${{ needs.detect-version.outputs.tag_name }}
+        run: |
+          python3 - << 'EOF'
+          import os, re, subprocess
+          from pathlib import Path
+
+          ver = os.environ["VERSION"]
+          tag = os.environ["TAG_NAME"]
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = rf"^## \[{re.escape(ver)}\][^\n]*\n(.*?)(?=^---\s*$|^## \[|\Z)"
+          m = re.search(pattern, text, flags=re.MULTILINE | re.DOTALL)
+          notes = m.group(1).strip() if m else f"Release {tag}"
+
+          prev_tag = ""
+          try:
+              tags_out = subprocess.check_output(["git", "tag", "--sort=-v:refname"], text=True).splitlines()
+              for t in tags_out:
+                  t = t.strip()
+                  if t and t != tag and t.startswith("v"):
+                      prev_tag = t
+                      break
+          except Exception:
+              pass
+
+          if prev_tag:
+              notes += f"\n\n**Full Changelog**: https://github.com/GMS-EC/dockraft/compare/{prev_tag}...{tag}\n"
+
+          Path("release_notes.md").write_text(notes, encoding="utf-8")
+          EOF
 
       - name: Descargar artefactos compilados (.exe y .AppImage)
         uses: actions/download-artifact@v4
@@ -173,7 +208,8 @@ jobs:
         with:
           tag_name: ${{ needs.detect-version.outputs.tag_name }}
           name: ${{ needs.detect-version.outputs.tag_name }}
-          generate_release_notes: true
+          body_path: release_notes.md
+          generate_release_notes: false
           files: |
             release-assets/Dockraft-Setup-*.exe
             release-assets/Dockraft-*.AppImage
