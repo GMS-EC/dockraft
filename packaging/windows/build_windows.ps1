@@ -23,7 +23,7 @@ if ($LASTEXITCODE -ne 0) {
     if ($LASTEXITCODE -ne 0) { throw "Failed to install packaging dependencies." }
 }
 
-Write-Host "[2/3] Building portable Dockraft.exe v$Version with PyInstaller..." -ForegroundColor Cyan
+Write-Host "[2/4] Building portable Dockraft-Windows-$Version.exe with PyInstaller..." -ForegroundColor Cyan
 $runningProcs = Get-Process -Name "Dockraft*" -ErrorAction SilentlyContinue
 if ($runningProcs) {
     Write-Host "      Closing running Dockraft process(es) before rebuilding..." -ForegroundColor Yellow
@@ -31,10 +31,38 @@ if ($runningProcs) {
     Start-Sleep -Milliseconds 800
 }
 & $PyExe -m PyInstaller --noconfirm --clean "$PSScriptRoot\dockraft.spec"
-if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed." }
+if ($LASTEXITCODE -ne 0) { throw "PyInstaller portable build failed." }
 
 $BuiltExe = Join-Path $RepoRoot "dist\Dockraft.exe"
 $PortableExe = Join-Path $RepoRoot "dist\Dockraft-Windows-$Version.exe"
 if (-not (Test-Path $BuiltExe)) { throw "Expected executable not found at $BuiltExe" }
-Copy-Item -Path $BuiltExe -Destination $PortableExe -Force
-Write-Host "[3/3] Portable executable ready at: $PortableExe" -ForegroundColor Green
+Move-Item -Path $BuiltExe -Destination $PortableExe -Force
+Write-Host "      Portable executable ready at: $PortableExe" -ForegroundColor Green
+
+if (-not $SkipInstaller) {
+    $iscc = (Get-Command "ISCC.exe" -ErrorAction SilentlyContinue).Source
+    if (-not $iscc) {
+        $candidatePaths = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
+            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+        )
+        foreach ($cand in $candidatePaths) {
+            if (Test-Path $cand) {
+                $iscc = $cand
+                break
+            }
+        }
+    }
+    if ($iscc) {
+        Write-Host "[3/4] Building onedir bundle for Windows Setup..." -ForegroundColor Cyan
+        & $PyExe -m PyInstaller --noconfirm --clean "$PSScriptRoot\dockraft_setup.spec"
+        if ($LASTEXITCODE -ne 0) { throw "PyInstaller setup bundle build failed." }
+
+        Write-Host "[4/4] Building Dockraft-Windows-Setup-$Version.exe with Inno Setup..." -ForegroundColor Cyan
+        & $iscc "/DMyAppVersion=$Version" "$PSScriptRoot\installer.iss"
+        if ($LASTEXITCODE -ne 0) { throw "Inno Setup build failed." }
+    } else {
+        Write-Host "[3/4] Inno Setup (ISCC.exe) not found; skipping Setup.exe build." -ForegroundColor Yellow
+    }
+}
