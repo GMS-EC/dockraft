@@ -5,6 +5,10 @@
 # Servidor, copias de seguridad y datos persistentes (se gestionan a través de volúmenes)
 data/
 backups/
+instancias/
+launcher_config.json
+.dockraft_root
+.dockraft_state/
 *.jar
 *.zip
 *.tar
@@ -16,7 +20,6 @@ eula.txt
 server.properties
 session.lock
 *.pid
-*.tmp
 
 # Entornos virtuales de Python
 .venv/
@@ -24,12 +27,20 @@ venv/
 env/
 ENV/
 
-# Archivos de compilación y caché de Python
+# Archivos de compilación, caché de Python y empaquetado de escritorio
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+build/
+dist/
+AppDir/
+packaging/
+launcher.py
+*.AppImage
+*.exe
+.venv-*/
 
 # Tests y cobertura
 tests/
@@ -37,10 +48,12 @@ tests/
 .coverage
 htmlcov/
 
-# Control de versiones y CI/CD
+# Control de versiones, compose y CI/CD
 .git/
 .gitignore
+.dockerignore
 .github/
+docker-compose.yml
 
 # Variables de entorno y credenciales
 .env
@@ -48,6 +61,8 @@ htmlcov/
 !.env.example
 
 # Documentación y archivos temporales de desarrollo
+README.md
+LICENSE
 scratch/
 docs/
 *.tmp

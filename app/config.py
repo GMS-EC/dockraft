@@ -9,9 +9,58 @@ from typing import Dict, Any
 
 logger = logging.getLogger("dockraft")
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_DATA_DIR = BASE_DIR / "data"
-DEFAULT_BACKUPS_DIR = BASE_DIR / "backups"
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    BASE_DIR = Path(sys._MEIPASS).resolve()
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _resolve_instance_dir() -> Path:
+    """Resolves the active server instance directory (data, backups, state, .env)."""
+    env_inst = os.getenv("DOCKRAFT_INSTANCE_DIR", "").strip()
+    if env_inst:
+        return Path(env_inst).expanduser().resolve()
+    appimage_path = os.getenv("APPIMAGE", "").strip()
+    if appimage_path:
+        app_dir = Path(appimage_path).expanduser().resolve().parent
+        if (app_dir / ".portable").exists() or (app_dir / ".env").exists():
+            return app_dir
+        return (Path.home() / "Dockraft" / "instancias" / "default").resolve()
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        if (exe_dir / ".portable").exists() or (exe_dir / ".env").exists():
+            return exe_dir
+        return (Path.home() / "Dockraft" / "instancias" / "default").resolve()
+    return BASE_DIR
+
+
+def _load_env_file(env_path: Path) -> None:
+    """Loads KEY=VALUE pairs from an instance .env file without overriding process env vars."""
+    if not env_path.is_file():
+        return
+    try:
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, val = line.split("=", 1)
+            key = key.strip()
+            val = val.strip()
+            if len(val) >= 2 and ((val[0] == '"' and val[-1] == '"') or (val[0] == "'" and val[-1] == "'")):
+                val = val[1:-1]
+            if key:
+                os.environ.setdefault(key, val)
+    except Exception as e:
+        logger.warning("[Dockraft] Could not read .env file %s: %s", env_path, e)
+
+
+INSTANCE_DIR = _resolve_instance_dir()
+_load_env_file(INSTANCE_DIR / ".env")
+DEFAULT_DATA_DIR = INSTANCE_DIR / "data"
+if INSTANCE_DIR.parent.name.lower() == "instancias":
+    DEFAULT_BACKUPS_DIR = INSTANCE_DIR.parent.parent / "backups" / f"backup-{INSTANCE_DIR.name}"
+else:
+    DEFAULT_BACKUPS_DIR = INSTANCE_DIR / "backups"
 
 def _read_version_from_changelog() -> str:
     """Reads the latest version from CHANGELOG.md by finding the first ## [X.Y.Z] header."""
@@ -37,16 +86,23 @@ def _read_version_from_changelog() -> str:
         except Exception:
             pass
 
-    return "1.4.1"
+    return "1.6.0"
 
 APP_VERSION = _read_version_from_changelog()
 
 class Settings:
     def __init__(self):
+        inst_dir = _resolve_instance_dir()
+        def_data_dir = inst_dir / "data"
+        if inst_dir.parent.name.lower() == "instancias":
+            def_backups_dir = inst_dir.parent.parent / "backups" / f"backup-{inst_dir.name}"
+        else:
+            def_backups_dir = inst_dir / "backups"
+        self.instance_dir: Path = inst_dir
         self.host: str = os.getenv("HOST", "0.0.0.0")
         self.port: int = int(os.getenv("PORT", "8000"))
-        self.data_dir: Path = Path(os.getenv("DATA_DIR", str(DEFAULT_DATA_DIR))).resolve()
-        self.backups_dir: Path = Path(os.getenv("BACKUPS_DIR", str(DEFAULT_BACKUPS_DIR))).resolve()
+        self.data_dir: Path = Path(os.getenv("DATA_DIR", str(def_data_dir))).resolve()
+        self.backups_dir: Path = Path(os.getenv("BACKUPS_DIR", str(def_backups_dir))).resolve()
         self.admin_user: str = os.getenv("ADMIN_USER", os.getenv("ADMIN_USERNAME", "admin"))
         self.admin_password: str = os.getenv("ADMIN_PASSWORD", "").strip()
         if not self.admin_password and "pytest" not in sys.modules:
@@ -61,7 +117,7 @@ class Settings:
         # Ensure directories exist
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.backups_dir.mkdir(parents=True, exist_ok=True)
-        default_state_dir = BASE_DIR / ".dockraft_state"
+        default_state_dir = inst_dir / ".dockraft_state"
         self.panel_state_dir: Path = Path(os.getenv("DOCKRAFT_STATE_DIR", str(default_state_dir))).resolve()
         self.panel_state_dir.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
@@ -94,7 +150,7 @@ class Settings:
         
         # Default runtime config
         self.runtime_config: Dict[str, Any] = {
-            "server_name": "Mi Servidor Dockraft",
+            "server_name": os.getenv("SERVER_NAME", "Mi Servidor Dockraft"),
             "server_type": "paper", # paper, purpur, vanilla, fabric, bedrock, custom
             "server_version": "1.21.4",
             "server_file": "server.jar",

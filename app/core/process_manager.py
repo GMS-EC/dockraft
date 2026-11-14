@@ -134,13 +134,13 @@ class ProcessManager:
                     pass
 
                 is_mc = False
-                # Filter out Minecraft game clients (e.g., CurseForge, Prism, Lunar, client instances)
-                is_client = any(cl in cmd_str or cl in p_cwd for cl in ["curseforge", "prism", "lunar", "instances", "tlauncher", "technic", "modcitos"])
-                if is_client:
-                    continue
-
                 # Must be located in or reference data_dir (or /server_data in Docker)
                 in_data_dir = (data_dir_str in p_cwd) or (data_dir_str in cmd_str) or ("/server_data" in p_cwd) or ("/server_data" in cmd_str)
+
+                # Filter out Minecraft game clients (e.g., CurseForge, Prism, Lunar, client instances)
+                is_client = any(cl in cmd_str or cl in p_cwd for cl in ["curseforge", "prism", "lunar", "instances", "tlauncher", "technic", "modcitos"])
+                if is_client and not in_data_dir:
+                    continue
 
                 if "bedrock_server" in name or "bedrock_server" in cmd_str:
                     if in_data_dir:
@@ -192,7 +192,7 @@ class ProcessManager:
             return True
         if (settings.data_dir / "bedrock_server").exists() or (settings.data_dir / "bedrock_server.exe").exists():
             return True
-        if (settings.data_dir / "run.sh").exists():
+        if (settings.data_dir / "run.sh").exists() or (settings.data_dir / "run.bat").exists():
             return True
         try:
             for f in settings.data_dir.iterdir():
@@ -821,6 +821,17 @@ class ProcessManager:
                     server_path = bedrock_candidate_win
                 else:
                     return {"status": "error", "message": f"Bedrock server binary not found in {settings.data_dir}"}
+            elif server_type == "forge":
+                forge_bat = settings.data_dir / "run.bat"
+                forge_sh = settings.data_dir / "run.sh"
+                if sys.platform == "win32" and forge_bat.exists():
+                    server_path = forge_bat
+                elif forge_sh.exists():
+                    server_path = forge_sh
+                elif forge_bat.exists():
+                    server_path = forge_bat
+                else:
+                    return {"status": "error", "message": f"Server file '{server_file}' not found in {settings.data_dir}. Please download or upload one first."}
             else:
                 return {"status": "error", "message": f"Server file '{server_file}' not found in {settings.data_dir}. Please download or upload one first."}
 
@@ -838,7 +849,11 @@ class ProcessManager:
                     pass
                 env["LD_LIBRARY_PATH"] = f".:{env.get('LD_LIBRARY_PATH', '')}"
             cmd = [str(server_path)]
-        elif server_type == "forge" and (server_file == "run.sh" or (settings.data_dir / "run.sh").exists()):
+        elif server_type == "forge" and (
+            server_file in ("run.sh", "run.bat")
+            or (settings.data_dir / "run.sh").exists()
+            or (sys.platform == "win32" and (settings.data_dir / "run.bat").exists())
+        ):
             # Modern Forge (1.17+) with run.sh launcher
             run_script = settings.data_dir / "run.sh"
             if sys.platform != "win32":
@@ -865,8 +880,24 @@ class ProcessManager:
             user_args_file = settings.data_dir / "user_jvm_args.txt"
             atomic_write_text(user_args_file, "\n".join(jvm_args) + "\n")
 
+            java_bin_cfg = str(cfg.get("java_path", "java") or "java").strip()
+            if java_bin_cfg != "java":
+                jb_path = Path(java_bin_cfg)
+                if jb_path.is_file():
+                    bin_dir = str(jb_path.resolve().parent)
+                    env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+                    env["JAVA_HOME"] = str(jb_path.resolve().parent.parent)
+
             if sys.platform == "win32":
                 run_bat = settings.data_dir / "run.bat"
+                if run_bat.exists():
+                    try:
+                        bat_txt = run_bat.read_text(encoding="utf-8", errors="replace")
+                        cleaned_bat = re.sub(r"(?im)^\s*pause\b.*$", "", bat_txt)
+                        if cleaned_bat != bat_txt:
+                            atomic_write_text(run_bat, cleaned_bat)
+                    except Exception:
+                        pass
                 cmd = ["cmd.exe", "/c", str(run_bat if run_bat.exists() else run_script), "nogui"]
             else:
                 cmd = ["bash", str(run_script), "nogui"]
@@ -907,13 +938,15 @@ class ProcessManager:
         await self.broadcast_message({"type": "status", "status": self.status})
 
         try:
+            extra_kw = {"creationflags": 0x08000000} if sys.platform == "win32" else {}
             self.process = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=str(settings.data_dir),
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
-                env=env
+                env=env,
+                **extra_kw,
             )
             self.started_at = time.time()
             self.last_start_time = self.started_at
@@ -1060,6 +1093,15 @@ class ProcessManager:
             self._stop_task = None
 
         if self.process and self.process.returncode is None:
+            try:
+                parent = psutil.Process(self.process.pid)
+                for child in parent.children(recursive=True):
+                    try:
+                        child.kill()
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                        pass
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
             try:
                 self.process.kill()
             except Exception:

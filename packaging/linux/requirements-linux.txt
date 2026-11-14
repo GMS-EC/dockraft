@@ -1,0 +1,6 @@
+pystray>=0.19.5
+pillow>=10.0.0
+pyinstaller>=6.0.0
+python-xlib>=0.33
+# Optional for native GNOME/KDE AppIndicator tray support (usually provided via system python3-gi + gir1.2-ayatanaappindicator3-0.1):
+# PyGObject>=3.46.0

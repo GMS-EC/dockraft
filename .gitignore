@@ -2,9 +2,12 @@
 # Dockraft - Git Ignore Rules
 # ==========================================
 
-# Datos del servidor Minecraft y respaldos
+# Datos del servidor Minecraft, instancias locales y respaldos
 data/
 backups/
+instancias/
+launcher_config.json
+.dockraft_root
 *.jar
 *.zip
 *.tar
@@ -16,7 +19,6 @@ server.properties
 eula.txt
 session.lock
 *.pid
-*.tmp
 *.log
 
 # Entornos virtuales de Python
@@ -25,12 +27,18 @@ venv/
 env/
 ENV/
 
-# Caché y compilación de Python
+# Caché, compilación de Python y artefactos de empaquetado (Windows / AppImage)
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+build/
+dist/
+AppDir/
+*.AppImage
+*.exe
+.venv-*/
 
 # Tests, temporales y cobertura
 scratch/

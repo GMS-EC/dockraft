@@ -306,7 +306,7 @@ async def install_server(req: InstallRequest):
         resolved_server_file = (
             ("bedrock_server.exe" if sys.platform == "win32" else "bedrock_server")
             if req.server_type == "bedrock"
-            else ("run.sh" if req.server_type == "forge" else "server.jar")
+            else (("run.bat" if sys.platform == "win32" else "run.sh") if req.server_type == "forge" else "server.jar")
         )
 
         cfg_to_save = {
