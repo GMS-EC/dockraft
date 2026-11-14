@@ -23,7 +23,7 @@ if ($LASTEXITCODE -ne 0) {
     if ($LASTEXITCODE -ne 0) { throw "Failed to install packaging dependencies." }
 }
 
-Write-Host "[2/4] Building portable Dockraft-Windows-$Version.exe with PyInstaller..." -ForegroundColor Cyan
+Write-Host "[2/4] Building portable Dockraft-Windows-Portable-$Version.exe with PyInstaller..." -ForegroundColor Cyan
 $runningProcs = Get-Process -Name "Dockraft*" -ErrorAction SilentlyContinue
 if ($runningProcs) {
     Write-Host "      Closing running Dockraft process(es) before rebuilding..." -ForegroundColor Yellow
@@ -34,7 +34,7 @@ if ($runningProcs) {
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller portable build failed." }
 
 $BuiltExe = Join-Path $RepoRoot "dist\Dockraft.exe"
-$PortableExe = Join-Path $RepoRoot "dist\Dockraft-Windows-$Version.exe"
+$PortableExe = Join-Path $RepoRoot "dist\Dockraft-Windows-Portable-$Version.exe"
 if (-not (Test-Path $BuiltExe)) { throw "Expected executable not found at $BuiltExe" }
 Move-Item -Path $BuiltExe -Destination $PortableExe -Force
 Write-Host "      Portable executable ready at: $PortableExe" -ForegroundColor Green

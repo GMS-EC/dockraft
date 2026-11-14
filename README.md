@@ -107,7 +107,7 @@ Además de la versión clásica en contenedor Docker, **Dockraft** cuenta con ve
 En la sección de [**Releases**](https://github.com/GMS-EC/dockraft/releases/latest) encontrarás junto al código fuente (`Source code`):
 
 - **`Dockraft-Windows-Setup-<version>.exe`**: Instalador para Windows (64 bits, inicio ultra-rápido y accesos directos).
-- **`Dockraft-Windows-<version>.exe`**: Ejecutable portable de un solo archivo para Windows (64 bits, sin instalación).
+- **`Dockraft-Windows-Portable-<version>.exe`**: Ejecutable portable de un solo archivo para Windows (64 bits, sin instalación).
 - **`Dockraft-Linux-<version>-x86_64.AppImage`**: Ejecutable autocontenido para cualquier distribución Linux (`chmod +x Dockraft-Linux-*.AppImage && ./Dockraft-Linux-*.AppImage`).
 
 #### 🧰 Qué incluye la edición de Escritorio
@@ -139,7 +139,7 @@ En la sección de [**Releases**](https://github.com/GMS-EC/dockraft/releases/lat
   pip install -r requirements.txt -r packaging/windows/requirements-windows.txt
   powershell -ExecutionPolicy Bypass -File .\packaging\windows\build_windows.ps1
   ```
-  _(Genera el ejecutable portable `dist\Dockraft-Windows-<version>.exe`)._
+  _(Genera `dist\Dockraft-Windows-Portable-<version>.exe` y `dist\Dockraft-Windows-Setup-<version>.exe`)._
 - **En Linux (Bash)**:
   ```bash
   pip install -r requirements.txt -r packaging/linux/requirements-linux.txt
@@ -346,7 +346,7 @@ Alongside the classic Docker container, **Dockraft** provides native desktop bui
 Available on the [**Releases**](https://github.com/GMS-EC/dockraft/releases/latest) page alongside the source code archives:
 
 - **`Dockraft-Windows-Setup-<version>.exe`**: Windows x64 installer (instant startup & shortcuts).
-- **`Dockraft-Windows-<version>.exe`**: Portable single-file executable for Windows x64 (no installation required).
+- **`Dockraft-Windows-Portable-<version>.exe`**: Portable single-file executable for Windows x64 (no installation required).
 - **`Dockraft-Linux-<version>-x86_64.AppImage`**: Self-contained Linux x86_64 AppImage (`chmod +x Dockraft-Linux-*.AppImage && ./Dockraft-Linux-*.AppImage`).
 
 #### 🧰 Desktop Features
