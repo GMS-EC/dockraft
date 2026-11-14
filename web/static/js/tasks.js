@@ -2,6 +2,7 @@
 const Tasks = {
   tasksList: [],
   filteredList: [],
+  backupPolicies: [],
   pageSize: 10,
   currentPage: 1,
   searchQuery: '',
@@ -26,6 +27,7 @@ const Tasks = {
   },
 
   async loadTasks() {
+    this.fetchBackupPolicies();
     try {
       const res = await fetch('/api/tasks');
       if (res.ok) {
@@ -215,7 +217,13 @@ const Tasks = {
       case 'start': return 'start_server';
       case 'stop': return 'stop_server';
       case 'restart': return 'restart_server';
-      case 'backup': return 'backup_server';
+      case 'backup': {
+        if (t.backup_policy_id && this.backupPolicies.length > 0) {
+          const pol = this.backupPolicies.find(p => p.id === t.backup_policy_id);
+          if (pol) return this.trf('t_tasks_policy_prefix', [pol.name], `Política: ${pol.name}`);
+        }
+        return 'backup_server';
+      }
       case 'check_updates': return 'check_versions';
       default: return t.command || t.action;
     }
@@ -334,6 +342,39 @@ const Tasks = {
     }
   },
 
+  async fetchBackupPolicies(selectedId = null) {
+    try {
+      const res = await fetch('/api/backups/policies');
+      if (res.ok) {
+        const data = await res.json();
+        this.backupPolicies = Array.isArray(data.policies) ? data.policies : [];
+      }
+    } catch (e) {
+      console.warn('Error loading backup policies:', e);
+    }
+    const sel = document.getElementById('task-backup-policy-select');
+    if (sel) {
+      sel.innerHTML = '';
+      if (this.backupPolicies.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Respaldo por Defecto';
+        sel.appendChild(opt);
+      } else {
+        this.backupPolicies.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          const scopeTxt = p.scope === 'custom' ? 'Personalizado' : 'Completo';
+          opt.textContent = `${p.name} (${scopeTxt})`;
+          sel.appendChild(opt);
+        });
+        if (selectedId && this.backupPolicies.some(p => p.id === selectedId)) {
+          sel.value = selectedId;
+        }
+      }
+    }
+  },
+
   openCreateModal() {
     document.getElementById('task-modal-title').textContent = this.tr('t_tasks_modal_create_title', 'Crear Nueva Tarea Programada');
     document.getElementById('task-edit-id').value = '';
@@ -349,6 +390,7 @@ const Tasks = {
       r.checked = r.value === 'interval';
     });
 
+    this.fetchBackupPolicies(null);
     this.onActionChange('restart');
     this.onScheduleTypeChange('interval');
 
@@ -375,6 +417,7 @@ const Tasks = {
       r.checked = r.value === schedType;
     });
 
+    this.fetchBackupPolicies(task.backup_policy_id || null);
     this.onActionChange(task.action || 'restart');
     this.onScheduleTypeChange(schedType);
 
@@ -391,6 +434,13 @@ const Tasks = {
     const cmdGroup = document.getElementById('task-command-group');
     if (cmdGroup) {
       cmdGroup.style.display = action === 'command' ? 'block' : 'none';
+    }
+    const policyGroup = document.getElementById('task-backup-policy-group');
+    if (policyGroup) {
+      policyGroup.style.display = action === 'backup' ? 'block' : 'none';
+      if (action === 'backup' && this.backupPolicies.length === 0) {
+        this.fetchBackupPolicies();
+      }
     }
   },
 
@@ -425,6 +475,9 @@ const Tasks = {
     const cron_expression = document.getElementById('task-cron-input').value.trim();
     const enabled = document.getElementById('task-enabled-input').checked;
 
+    const policySelect = document.getElementById('task-backup-policy-select');
+    const backup_policy_id = (action === 'backup' && policySelect && policySelect.value) ? policySelect.value : null;
+
     if (!name) {
       if (typeof App !== 'undefined') App.showToast(this.tr('t_tasks_toast_need_name', 'Ingresa un nombre para la tarea'), 'warning');
       return;
@@ -434,6 +487,7 @@ const Tasks = {
       name,
       action,
       command,
+      backup_policy_id,
       schedule_type,
       interval_value,
       interval_unit,

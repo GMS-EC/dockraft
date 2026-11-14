@@ -12,6 +12,7 @@ class TaskCreateRequest(BaseModel):
     name: str
     action: Literal["start", "stop", "restart", "command", "backup"]
     command: Optional[str] = ""
+    backup_policy_id: Optional[str] = None
     schedule_type: Literal["interval", "cron", "once"] = "interval"
     interval_value: Optional[int] = 1
     interval_unit: Optional[Literal["minutes", "hours", "days"]] = "days"
@@ -23,6 +24,7 @@ class TaskUpdateRequest(BaseModel):
     name: Optional[str] = None
     action: Optional[Literal["start", "stop", "restart", "command", "backup"]] = None
     command: Optional[str] = None
+    backup_policy_id: Optional[str] = None
     schedule_type: Optional[Literal["interval", "cron", "once"]] = None
     interval_value: Optional[int] = None
     interval_unit: Optional[Literal["minutes", "hours", "days"]] = None

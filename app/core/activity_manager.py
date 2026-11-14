@@ -258,6 +258,7 @@ class ActivityManager:
                 return s
 
             output = io.StringIO()
+            output.write("\ufeff")
             writer = csv.writer(output)
             writer.writerow(["id", "timestamp", "category", "action", "details", "user", "status"])
             for e in self._entries:

@@ -1,6 +1,6 @@
 <!-- Modal: Create Selective Backup -->
 <div class="modal-backdrop" id="modal-create-backup">
-  <div class="modal-box" style="max-width: 580px;">
+  <div class="modal-box" style="max-width: 640px;">
     <div class="modal-header">
       <h3 style="display: flex; align-items: center; gap: 8px;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -55,24 +55,20 @@
         </div>
       </div>
 
-      <!-- Optional Tag / Note -->
-      <div class="form-group" style="margin-top: 16px;">
-        <label class="form-label" for="backup-modal-tag" data-i18n="t_modal_backup_tag_label">Etiqueta o Nota (Opcional)</label>
-        <input type="text" class="form-input" id="backup-modal-tag" data-i18n-placeholder="t_modal_backup_tag_placeholder" placeholder="ej: antes-del-evento, pre-update" value="manual">
-        <div class="field-hint" data-i18n="t_modal_backup_tag_hint">Identificador descriptivo en el nombre del archivo generado.</div>
-      </div>
+      <!-- Hidden internal origin tag (filenames are normalized as server_date.zip) -->
+      <input type="hidden" id="backup-modal-tag" value="manual">
 
       <!-- Execution Parameters: Compression, Stop Server, Pre-Command -->
-      <div style="padding: 12px; background: rgba(22, 27, 34, 0.6); border: 1px solid #30363d; border-radius: 8px; margin-top: 16px;">
-        <div style="font-size: 0.84rem; font-weight: 600; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/>          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <div class="backup-params-panel">
+        <div class="backup-params-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span data-i18n="t_modal_backup_params_title">Parámetros de Ejecución</span>
         </div>
 
         <!-- 1. Comprimir la copia -->
         <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <div>
-            <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-modal-compression" data-i18n="t_modal_backup_compression_label">
+            <label class="form-label" style="margin-bottom: 2px; cursor: pointer;" for="backup-modal-compression" data-i18n="t_modal_backup_compression_label">
               Comprimir la copia (.zip)
             </label>
             <div class="field-hint" data-i18n="t_modal_backup_compression_hint">Aplica compresión DEFLATED. Desactivado (STORE) es ultra-rápido sin uso de CPU.</div>
@@ -86,7 +82,7 @@
         <!-- 2. Apagar el servidor durante el backup -->
         <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <div>
-            <label class="form-label" style="margin-bottom: 2px; cursor: pointer; color: #f0f6fc;" for="backup-modal-stop" data-i18n="t_modal_backup_stop_label">
+            <label class="form-label" style="margin-bottom: 2px; cursor: pointer;" for="backup-modal-stop" data-i18n="t_modal_backup_stop_label">
               Apagar el servidor durante el backup
             </label>
             <div class="field-hint" data-i18n="t_modal_backup_stop_hint">Detiene el servidor para liberar session.lock e integridad total, y lo reinicia al finalizar.</div>
@@ -97,16 +93,28 @@
           </label>
         </div>
 
-        <!-- 3. Ejecutar comando antes del respaldo -->
-        <div class="form-group" style="margin-bottom: 0;">
-          <label class="form-label" for="backup-modal-pre-cmd" style="color: #f0f6fc;" data-i18n="t_modal_backup_precmd_label">
-            Ejecutar comando antes del respaldo
+        <!-- 3. Ejecutar comando adicional antes del respaldo -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="backup-modal-pre-cmd" data-i18n="t_modal_backup_precmd_label">
+            Comando adicional antes del respaldo (Opcional)
           </label>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="color: var(--text-dim); font-family: var(--font-mono); font-weight: bold;">></span>
-            <input type="text" class="form-input" id="backup-modal-pre-cmd" placeholder="save-all" value="save-all">
+            <input type="text" class="form-input" id="backup-modal-pre-cmd" style="flex: 1;" data-i18n-placeholder="t_backup_pre_cmd_placeholder" placeholder="ej: say Creando copia de seguridad..." value="">
           </div>
-          <div class="field-hint"><span data-i18n="t_modal_backup_precmd_hint_a">Comando enviado a la consola del servidor antes de iniciar el respaldo (ej: </span><code>save-all</code><span data-i18n="t_modal_backup_precmd_hint_b">).</span></div>
+          <div class="field-hint"><span data-i18n="t_modal_backup_precmd_hint_a">El comando </span><code>save-all</code><span data-i18n="t_modal_backup_precmd_hint_b"> se ejecuta siempre de forma obligatoria si el servidor está en línea. Usa este campo para enviar otro comando adicional.</span></div>
+        </div>
+
+        <!-- 4. Ejecutar comando al finalizar -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="backup-modal-post-cmd" data-i18n="t_modal_backup_postcmd_label">
+            Comando al finalizar el respaldo (Opcional)
+          </label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--text-dim); font-family: var(--font-mono); font-weight: bold;">></span>
+            <input type="text" class="form-input" id="backup-modal-post-cmd" style="flex: 1;" data-i18n-placeholder="t_backup_post_cmd_placeholder" placeholder="ej: say ¡Copia de seguridad completada!" value="">
+          </div>
+          <div class="field-hint" data-i18n="t_modal_backup_postcmd_hint">Se ejecuta en consola al terminar el respaldo (si el servidor está en línea).</div>
         </div>
       </div>
     </div>
@@ -116,6 +124,168 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         Crear Copia de Seguridad
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Backup Policy & Retention Configuration -->
+<div class="modal-backdrop" id="modal-backup-config">
+  <div class="modal-box" style="max-width: 680px;">
+    <div class="modal-header">
+      <h3 style="display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span id="backup-policy-modal-title" data-i18n="t_backup_retention_title">Política de Respaldo</span>
+      </h3>
+      <button class="action-icon-btn" onclick="Backups.closeConfigModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="backup-policy-id" value="">
+      <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;" data-i18n="t_backup_retention_desc">
+        Define el nombre, alcance y opciones de esta política para usarla al programar respaldos automáticos.
+      </p>
+
+      <div class="form-group" style="margin-bottom: 14px;">
+        <label class="form-label" for="backup-policy-name" data-i18n="t_backup_policy_name_label">Nombre de la Política</label>
+        <input type="text" class="form-input" id="backup-policy-name" data-i18n-placeholder="t_backup_policy_name_placeholder" placeholder="Ej: Respaldo Completo Diario" value="">
+      </div>
+
+      <!-- Scope Selection -->
+      <div class="form-group" style="margin-bottom: 14px;">
+        <label class="form-label" data-i18n="t_backup_scope_question">¿Qué deseas respaldar por defecto? (Alcance)</label>
+        <div class="backup-scope-grid" style="grid-template-columns: repeat(2, 1fr); gap: 10px;">
+          <div class="backup-scope-card backup-cfg-scope-card selected" data-scope="full" onclick="Backups.selectConfigScope('full')">
+            <div class="backup-scope-header">
+              <span class="backup-scope-icon" style="display:inline-flex; align-items:center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+              </span>
+              <span class="backup-scope-title" style="font-size: 0.85rem;" data-i18n="t_backup_scope_full">Servidor Completo</span>
+            </div>
+            <div class="backup-scope-desc" style="font-size: 0.74rem;" data-i18n="t_backup_scope_full_desc">
+              Respalda todos los archivos, mundos, plugins y configs.
+            </div>
+          </div>
+
+          <div class="backup-scope-card backup-cfg-scope-card" data-scope="custom" onclick="Backups.selectConfigScope('custom')">
+            <div class="backup-scope-header">
+              <span class="backup-scope-icon" style="display:inline-flex; align-items:center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </span>
+              <span class="backup-scope-title" style="font-size: 0.85rem;" data-i18n="t_backup_scope_custom">Personalizado</span>
+            </div>
+            <div class="backup-scope-desc" style="font-size: 0.74rem;" data-i18n="t_backup_scope_custom_desc">
+              Seleccionar carpetas o archivos específicos.
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom Targets Checkboxes for Config -->
+        <div id="backup-cfg-custom-targets-box" style="display: none; margin-top: 12px;">
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 0.82rem; font-weight: 600;" data-i18n="t_backup_cfg_targets_title">Carpetas y archivos a incluir:</span>
+            <div style="display: flex; gap: 8px; font-size: 0.75rem;">
+              <a href="javascript:void(0)" onclick="Backups.toggleAllConfigTargets(true)" style="color: var(--accent); text-decoration: underline;" data-i18n="t_backup_targets_all">Todos</a>
+              <span style="color: var(--border);">|</span>
+              <a href="javascript:void(0)" onclick="Backups.toggleAllConfigTargets(false)" style="color: var(--text-dim); text-decoration: underline;" data-i18n="t_backup_targets_none">Ninguno</a>
+            </div>
+          </div>
+          <div id="backup-cfg-targets-list" class="backup-targets-list"></div>
+        </div>
+      </div>
+
+      <!-- Execution Parameters -->
+      <div class="backup-params-panel">
+        <div class="backup-params-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span data-i18n="t_backup_cfg_exec_title">Parámetros de Ejecución</span>
+        </div>
+
+        <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <label class="form-label" style="margin-bottom: 2px; cursor: pointer;" for="backup-config-compression" data-i18n="t_backup_cfg_compression_label">
+              Comprimir la copia (.zip)
+            </label>
+            <div class="field-hint" data-i18n="t_backup_cfg_compression_hint">Aplica compresión DEFLATED para reducir espacio. Desactivado (STORE) es más rápido.</div>
+          </div>
+          <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
+            <input type="checkbox" id="backup-config-compression" checked>
+            <span class="slider-compact"></span>
+          </label>
+        </div>
+
+        <div class="form-group" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <label class="form-label" style="margin-bottom: 2px; cursor: pointer;" for="backup-config-stop" data-i18n="t_backup_cfg_stop_label">
+              Apagar el servidor durante el backup
+            </label>
+            <div class="field-hint" data-i18n="t_backup_cfg_stop_hint">Detiene el servidor para liberar session.lock y lo reinicia al finalizar.</div>
+          </div>
+          <label class="toggle-switch-compact" style="flex-shrink: 0; margin-left: 14px;">
+            <input type="checkbox" id="backup-config-stop">
+            <span class="slider-compact"></span>
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="backup-config-pre-cmd" data-i18n="t_backup_cfg_precmd_label">
+            Comando adicional antes del respaldo (Opcional)
+          </label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--text-dim); font-family: var(--font-mono); font-weight: bold;">></span>
+            <input type="text" class="form-input" id="backup-config-pre-cmd" style="flex: 1;" data-i18n-placeholder="t_backup_pre_cmd_placeholder" placeholder="ej: say Creando copia de seguridad..." value="">
+          </div>
+          <div class="field-hint" data-i18n="t_backup_cfg_precmd_hint">El comando save-all se ejecuta siempre de forma obligatoria antes del respaldo. Aquí puedes añadir otro comando extra.</div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="backup-config-post-cmd" data-i18n="t_backup_cfg_postcmd_label">
+            Comando al finalizar el respaldo (Opcional)
+          </label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--text-dim); font-family: var(--font-mono); font-weight: bold;">></span>
+            <input type="text" class="form-input" id="backup-config-post-cmd" style="flex: 1;" data-i18n-placeholder="t_backup_post_cmd_placeholder" placeholder="ej: say ¡Copia de seguridad completada!" value="">
+          </div>
+          <div class="field-hint" data-i18n="t_backup_cfg_postcmd_hint">Se ejecuta en consola al terminar el respaldo (si el servidor está en línea).</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+      <button type="button" class="btn btn-danger" id="btn-delete-policy-modal" onclick="Backups.deleteCurrentPolicy()" style="display: none; align-items: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        <span data-i18n="t_backup_btn_delete_policy">Eliminar Política</span>
+      </button>
+      <div style="display: flex; gap: 10px; margin-left: auto;">
+        <button class="btn btn-outline" onclick="Backups.closeConfigModal()" data-i18n="t_modal_cancel">Cancelar</button>
+        <button class="btn btn-primary" onclick="Backups.saveBackupConfig()" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span data-i18n="t_backup_btn_save_cfg">Guardar Política</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Global Backup Retention -->
+<div class="modal-backdrop" id="modal-backup-retention">
+  <div class="modal-box" style="max-width: 420px;">
+    <div class="modal-header">
+      <h3 style="display: flex; align-items: center; gap: 8px;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        <span data-i18n="t_backup_retention_modal_title">Rotación Global de Respaldos</span>
+      </h3>
+      <button class="action-icon-btn" onclick="Backups.closeRetentionModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="backup-retention-max" data-i18n="t_backup_cfg_max_label">
+          Copias Máximas a Conservar
+        </label>
+        <input type="number" class="form-input" id="backup-retention-max" min="1" max="50" value="5">
+        <div class="field-hint" data-i18n="t_backup_cfg_max_hint">Límite total de archivos .zip conservados (manuales y automáticos). Al superar este número se eliminan los más antiguos.</div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+      <button class="btn btn-outline" onclick="Backups.closeRetentionModal()" data-i18n="t_modal_cancel">Cancelar</button>
+      <button class="btn btn-primary" onclick="Backups.saveRetentionMax()" data-i18n="t_backup_btn_save_retention">Guardar Límite</button>
     </div>
   </div>
 </div>
@@ -368,6 +538,12 @@
         <label class="form-label" for="task-command-input" data-i18n="t_modal_task_command_label">Comando de Minecraft a Enviar</label>
         <input type="text" id="task-command-input" class="form-input" data-i18n-placeholder="t_modal_task_command_placeholder" placeholder="Ej: say ¡El servidor se reiniciará en 5 minutos!">
         <div class="field-hint" data-i18n="t_modal_task_command_hint">Comando que se enviará directamente a la consola del servidor.</div>
+      </div>
+
+      <div class="form-group" id="task-backup-policy-group" style="display: none;">
+        <label class="form-label" for="task-backup-policy-select" data-i18n="t_modal_task_backup_policy_label">Política de Respaldo a Ejecutar</label>
+        <select id="task-backup-policy-select" class="form-input"></select>
+        <div class="field-hint" data-i18n="t_modal_task_backup_policy_hint">Elige qué alcance y opciones de respaldo usará esta tarea. Puedes crear más políticas en la pestaña Respaldos.</div>
       </div>
 
       <div class="form-group">

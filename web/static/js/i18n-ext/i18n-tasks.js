@@ -49,7 +49,10 @@
     t_tasks_toast_need_name: 'Ingresa un nombre para la tarea',
     t_tasks_toast_saved_created: "Tarea '{0}' creada con éxito",
     t_tasks_toast_saved_updated: "Tarea '{0}' actualizada con éxito",
-    t_tasks_toast_save_error: 'Error al guardar tarea'
+    t_tasks_toast_save_error: 'Error al guardar tarea',
+    t_modal_task_backup_policy_label: 'Política de Respaldo a Ejecutar',
+    t_modal_task_backup_policy_hint: 'Elige qué alcance y opciones de respaldo usará esta tarea. Puedes crear más políticas en la pestaña Respaldos.',
+    t_tasks_policy_prefix: 'Política: {0}'
   }, {
     t_tasks_title: 'Scheduled Tasks',
     t_tasks_btn_new: 'Create New Scheduled Task',
@@ -99,6 +102,9 @@
     t_tasks_toast_need_name: 'Enter a name for the task',
     t_tasks_toast_saved_created: "Task '{0}' created successfully",
     t_tasks_toast_saved_updated: "Task '{0}' updated successfully",
-    t_tasks_toast_save_error: 'Error saving task'
+    t_tasks_toast_save_error: 'Error saving task',
+    t_modal_task_backup_policy_label: 'Backup Policy to Execute',
+    t_modal_task_backup_policy_hint: 'Choose which backup scope and options this task will use. You can create more policies in the Backups tab.',
+    t_tasks_policy_prefix: 'Policy: {0}'
   });
 })();

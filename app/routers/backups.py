@@ -22,6 +22,7 @@ class BackupCreateRequest(BaseModel):
     compression: Optional[bool] = None
     stop_server: Optional[bool] = None
     pre_command: Optional[str] = None
+    post_command: Optional[str] = None
 
 
 class BackupRestoreRequest(BaseModel):
@@ -36,7 +37,19 @@ class BackupConfigRequest(BaseModel):
     backup_targets: Optional[List[str]] = None
     backup_compression: Optional[bool] = True
     backup_stop_server: Optional[bool] = False
-    backup_pre_command: Optional[str] = "save-all"
+    backup_pre_command: Optional[str] = ""
+
+
+class BackupPolicyRequest(BaseModel):
+    id: Optional[str] = None
+    name: str
+    scope: Optional[str] = "full"
+    targets: Optional[List[str]] = None
+    compression: Optional[bool] = True
+    stop_server: Optional[bool] = False
+    pre_command: Optional[str] = ""
+    post_command: Optional[str] = ""
+    backup_max_count: Optional[int] = None
 
 
 @router.get("/api/backups/list", dependencies=[Depends(get_current_user)])
@@ -55,11 +68,15 @@ async def create_backup(req: BackupCreateRequest):
     compression = req.compression if req.compression is not None else cfg.get("backup_compression", True)
     stop_server = req.stop_server if req.stop_server is not None else cfg.get("backup_stop_server", False)
     pre_cmd = req.pre_command if req.pre_command is not None else cfg.get("backup_pre_command", "")
+    post_cmd = req.post_command if req.post_command is not None else cfg.get("backup_post_command", "")
 
     was_running = process_manager.get_status() != "OFFLINE"
 
-    if was_running and pre_cmd and pre_cmd.strip():
-        await process_manager.send_command(pre_cmd.strip())
+    if was_running:
+        await process_manager.send_command("save-all")
+        extra_cmd = (pre_cmd or "").strip()
+        if extra_cmd and extra_cmd.lower() != "save-all":
+            await process_manager.send_command(extra_cmd)
         await asyncio.sleep(2)
 
     if was_running and stop_server:
@@ -81,8 +98,10 @@ async def create_backup(req: BackupCreateRequest):
             compression=compression
         )
         if res.get("status") == "success":
+            max_count = int(cfg.get("backup_max_count", 5) or 5)
+            backup_manager.prune_backups(max_count=max_count)
             try:
-                activity_manager.log("backup", "Copia creada", f"Archivo: {res.get('filename')} | Tamaño: {res.get('size_human', 'N/A')}", user="admin", status="success")
+                activity_manager.log("backup", "Copia creada", f"Archivo: {res.get('filename')} | Tamaño: {res.get('size_formatted', 'N/A')}", user="admin", status="success")
             except Exception:
                 pass
         return res
@@ -90,6 +109,12 @@ async def create_backup(req: BackupCreateRequest):
         if was_running and stop_server:
             await asyncio.sleep(1)
             await process_manager.start_server()
+        post_text = (post_cmd or "").strip()
+        if post_text and process_manager.get_status() != "OFFLINE":
+            try:
+                await process_manager.send_command(post_text)
+            except Exception:
+                pass
 
 
 @router.post("/api/backups/restore", dependencies=[Depends(get_current_user)])
@@ -138,7 +163,7 @@ async def get_backup_config():
         "backup_targets": cfg.get("backup_targets", []),
         "backup_compression": cfg.get("backup_compression", True),
         "backup_stop_server": cfg.get("backup_stop_server", False),
-        "backup_pre_command": cfg.get("backup_pre_command", "save-all")
+        "backup_pre_command": "" if (cfg.get("backup_pre_command") or "").strip().lower() == "save-all" else (cfg.get("backup_pre_command") or "")
     }
 
 
@@ -150,17 +175,61 @@ async def save_backup_config(req: BackupConfigRequest):
         "backup_targets": req.backup_targets if req.backup_targets is not None else [],
         "backup_compression": req.backup_compression if req.backup_compression is not None else True,
         "backup_stop_server": req.backup_stop_server if req.backup_stop_server is not None else False,
-        "backup_pre_command": req.backup_pre_command if req.backup_pre_command is not None else "save-all"
+        "backup_pre_command": req.backup_pre_command.strip() if req.backup_pre_command is not None else ""
     }
     if req.auto_backup is not None:
         update_data["auto_backup"] = req.auto_backup
     if req.backup_interval_hours is not None:
         update_data["backup_interval_hours"] = req.backup_interval_hours
     settings.save_runtime_config(update_data)
+    if req.backup_max_count and req.backup_max_count > 0:
+        backup_manager.prune_backups(max_count=int(req.backup_max_count))
     if req.auto_backup is not None or req.backup_interval_hours is not None:
         task_scheduler.sync_auto_backup_task(
             enabled=bool(settings.runtime_config.get("auto_backup", False)),
             interval_hours=int(settings.runtime_config.get("backup_interval_hours", 24) or 24)
         )
     return {"status": "saved", "config": settings.runtime_config}
+
+
+@router.get("/api/backups/policies", dependencies=[Depends(get_current_user)])
+async def list_backup_policies():
+    cfg = settings.runtime_config
+    return {
+        "max_count": int(cfg.get("backup_max_count", 5) or 5),
+        "policies": backup_manager.get_policies(),
+    }
+
+
+@router.post("/api/backups/policies", dependencies=[Depends(get_current_user)])
+async def save_backup_policy(req: BackupPolicyRequest):
+    if req.backup_max_count is not None and req.backup_max_count > 0:
+        settings.save_runtime_config({"backup_max_count": int(req.backup_max_count)})
+        backup_manager.prune_backups(max_count=int(req.backup_max_count))
+
+    saved = backup_manager.save_policy({
+        "id": req.id,
+        "name": req.name,
+        "scope": req.scope or "full",
+        "targets": req.targets if req.targets is not None else [],
+        "compression": req.compression if req.compression is not None else True,
+        "stop_server": req.stop_server if req.stop_server is not None else False,
+        "pre_command": req.pre_command or "",
+        "post_command": req.post_command or "",
+    })
+    return {
+        "status": "saved",
+        "policy": saved,
+        "policies": backup_manager.get_policies(),
+        "max_count": int(settings.runtime_config.get("backup_max_count", 5) or 5),
+    }
+
+
+@router.delete("/api/backups/policies/{policy_id}", dependencies=[Depends(get_current_user)])
+async def delete_backup_policy(policy_id: str):
+    remaining = backup_manager.delete_policy(policy_id)
+    return {
+        "status": "deleted",
+        "policies": remaining,
+    }
 

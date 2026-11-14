@@ -49,7 +49,9 @@
     t_webhook_saved_success: 'Configuración de Webhooks guardada correctamente.',
     t_webhook_channel_enabled: 'Canal {0} activado.',
     t_webhook_channel_disabled: 'Canal {0} desactivado.',
-    t_webhook_err_channel_state: 'Error actualizando estado del canal'
+    t_webhook_err_channel_state: 'Error actualizando estado del canal',
+    t_webhook_btn_configure_channels: 'Configurar Canales',
+    t_modal_close: 'Cerrar'
   }, {
     t_webhook_heading: 'Notification Center & Webhooks',
     t_webhook_subtitle: 'Set up real-time automatic alerts for Discord, Telegram or Email.',
@@ -98,6 +100,8 @@
     t_webhook_saved_success: 'Webhook configuration saved successfully.',
     t_webhook_channel_enabled: 'Channel {0} enabled.',
     t_webhook_channel_disabled: 'Channel {0} disabled.',
-    t_webhook_err_channel_state: 'Error updating channel status'
+    t_webhook_err_channel_state: 'Error updating channel status',
+    t_webhook_btn_configure_channels: 'Configure Channels',
+    t_modal_close: 'Close'
   });
 })();

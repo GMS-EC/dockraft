@@ -32,7 +32,6 @@ const Installer = {
     if (this._langListener) return;
     this._langListener = true;
     window.addEventListener('dockraft:language_changed', () => {
-      if (typeof App === 'undefined' || App.activeTab !== 'installer') return;
       this.refreshLanguage();
     });
 
@@ -45,6 +44,14 @@ const Installer = {
         this.openBuildModal();
       });
     }
+  },
+
+  _translateVersionLabel(raw) {
+    const s = String(raw || '');
+    if (typeof I18n === 'undefined' || I18n.currentLang !== 'en') return s;
+    return s
+      .replace(/\(Última Versión Estable\)/g, `(${I18n.t('t_install_channel_latest_stable') || 'Latest Stable'})`)
+      .replace(/\(Estable\)/g, `(${I18n.t('t_install_channel_stable') || 'Stable'})`);
   },
 
   // Re-applies translations to currently visible installer sections (no toasts).
@@ -68,7 +75,11 @@ const Installer = {
       // Installed server: re-render locked banner, update card and plugin notices.
       const updateCard = document.getElementById('installer-update-card');
       if (updateCard) {
-        this.loadUpdateInfo(this.updateData || window.__INITIAL_STATS__);
+        if (this.updateData) {
+          this._renderUpdateInfo(this.updateData, { skipPluginsFetch: true });
+        } else {
+          this.loadUpdateInfo(window.__INITIAL_STATS__);
+        }
         this.updateApplyButtonText();
       }
     }
@@ -101,7 +112,7 @@ const Installer = {
       if (info && cfg) {
         const typeName = (cfg.server_type || 'Minecraft').toUpperCase();
         const ver = cfg.server_version || '';
-        info.innerHTML = `${I18n.t('t_install_banner_locked_installed_a')} <strong>${escapeHtml(typeName)} ${escapeHtml(ver)}</strong> (<code>${escapeHtml(cfg.server_file || 'server.jar')}</code>)${I18n.t('t_install_banner_locked_installed_b')}`;
+        info.innerHTML = `<span data-i18n="t_install_banner_locked_installed_a">${I18n.t('t_install_banner_locked_installed_a')}</span> <strong>${escapeHtml(typeName)} ${escapeHtml(ver)}</strong> (<code>${escapeHtml(cfg.server_file || 'server.jar')}</code>)<span data-i18n="t_install_banner_locked_installed_b">${I18n.t('t_install_banner_locked_installed_b')}</span>`;
       }
       if (btn) {
         btn.disabled = true;
@@ -314,10 +325,10 @@ const Installer = {
         const opt = document.createElement('option');
         if (typeof ver === 'object' && ver !== null) {
           opt.value = ver.id || ver.mc_version;
-          opt.textContent = ver.label || ver.id;
+          opt.textContent = this._translateVersionLabel(ver.label || ver.id);
         } else {
           opt.value = ver;
-          opt.textContent = ver;
+          opt.textContent = this._translateVersionLabel(ver);
         }
         select.appendChild(opt);
       });
@@ -493,23 +504,32 @@ const Installer = {
       const data = await res.json();
       this.updateData = data;
       window.__LAST_UPDATE_DATA__ = data;
+      this._renderUpdateInfo(data, { skipPluginsFetch: false });
+    } catch (err) {
+      console.warn("Could not load update info:", err);
+    }
+  },
 
-      if (!data.is_installed) {
-        card.style.display = 'none';
-        const sub = document.getElementById('update-plugins-subsection');
-        if (sub) sub.style.display = 'none';
-        return;
-      }
+  _renderUpdateInfo(data, opts = {}) {
+    const card = document.getElementById('installer-update-card');
+    if (!card || !data) return;
 
-      card.style.display = 'block';
-      const isBedrock = (data.server_type || '').toLowerCase() === 'bedrock';
-      const pluginsSub = document.getElementById('update-plugins-subsection');
-      if (pluginsSub) {
-        pluginsSub.style.display = isBedrock ? 'none' : 'block';
-        if (!isBedrock) {
-          this.loadConsolePluginUpdates();
-        }
+    if (!data.is_installed) {
+      card.style.display = 'none';
+      const sub = document.getElementById('update-plugins-subsection');
+      if (sub) sub.style.display = 'none';
+      return;
+    }
+
+    card.style.display = 'block';
+    const isBedrock = (data.server_type || '').toLowerCase() === 'bedrock';
+    const pluginsSub = document.getElementById('update-plugins-subsection');
+    if (pluginsSub) {
+      pluginsSub.style.display = isBedrock ? 'none' : 'block';
+      if (!isBedrock && !opts.skipPluginsFetch) {
+        this.loadConsolePluginUpdates();
       }
+    }
       const typeBadge = document.getElementById('update-server-type-badge');
       const curBadge = document.getElementById('update-current-version-badge');
       const statusBadge = document.getElementById('update-status-badge');
@@ -680,7 +700,7 @@ const Installer = {
         stables.forEach(v => {
           const opt = document.createElement('option');
           opt.value = v.id;
-          opt.textContent = v.label || v.id;
+          opt.textContent = this._translateVersionLabel(v.label || v.id);
           opt.setAttribute('data-channel', 'stable');
           selectStable.appendChild(opt);
         });
@@ -697,7 +717,7 @@ const Installer = {
         previews.forEach(v => {
           const opt = document.createElement('option');
           opt.value = v.id;
-          opt.textContent = v.label || v.id;
+          opt.textContent = this._translateVersionLabel(v.label || v.id);
           opt.setAttribute('data-channel', v.channel || 'pre');
           selectBeta.appendChild(opt);
         });
@@ -714,7 +734,7 @@ const Installer = {
         items.forEach(v => {
           const opt = document.createElement('option');
           opt.value = v.id;
-          opt.textContent = v.label || v.id;
+          opt.textContent = this._translateVersionLabel(v.label || v.id);
           select.appendChild(opt);
         });
         if (items.length === 0) {
@@ -727,10 +747,6 @@ const Installer = {
 
       this.switchUpdateChannel(this.currentUpdateChannel || 'stable');
       this.updateApplyButtonText();
-
-    } catch (err) {
-      console.warn("Could not load update info:", err);
-    }
   },
 
   currentUpdateChannel: 'stable',
@@ -961,7 +977,7 @@ const Installer = {
     }
 
     if (titleEl) {
-      titleEl.textContent = `${(meta.serverType || 'Minecraft').toUpperCase()} ${item.label || meta.versionId}`;
+      titleEl.textContent = `${(meta.serverType || 'Minecraft').toUpperCase()} ${this._translateVersionLabel(item.label || meta.versionId)}`;
     }
 
     if (btnOfficial) {
@@ -1020,11 +1036,7 @@ const Installer = {
     const meta = this.buildVersionMeta(serverType, selectedVersionId, itemCh);
 
     if (item.official_url) meta.officialUrl = item.official_url;
-    if (item.official_label) meta.officialLabel = item.official_label;
     if (item.wiki_url) meta.wikiUrl = item.wiki_url;
-    if (item.wiki_label) meta.wikiLabel = item.wiki_label;
-    if (item.advice_title) meta.adviceTitle = item.advice_title;
-    if (item.advice_text) meta.adviceText = item.advice_text;
     if (item.clean_version) meta.cleanVer = item.clean_version;
 
     this._renderVersionDetailsCard({

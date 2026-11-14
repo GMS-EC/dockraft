@@ -15,6 +15,10 @@ const Logs = {
 
   setupEvents() {
     // Search input listener is attached via HTML oninput
+    if (!this._langListener) {
+      this._langListener = true;
+      window.addEventListener('dockraft:language_changed', () => this.render());
+    }
   },
 
   async loadLogs(showToast = false) {
@@ -216,20 +220,24 @@ const Logs = {
   },
 
 
+  _t(key, fallback) {
+    return (typeof I18n !== 'undefined' && I18n.t) ? I18n.t(key, fallback) : fallback;
+  },
+
   formatCategoryBadge(cat) {
     switch (cat) {
       case 'console':
-        return `<span class="badge" style="background: rgba(163, 113, 247, 0.15); border: 1px solid #8957e5; color: #d2a8ff; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>Consola</span>`;
+        return `<span class="badge" style="background: rgba(163, 113, 247, 0.15); border: 1px solid #8957e5; color: #d2a8ff; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>${escapeHtml(this._t('logs_cat_console', 'Consola'))}</span>`;
       case 'server':
-        return `<span class="badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>Servidor</span>`;
+        return `<span class="badge" style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>${escapeHtml(this._t('logs_cat_server', 'Servidor'))}</span>`;
       case 'backup':
-        return `<span class="badge" style="background: rgba(56, 139, 253, 0.15); border: 1px solid #388bfd; color: #58a6ff; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Respaldo</span>`;
+        return `<span class="badge" style="background: rgba(56, 139, 253, 0.15); border: 1px solid #388bfd; color: #58a6ff; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>${escapeHtml(this._t('logs_cat_backup', 'Respaldo'))}</span>`;
       case 'update':
-        return `<span class="badge" style="background: rgba(45, 212, 191, 0.15); border: 1px solid #2dd4bf; color: #5eead4; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Actualización</span>`;
+        return `<span class="badge" style="background: rgba(45, 212, 191, 0.15); border: 1px solid #2dd4bf; color: #5eead4; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>${escapeHtml(this._t('logs_cat_update', 'Actualización'))}</span>`;
       case 'security':
-        return `<span class="badge" style="background: rgba(248, 81, 73, 0.15); border: 1px solid #f85149; color: #ff7b72; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Seguridad</span>`;
+        return `<span class="badge" style="background: rgba(248, 81, 73, 0.15); border: 1px solid #f85149; color: #ff7b72; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>${escapeHtml(this._t('logs_cat_security', 'Seguridad'))}</span>`;
       case 'tasks':
-        return `<span class="badge" style="background: rgba(227, 179, 65, 0.15); border: 1px solid #d29922; color: #f2cc60; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Tarea</span>`;
+        return `<span class="badge" style="background: rgba(227, 179, 65, 0.15); border: 1px solid #d29922; color: #f2cc60; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${escapeHtml(this._t('logs_cat_tasks', 'Tarea'))}</span>`;
       default:
         return `<span class="badge" style="font-size: 0.74rem;">${escapeHtml(cat || 'general')}</span>`;
     }
@@ -238,13 +246,13 @@ const Logs = {
   formatStatusBadge(level) {
     switch (level) {
       case 'success':
-        return `<span class="badge badge-success" style="font-size: 0.72rem;">Éxito</span>`;
+        return `<span class="badge badge-success" style="font-size: 0.72rem;">${escapeHtml(this._t('logs_status_success', 'Éxito'))}</span>`;
       case 'error':
-        return `<span class="badge badge-danger" style="font-size: 0.72rem;">Error</span>`;
+        return `<span class="badge badge-danger" style="font-size: 0.72rem;">${escapeHtml(this._t('logs_status_error', 'Error'))}</span>`;
       case 'warning':
-        return `<span class="badge badge-warning" style="font-size: 0.72rem;">Aviso</span>`;
+        return `<span class="badge badge-warning" style="font-size: 0.72rem;">${escapeHtml(this._t('logs_status_warning', 'Aviso'))}</span>`;
       default:
-        return `<span class="badge" style="background: rgba(110, 118, 129, 0.2); border: 1px solid #30363d; color: #8b949e; font-size: 0.72rem;">Info</span>`;
+        return `<span class="badge" style="background: rgba(110, 118, 129, 0.2); border: 1px solid #30363d; color: #8b949e; font-size: 0.72rem;">${escapeHtml(this._t('logs_status_info', 'Info'))}</span>`;
     }
   },
 
@@ -253,7 +261,8 @@ const Logs = {
     try {
       const d = new Date(ts);
       if (isNaN(d.getTime())) return escapeHtml(ts);
-      return d.toLocaleString('es-ES', {
+      const locale = (typeof I18n !== 'undefined' && I18n.currentLang === 'en') ? 'en-US' : 'es-ES';
+      return d.toLocaleString(locale, {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -267,9 +276,49 @@ const Logs = {
     }
   },
 
+  _translateBackendText(text) {
+    if (!text) return '';
+    const raw = String(text);
+    if (typeof I18n === 'undefined' || I18n.currentLang !== 'en') return raw;
+    const exactMap = {
+      'Inicio de sesión exitoso': 'Successful sign in',
+      'Fallo de autenticación': 'Authentication failed',
+      'Cierre de sesión': 'Sign out',
+      'Sesión cerrada por el usuario': 'Session closed by user',
+      'Inicio de servidor': 'Server started',
+      'Parada de servidor': 'Server stopped',
+      'Forzar apagado (Kill)': 'Force stop (Kill)',
+      'Copia creada': 'Backup created',
+      'Copia restaurada': 'Backup restored',
+      'Copia eliminada': 'Backup deleted',
+      'Actualización aplicada': 'Update applied',
+      'Tarea programada': 'Scheduled task',
+      'Comando ejecutado': 'Command executed'
+    };
+    if (exactMap[raw]) return exactMap[raw];
+    let out = raw;
+    out = out.replace(/^Usuario '([^']+)' conectado \(IP: ([^)]+)\)$/, "User '$1' signed in (IP: $2)");
+    out = out.replace(/^Intento fallido para usuario '([^']+)' \(IP: ([^)]+)\)$/, "Failed login attempt for user '$1' (IP: $2)");
+    return out;
+  },
+
   formatAction(act) {
-    if (!act) return 'Evento';
-    const dict = {
+    if (!act) return this._t('logs_event_default', 'Evento');
+    const isEn = typeof I18n !== 'undefined' && I18n.currentLang === 'en';
+    const dict = isEn ? {
+      'command_executed': 'Command executed',
+      'server_start': 'Server started',
+      'server_stop': 'Server stopped',
+      'server_kill': 'Force stop (Kill)',
+      'backup_created': 'Backup created',
+      'backup_restored': 'Backup restored',
+      'backup_deleted': 'Backup deleted',
+      'server_update': 'Update applied',
+      'login_success': 'Successful sign in',
+      'login_failed': 'Authentication failed',
+      'logout': 'Sign out',
+      'task_run': 'Scheduled task'
+    } : {
       'command_executed': 'Comando ejecutado',
       'server_start': 'Inicio de servidor',
       'server_stop': 'Parada de servidor',
@@ -283,7 +332,7 @@ const Logs = {
       'logout': 'Cierre de sesión',
       'task_run': 'Tarea programada'
     };
-    return dict[act] || act;
+    return dict[act] || this._translateBackendText(act);
   },
 
   formatDetail(item) {
@@ -295,15 +344,17 @@ const Logs = {
         <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, 0.35); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(163, 113, 247, 0.25);">
           <span style="color: #d2a8ff; font-family: var(--font-mono); font-size: 0.82rem;">&gt;</span>
           <code style="font-family: var(--font-mono); color: #79c0ff; font-size: 0.83rem; font-weight: 500;">${cmd}</code>
-          <button data-cmd="${escapeHtml(cleanCmd)}" onclick="Logs.copyCommand(this.dataset.cmd)" title="Copiar comando" style="background: none; border: none; color: #8b949e; cursor: pointer; padding: 2px 4px; display: inline-flex; align-items: center; font-size: 0.75rem;">
+          <button data-cmd="${escapeHtml(cleanCmd)}" onclick="Logs.copyCommand(this.dataset.cmd)" title="${escapeHtml(this._t('logs_copy_cmd', 'Copiar comando'))}" style="background: none; border: none; color: #8b949e; cursor: pointer; padding: 2px 4px; display: inline-flex; align-items: center; font-size: 0.75rem;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
         </div>
       `;
     }
 
-    const msg = escapeHtml(item.message || '');
-    const detail = rawDetail && rawDetail !== item.message ? `<div style="font-size: 0.76rem; color: var(--text-dim); margin-top: 2px;">${escapeHtml(rawDetail)}</div>` : (item.message ? '' : escapeHtml(rawDetail));
+    const msgText = this._translateBackendText(item.message || '');
+    const detailText = this._translateBackendText(rawDetail);
+    const msg = escapeHtml(msgText);
+    const detail = detailText && detailText !== msgText ? `<div style="font-size: 0.76rem; color: var(--text-dim); margin-top: 2px;">${escapeHtml(detailText)}</div>` : (msgText ? '' : escapeHtml(detailText));
     return `<div>${msg}${detail}</div>`;
   },
 

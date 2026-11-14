@@ -1,6 +1,10 @@
 import os
+import re
+import uuid
+import json
 import stat
 import logging
+import unicodedata
 import zipfile
 import shutil
 from datetime import datetime
@@ -8,14 +12,71 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException
 from app.config import settings
-from app.core.fs_utils import PROTECTED_INTERNAL_FILES, format_size, safe_extract_zip
+from app.core.fs_utils import PROTECTED_INTERNAL_FILES, atomic_write_json, format_size, safe_extract_zip
 
 logger = logging.getLogger("dockraft.backups")
 
 class BackupManager:
+    META_FILENAME = ".backups_meta.json"
+
     def __init__(self):
         self.backups_dir: Path = settings.backups_dir
         self._ensure_dir()
+
+    @property
+    def _meta_file(self) -> Path:
+        return self.backups_dir / self.META_FILENAME
+
+    def _load_metadata(self) -> Dict[str, Dict[str, Any]]:
+        if not self._meta_file.exists():
+            return {}
+        try:
+            with open(self._meta_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _save_metadata(self, meta: Dict[str, Dict[str, Any]]) -> None:
+        try:
+            atomic_write_json(self._meta_file, meta, indent=2)
+        except Exception as e:
+            logger.warning("Failed to save backups metadata: %s", e)
+
+    def _record_backup_meta(self, filename: str, origin: str, scope: str, tag: str, created_at: str) -> None:
+        meta = self._load_metadata()
+        meta[filename] = {
+            "origin": origin,
+            "scope": scope,
+            "tag": tag,
+            "created_at": created_at,
+        }
+        self._save_metadata(meta)
+
+    def _remove_backup_meta(self, filename: str) -> None:
+        meta = self._load_metadata()
+        if filename in meta:
+            del meta[filename]
+            self._save_metadata(meta)
+
+    @staticmethod
+    def _slugify_server_name(name: Optional[str]) -> str:
+        raw = str(name or "").strip()
+        if not raw:
+            return "dockraft"
+        normalized = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii")
+        slug = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+        return (slug[:40].strip("-")) or "dockraft"
+
+    @staticmethod
+    def _scope_label(scope: str) -> str:
+        labels = {
+            "worlds_plugins": "Mundos + Plugins",
+            "worlds": "Solo Mundos",
+            "custom": "Personalizado",
+            "full": "Completo",
+        }
+        return labels.get(scope, "Completo")
 
     def _ensure_dir(self) -> None:
         self.backups_dir.mkdir(parents=True, exist_ok=True)
@@ -98,20 +159,33 @@ class BackupManager:
         """Lists all existing backup zip archives, ordered newest first."""
         self._ensure_dir()
         backups: List[Dict[str, Any]] = []
+        meta_map = self._load_metadata()
 
         try:
             for item in self.backups_dir.iterdir():
                 if item.is_file() and item.name.endswith(".zip"):
                     stat = item.stat()
                     dt = datetime.fromtimestamp(stat.st_mtime)
-                    scope, scope_label = self._determine_scope(item.name)
+                    meta = meta_map.get(item.name, {})
+                    if meta.get("scope") in ("full", "worlds", "worlds_plugins", "custom"):
+                        scope = meta["scope"]
+                        scope_label = self._scope_label(scope)
+                    else:
+                        scope, scope_label = self._determine_scope(item.name)
+
+                    origin = meta.get("origin")
+                    if origin not in ("auto", "manual"):
+                        origin = "auto" if "auto" in item.name.lower() else "manual"
+
                     backups.append({
                         "filename": item.name,
                         "size_bytes": stat.st_size,
                         "size_formatted": format_size(stat.st_size),
-                        "created_at": dt.strftime("%Y-%m-%d %H:%M:%S"),
+                        "created_at": meta.get("created_at") or dt.strftime("%Y-%m-%d %H:%M:%S"),
                         "timestamp": stat.st_mtime,
-                        "is_auto": "auto" in item.name.lower(),
+                        "origin": origin,
+                        "is_auto": origin == "auto",
+                        "tag": meta.get("tag", ""),
                         "scope": scope,
                         "scope_label": scope_label
                     })
@@ -141,6 +215,19 @@ class BackupManager:
         """Creates a zip archive of server files with selective scope."""
         if compress is not None:
             compression = compress
+
+        try:
+            from app.core.downloader import downloader
+            if downloader.progress.get("is_downloading"):
+                raise HTTPException(
+                    status_code=409,
+                    detail="No se puede crear un respaldo mientras se está instalando o descargando el servidor."
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
         if not self.has_server_data():
             raise HTTPException(
                 status_code=400,
@@ -148,11 +235,20 @@ class BackupManager:
             )
 
         self._ensure_dir()
-        now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        clean_tag = "auto" if tag == "auto" else "manual"
+        now_dt = datetime.now()
+        now_str = now_dt.strftime("%Y-%m-%d_%H-%M-%S")
+        created_at_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+        origin = "auto" if str(tag or "").strip().lower() == "auto" else "manual"
         clean_scope = scope if scope in ["full", "worlds", "worlds_plugins", "custom"] else "full"
-        filename = f"backup_{clean_tag}_{clean_scope}_{now_str}.zip"
+        server_slug = self._slugify_server_name(settings.runtime_config.get("server_name"))
+
+        filename = f"{server_slug}_{now_str}.zip"
         target_zip = self.backups_dir / filename
+        suffix = 1
+        while target_zip.exists():
+            filename = f"{server_slug}_{now_str}_{suffix}.zip"
+            target_zip = self.backups_dir / filename
+            suffix += 1
 
         # Protected / excluded directories and files
         excluded_dirs = {"backups", ".git", ".idea", "__pycache__"}
@@ -220,7 +316,14 @@ class BackupManager:
 
             stat = target_zip.stat()
             formatted_sz = format_size(stat.st_size)
-            _, scope_label = self._determine_scope(filename)
+            scope_label = self._scope_label(clean_scope)
+            self._record_backup_meta(
+                filename=filename,
+                origin=origin,
+                scope=clean_scope,
+                tag=str(tag or origin),
+                created_at=created_at_str,
+            )
 
             try:
                 from app.core.webhook_manager import webhook_manager
@@ -242,11 +345,13 @@ class BackupManager:
             return {
                 "status": "success",
                 "filename": filename,
+                "origin": origin,
+                "is_auto": origin == "auto",
                 "scope": clean_scope,
                 "scope_label": scope_label,
                 "size_bytes": stat.st_size,
                 "size_formatted": formatted_sz,
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "created_at": created_at_str
             }
         except Exception as e:
             if target_zip.exists():
@@ -294,19 +399,20 @@ class BackupManager:
             raise HTTPException(status_code=500, detail=f"Failed to restore backup: {str(e)}")
 
     def delete_backup(self, filename: str) -> Dict[str, Any]:
-        """Deletes a backup file."""
+        """Deletes a backup file and its metadata entry."""
         backup_file = self.get_backup_path(filename)
         try:
             backup_file.unlink()
+            self._remove_backup_meta(backup_file.name)
             return {"status": "deleted", "filename": filename}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to delete backup: {str(e)}")
 
-    def prune_auto_backups(self, max_count: int = 5) -> int:
-        """Removes oldest automatic backups exceeding max_count."""
+    def prune_backups(self, max_count: int = 5) -> int:
+        """Removes oldest backups (regardless of origin) exceeding max_count."""
         if max_count <= 0:
             return 0
-        backups = [b for b in self.list_backups() if b.get("is_auto")]
+        backups = self.list_backups()
         deleted = 0
         if len(backups) > max_count:
             to_delete = backups[max_count:]
@@ -315,9 +421,136 @@ class BackupManager:
                     p = self.backups_dir / item["filename"]
                     if p.exists():
                         p.unlink()
+                        self._remove_backup_meta(item["filename"])
                         deleted += 1
                 except Exception:
                     pass
         return deleted
+
+    def prune_auto_backups(self, max_count: int = 5) -> int:
+        """Backward-compatible alias that enforces global backup retention."""
+        return self.prune_backups(max_count=max_count)
+
+    # --- Backup Policies ---
+    def _default_policy_from_config(self) -> Dict[str, Any]:
+        cfg = settings.runtime_config
+        pre = (cfg.get("backup_pre_command") or "").strip()
+        if pre.lower() == "save-all":
+            pre = ""
+        scope = cfg.get("backup_scope", "full")
+        if scope not in ("full", "custom", "worlds", "worlds_plugins"):
+            scope = "full"
+        return {
+            "id": "default",
+            "name": "Respaldo por Defecto",
+            "scope": scope,
+            "targets": list(cfg.get("backup_targets") or []),
+            "compression": bool(cfg.get("backup_compression", True)),
+            "stop_server": bool(cfg.get("backup_stop_server", False)),
+            "pre_command": pre,
+            "post_command": str(cfg.get("backup_post_command") or "").strip(),
+        }
+
+    def get_policies(self) -> List[Dict[str, Any]]:
+        """Returns configured backup policies, seeding a default policy if none exist."""
+        cfg = settings.runtime_config
+        raw = cfg.get("backup_policies")
+        if isinstance(raw, list) and len(raw) > 0:
+            cleaned: List[Dict[str, Any]] = []
+            for p in raw:
+                if not isinstance(p, dict):
+                    continue
+                pid = str(p.get("id") or "").strip() or uuid.uuid4().hex[:8]
+                scope = p.get("scope", "full")
+                if scope not in ("full", "custom", "worlds", "worlds_plugins"):
+                    scope = "full"
+                pre = str(p.get("pre_command") or "").strip()
+                if pre.lower() == "save-all":
+                    pre = ""
+                cleaned.append({
+                    "id": pid,
+                    "name": str(p.get("name") or "Política de Respaldo").strip() or "Política de Respaldo",
+                    "scope": scope,
+                    "targets": list(p.get("targets") or []),
+                    "compression": bool(p.get("compression", True)),
+                    "stop_server": bool(p.get("stop_server", False)),
+                    "pre_command": pre,
+                    "post_command": str(p.get("post_command") or "").strip(),
+                })
+            if cleaned:
+                return cleaned
+        return [self._default_policy_from_config()]
+
+    def get_policy(self, policy_id: Optional[str] = None) -> Dict[str, Any]:
+        """Resolves a policy by ID, falling back to the first/default policy."""
+        policies = self.get_policies()
+        if policy_id:
+            for p in policies:
+                if p["id"] == policy_id:
+                    return p
+        return policies[0]
+
+    def save_policy(self, policy_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Creates or updates a backup policy in runtime_config."""
+        policies = self.get_policies()
+        pid = str(policy_data.get("id") or "").strip()
+        scope = policy_data.get("scope", "full")
+        if scope not in ("full", "custom", "worlds", "worlds_plugins"):
+            scope = "full"
+        pre = str(policy_data.get("pre_command") or "").strip()
+        if pre.lower() == "save-all":
+            pre = ""
+        name = str(policy_data.get("name") or "").strip() or "Política de Respaldo"
+        entry = {
+            "id": pid or uuid.uuid4().hex[:8],
+            "name": name,
+            "scope": scope,
+            "targets": list(policy_data.get("targets") or []),
+            "compression": bool(policy_data.get("compression", True)),
+            "stop_server": bool(policy_data.get("stop_server", False)),
+            "pre_command": pre,
+            "post_command": str(policy_data.get("post_command") or "").strip(),
+        }
+
+        idx = next((i for i, p in enumerate(policies) if p["id"] == entry["id"]), None)
+        if idx is not None:
+            policies[idx] = entry
+        else:
+            if len(policies) >= 4:
+                raise HTTPException(status_code=400, detail="Solo puedes tener hasta 4 políticas de respaldo.")
+            policies.append(entry)
+
+        update_cfg: Dict[str, Any] = {"backup_policies": policies}
+        # Keep legacy top-level backup_* fields synced with the first/default policy
+        primary = policies[0]
+        update_cfg.update({
+            "backup_scope": primary["scope"],
+            "backup_targets": primary["targets"],
+            "backup_compression": primary["compression"],
+            "backup_stop_server": primary["stop_server"],
+            "backup_pre_command": primary["pre_command"],
+            "backup_post_command": primary.get("post_command", ""),
+        })
+        settings.save_runtime_config(update_cfg)
+        return entry
+
+    def delete_policy(self, policy_id: str) -> List[Dict[str, Any]]:
+        """Deletes a backup policy by ID (requires at least one policy to remain)."""
+        policies = self.get_policies()
+        if len(policies) <= 1:
+            raise HTTPException(status_code=400, detail="Debe existir al menos una política de respaldo.")
+        remaining = [p for p in policies if p["id"] != policy_id]
+        if len(remaining) == len(policies):
+            raise HTTPException(status_code=404, detail="Política de respaldo no encontrada.")
+        primary = remaining[0]
+        settings.save_runtime_config({
+            "backup_policies": remaining,
+            "backup_scope": primary["scope"],
+            "backup_targets": primary["targets"],
+            "backup_compression": primary["compression"],
+            "backup_stop_server": primary["stop_server"],
+            "backup_pre_command": primary["pre_command"],
+        })
+        return remaining
 
 backup_manager = BackupManager()

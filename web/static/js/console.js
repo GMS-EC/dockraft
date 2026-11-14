@@ -444,7 +444,7 @@ const Console = {
       const isStarting = stats.status === 'STARTING';
       const isStopping = stats.status === 'STOPPING';
       if (topStatus) {
-        let label = 'Apagado';
+        let label = this._t('banner_status_offline', 'Apagado');
         if (isOnline) label = this._t('banner_status_running', 'En línea');
         else if (isStarting) label = this._t('banner_status_starting', 'Iniciando...');
         else if (isStopping) label = this._t('banner_status_stopping', 'Deteniendo...');
@@ -453,12 +453,16 @@ const Console = {
         topStatus.className = `overview-val status-text-inline ${stats.status ? stats.status.toLowerCase() : 'offline'}`;
       }
       if (topName) topName.textContent = stats.server_name || 'Mi Servidor Dockraft';
-      if (topStarted) topStarted.textContent = stats.started_at_str || this._t('t_console_not_started', 'No iniciado');
+      if (topStarted) {
+        const hasStarted = stats.started_at_str && stats.started_at_str !== 'No iniciado';
+        topStarted.textContent = hasStarted ? stats.started_at_str : this._t('t_console_not_started', 'No iniciado');
+      }
       if (topUptime) {
         if (typeof I18n !== 'undefined' && I18n.formatUptime && stats.uptime_seconds !== undefined && stats.uptime_seconds !== null && Number(stats.uptime_seconds) > 0) {
           topUptime.textContent = I18n.formatUptime(Number(stats.uptime_seconds));
         } else {
-          topUptime.textContent = stats.uptime_formatted || this._t('t_console_not_started', 'No iniciado');
+          const hasUptime = stats.uptime_formatted && stats.uptime_formatted !== 'Fuera de línea' && stats.uptime_formatted !== 'No iniciado';
+          topUptime.textContent = hasUptime ? stats.uptime_formatted : this._t('t_console_tps_offline', 'Fuera de línea');
         }
       }
       if (topCpu) topCpu.textContent = `${cpuPct.toFixed(1)} %`;

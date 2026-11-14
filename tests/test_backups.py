@@ -22,13 +22,19 @@ def test_backup_create_list_restore_delete(tmp_path):
     data = res.json()
     assert data["status"] == "success"
     filename = data["filename"]
-    assert filename.startswith("backup_manual_") or filename.startswith("backup_test_") or "backup_" in filename
+    assert filename.endswith(".zip")
+    assert data["origin"] == "manual"
+    assert data["is_auto"] is False
+    assert "manual" not in filename and "auto" not in filename
 
     # 2. List backups
     res_list = client.get("/api/backups/list")
     assert res_list.status_code == 200
     items = res_list.json()
-    assert any(b["filename"] == filename for b in items)
+    item = next((b for b in items if b["filename"] == filename), None)
+    assert item is not None
+    assert item["origin"] == "manual"
+    assert item["is_auto"] is False
 
     # 3. Download backup
     res_dl = client.get(f"/api/backups/download/{filename}")
@@ -75,24 +81,26 @@ def test_backup_selective_scopes_and_targets(tmp_path):
     res_w = client.post("/api/backups/create", json={"tag": "test", "scope": "worlds"})
     assert res_w.status_code == 200
     data_w = res_w.json()
-    assert "worlds" in data_w["filename"]
+    assert data_w["filename"].endswith(".zip")
     assert data_w["scope"] == "worlds"
+    assert data_w["origin"] == "manual"
 
     # Test create custom backup selecting only plugins
-    res_c = client.post("/api/backups/create", json={"tag": "custom", "scope": "custom", "targets": ["plugins"]})
+    res_c = client.post("/api/backups/create", json={"tag": "auto", "scope": "custom", "targets": ["plugins"]})
     assert res_c.status_code == 200
     data_c = res_c.json()
-    assert "custom" in data_c["filename"]
+    assert data_c["filename"].endswith(".zip")
     assert data_c["scope"] == "custom"
+    assert data_c["origin"] == "auto"
 
-    # Verify list reports correct scope labels
+    # Verify list reports correct scope labels and origins without embedding them in filename
     res_list = client.get("/api/backups/list")
     assert res_list.status_code == 200
     items = res_list.json()
     item_w = next((b for b in items if b["filename"] == data_w["filename"]), None)
     item_c = next((b for b in items if b["filename"] == data_c["filename"]), None)
-    assert item_w is not None and item_w["scope"] == "worlds"
-    assert item_c is not None and item_c["scope"] == "custom"
+    assert item_w is not None and item_w["scope"] == "worlds" and item_w["is_auto"] is False
+    assert item_c is not None and item_c["scope"] == "custom" and item_c["is_auto"] is True
 
     # Clean up backups and test files
     client.delete(f"/api/backups/{data_w['filename']}")

@@ -118,7 +118,42 @@
 
     // --- Config save ---
     t_backup_err_save_cfg: 'Error guardando configuración de respaldo',
-    t_backup_toast_cfg_saved: 'Configuración de alcance y retención guardada correctamente.'
+    t_backup_toast_cfg_saved: 'Política de respaldo guardada correctamente.',
+
+    // --- Policies, Filters, Retention & Post-Command ---
+    t_backup_policy_label: 'Rotación Global',
+    t_backup_policies_title: 'Políticas de Respaldo',
+    t_backup_policies_desc: 'Perfiles reutilizables para tareas automáticas',
+    t_backup_btn_new_policy: 'Nueva Política',
+    t_backup_filter_all: 'Todas',
+    t_backup_filter_auto: 'Automáticas',
+    t_backup_filter_manual: 'Manuales',
+    t_modal_backup_postcmd_label: 'Comando al finalizar el respaldo (Opcional)',
+    t_modal_backup_postcmd_hint: 'Se ejecuta en consola al terminar el respaldo (si el servidor está en línea).',
+    t_backup_policy_name_label: 'Nombre de la Política',
+    t_backup_cfg_postcmd_label: 'Comando al finalizar el respaldo (Opcional)',
+    t_backup_cfg_postcmd_hint: 'Se ejecuta en consola al terminar el respaldo (si el servidor está en línea).',
+    t_backup_btn_delete_policy: 'Eliminar Política',
+    t_backup_retention_modal_title: 'Rotación Global de Respaldos',
+    t_backup_btn_save_retention: 'Guardar Límite',
+    t_backup_delete_policy_title: 'Eliminar Política de Respaldo',
+    t_backup_delete_policy_msg: "¿Deseas eliminar la política '{0}'? Las tareas que la usen pasarán a usar la política principal.",
+    t_backup_edit_policy_btn: 'Editar política',
+    t_backup_edit_policy_title: 'Editar Política de Respaldo',
+    t_backup_new_policy_title: 'Nueva Política de Respaldo',
+    t_backup_policy_custom_count: 'Personalizado ({0} elementos)',
+    t_backup_policy_deleted: 'Política eliminada correctamente.',
+    t_backup_toast_retention_saved: 'Rotación global actualizada a máximo {0} copias.',
+    t_backup_warn_max_policies: 'Solo puedes crear hasta 4 políticas de respaldo.',
+    t_backup_warn_policy_name: 'Ingresa un nombre para la política de respaldo',
+    t_backup_flag_zip_compressed: 'ZIP comprimido',
+    t_backup_flag_zip_fast: 'ZIP rápido (STORE)',
+    t_backup_flag_stop_server: 'Apaga servidor',
+    t_backup_max_copies_fmt: 'Máx. {0} copias',
+    t_backup_max_copy_fmt: 'Máx. {0} copia',
+    t_backup_pre_cmd_placeholder: 'ej: say Creando copia de seguridad...',
+    t_backup_post_cmd_placeholder: 'ej: say ¡Copia de seguridad completada!',
+    t_backup_policy_name_placeholder: 'Ej: Respaldo Completo Diario'
   }, {
     // --- Stat boxes ---
     t_backup_stat_total: 'Total Backups',
@@ -233,6 +268,41 @@
 
     // --- Config save ---
     t_backup_err_save_cfg: 'Error saving backup configuration',
-    t_backup_toast_cfg_saved: 'Backup scope and retention configuration saved successfully.'
+    t_backup_toast_cfg_saved: 'Backup policy saved successfully.',
+
+    // --- Policies, Filters, Retention & Post-Command ---
+    t_backup_policy_label: 'Global Retention',
+    t_backup_policies_title: 'Backup Policies',
+    t_backup_policies_desc: 'Reusable profiles for scheduled tasks',
+    t_backup_btn_new_policy: 'New Policy',
+    t_backup_filter_all: 'All',
+    t_backup_filter_auto: 'Automatic',
+    t_backup_filter_manual: 'Manual',
+    t_modal_backup_postcmd_label: 'Post-backup command (Optional)',
+    t_modal_backup_postcmd_hint: 'Runs in the console when the backup finishes (if the server is online).',
+    t_backup_policy_name_label: 'Policy Name',
+    t_backup_cfg_postcmd_label: 'Post-backup command (Optional)',
+    t_backup_cfg_postcmd_hint: 'Runs in the console when the backup finishes (if the server is online).',
+    t_backup_btn_delete_policy: 'Delete Policy',
+    t_backup_retention_modal_title: 'Global Backup Retention',
+    t_backup_btn_save_retention: 'Save Limit',
+    t_backup_delete_policy_title: 'Delete Backup Policy',
+    t_backup_delete_policy_msg: "Do you want to delete the policy '{0}'? Tasks using it will fall back to the primary policy.",
+    t_backup_edit_policy_btn: 'Edit policy',
+    t_backup_edit_policy_title: 'Edit Backup Policy',
+    t_backup_new_policy_title: 'New Backup Policy',
+    t_backup_policy_custom_count: 'Custom ({0} items)',
+    t_backup_policy_deleted: 'Policy deleted successfully.',
+    t_backup_toast_retention_saved: 'Global retention updated to max {0} backups.',
+    t_backup_warn_max_policies: 'You can only create up to 4 backup policies.',
+    t_backup_warn_policy_name: 'Enter a name for the backup policy',
+    t_backup_pre_cmd_placeholder: 'e.g. say Creating backup...',
+    t_backup_post_cmd_placeholder: 'e.g. say Backup completed!',
+    t_backup_policy_name_placeholder: 'e.g. Daily Full Backup',
+    t_backup_flag_zip_compressed: 'Compressed ZIP',
+    t_backup_flag_zip_fast: 'Fast ZIP (STORE)',
+    t_backup_flag_stop_server: 'Stops server',
+    t_backup_max_copies_fmt: 'Max {0} backups',
+    t_backup_max_copy_fmt: 'Max {0} backup'
   });
 })();

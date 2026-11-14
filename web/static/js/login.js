@@ -239,4 +239,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (toggleBtn) {
     toggleBtn.addEventListener('click', () => LoginApp.togglePasswordVisibility());
   }
+  const langToggleBtn = document.getElementById('login-lang-toggle');
+  if (langToggleBtn && typeof I18n !== 'undefined') {
+    const syncLangLabel = () => {
+      langToggleBtn.textContent = (I18n.currentLang || 'es').toUpperCase();
+    };
+    syncLangLabel();
+    langToggleBtn.addEventListener('click', () => {
+      I18n.toggleLanguage();
+      syncLangLabel();
+    });
+  }
 });

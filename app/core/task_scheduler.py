@@ -254,17 +254,26 @@ class TaskScheduler:
                 result["message"] = "Servidor reiniciado"
 
             elif action == "backup":
+                from app.core.downloader import downloader
+                if downloader.progress.get("is_downloading") or not process_manager.is_installed():
+                    result["message"] = "Instalación en progreso o servidor no instalado; respaldo omitido"
+                    return result
+
                 cfg = settings.runtime_config
-                scope = cfg.get("backup_scope", "full")
-                targets = cfg.get("backup_targets", None)
-                compression = cfg.get("backup_compression", True)
-                stop_server = cfg.get("backup_stop_server", False)
-                pre_cmd = (cfg.get("backup_pre_command") or "").strip()
+                policy = backup_manager.get_policy(task.get("backup_policy_id"))
+                scope = policy.get("scope", "full")
+                targets = policy.get("targets") or None
+                compression = policy.get("compression", True)
+                stop_server = policy.get("stop_server", False)
+                pre_cmd = (policy.get("pre_command") or "").strip()
+                post_cmd = (policy.get("post_command") or "").strip()
 
                 was_running = process_manager.get_status() != "OFFLINE"
 
-                if was_running and pre_cmd:
-                    await process_manager.send_command(pre_cmd)
+                if was_running:
+                    await process_manager.send_command("save-all")
+                    if pre_cmd and pre_cmd.lower() != "save-all":
+                        await process_manager.send_command(pre_cmd)
                     await asyncio.sleep(2)
 
                 if was_running and stop_server:
@@ -289,10 +298,16 @@ class TaskScheduler:
                     if was_running and stop_server:
                         await asyncio.sleep(1)
                         await process_manager.start_server()
+                    if post_cmd and process_manager.get_status() != "OFFLINE":
+                        try:
+                            await process_manager.send_command(post_cmd)
+                        except Exception:
+                            pass
 
                 max_count = int(cfg.get("backup_max_count", 5) or 5)
-                backup_manager.prune_auto_backups(max_count=max_count)
-                result["message"] = f"Copia de seguridad generada ({scope}): {backup_res.get('filename')}"
+                backup_manager.prune_backups(max_count=max_count)
+                policy_name = policy.get("name", scope)
+                result["message"] = f"Copia de seguridad generada ({policy_name}): {backup_res.get('filename')}"
 
             elif action == "command":
                 cmd = task.get("command", "").strip()

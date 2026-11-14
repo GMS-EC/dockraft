@@ -31,6 +31,7 @@
     t_install_beta_warn_title: 'Advertencia de Inestabilidad (Versiones Experimentales)',
     t_install_beta_warn_desc: 'Las versiones Beta, Snapshots y Pre-releases son compilaciones preliminares en desarrollo. Pueden contener errores críticos, pérdida de datos, fallos de rendimiento o incompatibilidad con plugins y mods. Úsalas únicamente para pruebas y bajo tu propia responsabilidad. Dockraft creará una copia de seguridad preventiva antes de actualizar.',
     t_install_channel_stable: 'Estable',
+    t_install_channel_latest_stable: 'Última Versión Estable',
     t_install_no_stable_versions: 'No hay versiones estables disponibles',
     t_install_no_beta_versions: 'No hay versiones beta disponibles',
     t_install_beta_notice: 'NOTA: Estás instalando una versión Beta/Snapshot experimental.',
@@ -210,7 +211,8 @@
     t_install_err_plugin_scan: 'Error al escanear los logs de la consola.',
     t_install_err_plugin_scan_conn: 'Error de conexión al escanear logs.',
     t_install_err_plugin_notify: 'Error al notificar por Webhook.',
-    t_install_err_plugin_notify_dispatch: 'Error al despachar alerta de plugins.'
+    t_install_err_plugin_notify_dispatch: 'Error al despachar alerta de plugins.',
+    t_install_build_modal_btn_install_generic: 'Instalar esta versión'
   }, {
     // Locked banner
     t_install_banner_locked_title: 'Server Currently Installed',
@@ -241,6 +243,7 @@
     t_install_beta_warn_title: 'Instability Warning (Experimental Versions)',
     t_install_beta_warn_desc: 'Beta, Snapshot, and Pre-release versions are preliminary builds still in development. They may contain critical bugs, data loss, performance issues, or incompatibility with plugins and mods. Use them only for testing and at your own risk. Dockraft will create a preventive backup before updating.',
     t_install_channel_stable: 'Stable',
+    t_install_channel_latest_stable: 'Latest Stable',
     t_install_no_stable_versions: 'No stable versions available',
     t_install_no_beta_versions: 'No beta versions available',
     t_install_beta_notice: 'NOTE: You are installing an experimental Beta/Snapshot version.',
@@ -420,6 +423,7 @@
     t_install_err_plugin_scan: 'Error scanning the console logs.',
     t_install_err_plugin_scan_conn: 'Connection error while scanning logs.',
     t_install_err_plugin_notify: 'Error notifying via Webhook.',
-    t_install_err_plugin_notify_dispatch: 'Error dispatching the plugin alert.'
+    t_install_err_plugin_notify_dispatch: 'Error dispatching the plugin alert.',
+    t_install_build_modal_btn_install_generic: 'Install this version'
   });
 })();

@@ -1,11 +1,14 @@
 // Dockraft Backups Management Script
 const Backups = {
   backupsList: [],
+  policiesList: [],
   isLoading: false,
   selectedScope: 'full',
   configScope: 'full',
   configTargets: [],
   availableTargets: null,
+  originFilter: 'all',
+  maxBackupsCount: 5,
 
   _t(key, fallback) {
     if (typeof I18n !== 'undefined' && I18n.t) return I18n.t(key, fallback);
@@ -32,16 +35,37 @@ const Backups = {
   },
 
   async loadBackups() {
-    await Promise.all([
-      this.fetchBackupsList(),
-      this.fetchBackupConfig()
-    ]);
+    await this.fetchBackupConfig();
+    await this.fetchBackupsList();
+  },
+
+  setOriginFilter(filter) {
+    this.originFilter = ['auto', 'manual'].includes(filter) ? filter : 'all';
+    document.querySelectorAll('.backups-filter-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-filter') === this.originFilter);
+    });
+    this.renderBackupsTable();
+  },
+
+  updateSummaryBadges() {
+    const totalCountEl = document.getElementById('backups-total-count');
+    const policyEl = document.getElementById('backups-policy-summary');
+    if (totalCountEl) {
+      const count = this.backupsList.length;
+      totalCountEl.textContent = this.maxBackupsCount > 0
+        ? `${count} / ${this.maxBackupsCount}`
+        : this._tf('t_backup_count_copies', [count], '{0} copias');
+    }
+    if (policyEl) {
+      const n = this.maxBackupsCount || 5;
+      policyEl.textContent = n === 1
+        ? this._tf('t_backup_max_copy_fmt', [n], 'Máx. {0} copia')
+        : this._tf('t_backup_max_copies_fmt', [n], 'Máx. {0} copias');
+    }
   },
 
   async fetchBackupsList() {
     const tableBody = document.getElementById('backups-table-body');
-    const emptyState = document.getElementById('backups-empty-state');
-    const totalCountEl = document.getElementById('backups-total-count');
     const totalSizeEl = document.getElementById('backups-total-size');
 
     if (!tableBody) return;
@@ -54,81 +78,269 @@ const Backups = {
       let totalBytes = 0;
       this.backupsList.forEach(b => { totalBytes += (b.size_bytes || 0); });
 
-      if (totalCountEl) totalCountEl.textContent = this._tf('t_backup_count_copies', [this.backupsList.length], '{0} copias');
       if (totalSizeEl) totalSizeEl.textContent = this.formatBytes(totalBytes);
-
-      tableBody.innerHTML = '';
-      if (this.backupsList.length === 0) {
-        if (emptyState) emptyState.style.display = 'block';
-        return;
-      }
-
-      if (emptyState) emptyState.style.display = 'none';
-
-      this.backupsList.forEach(b => {
-        const tr = document.createElement('tr');
-        
-        // Origin badge (Manual vs Auto)
-        const originBadge = b.is_auto 
-          ? `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; background: rgba(56, 139, 253, 0.15); border: 1px solid #388bfd; color: #58a6ff;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${this._t('t_backup_badge_auto', 'Automático')}</span>`
-          : `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; color: #3fb950;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${this._t('t_backup_badge_manual', 'Manual')}</span>`;
-
-        // Scope badge
-        const scope = b.scope || 'full';
-        let scopeBadge = '';
-        if (scope === 'worlds') {
-          scopeBadge = `<span class="badge-scope badge-scope-worlds">${this._t('t_backup_scope_worlds', 'Solo Mundos')}</span>`;
-        } else if (scope === 'worlds_plugins') {
-          scopeBadge = `<span class="badge-scope badge-scope-worlds_plugins">${this._t('t_backup_scope_worlds_plugins', 'Mundos + Plugins')}</span>`;
-        } else if (scope === 'custom') {
-          scopeBadge = `<span class="badge-scope badge-scope-custom">${this._t('t_backup_scope_custom', 'Personalizado')}</span>`;
-        } else {
-          scopeBadge = `<span class="badge-scope badge-scope-full">${this._t('t_backup_badge_full', 'Completo')}</span>`;
-        }
-
-        tr.innerHTML = `
-          <td>
-            <div style="display: flex; align-items: center; gap: 6px; font-weight: 600; font-family: var(--font-mono); font-size: 0.88rem; color: #c9d1d9;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-              ${this.escapeHtml(b.filename)}
-            </div>
-          </td>
-          <td>${originBadge}</td>
-          <td>${scopeBadge}</td>
-          <td style="color: var(--text-dim); font-size: 0.85rem;">${b.created_at || '--'}</td>
-          <td style="font-family: var(--font-mono); font-size: 0.85rem; color: #79c0ff;">${b.size_formatted || '--'}</td>
-          <td style="text-align: right;">
-            <div style="display: inline-flex; gap: 6px;">
-              <a href="/api/backups/download/${encodeURIComponent(b.filename)}" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" title="${this._t('t_backup_download_title', 'Descargar archivo zip')}">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                ${this._t('t_backup_download', 'Descargar')}
-              </a>
-              <button class="btn btn-warning" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" data-action="restore" title="${this._t('t_backup_restore_title', 'Restaurar copia de seguridad')}">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                ${this._t('t_backup_restore', 'Restaurar')}
-              </button>
-              <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center;" data-action="delete" title="${this._t('t_backup_delete_title', 'Eliminar copia')}">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              </button>
-            </div>
-          </td>
-        `;
-        tr.querySelector('[data-action="restore"]')?.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.restoreBackup(b.filename);
-        });
-        tr.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.deleteBackup(b.filename);
-        });
-        tableBody.appendChild(tr);
-      });
-
+      this.updateSummaryBadges();
+      this.renderBackupsTable();
     } catch (err) {
       console.error(err);
       App.showToast(err.message, 'danger');
+    }
+  },
+
+  renderBackupsTable() {
+    const tableBody = document.getElementById('backups-table-body');
+    const emptyState = document.getElementById('backups-empty-state');
+    if (!tableBody) return;
+
+    const filtered = this.backupsList.filter(b => {
+      if (this.originFilter === 'auto') return !!b.is_auto;
+      if (this.originFilter === 'manual') return !b.is_auto;
+      return true;
+    });
+
+    tableBody.innerHTML = '';
+    if (filtered.length === 0) {
+      if (emptyState) emptyState.style.display = 'block';
+      return;
+    }
+
+    if (emptyState) emptyState.style.display = 'none';
+
+    filtered.forEach(b => {
+      const tr = document.createElement('tr');
+
+      const originBadge = b.is_auto
+        ? `<span class="badge-origin badge-origin-auto"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${this._t('t_backup_badge_auto', 'Automático')}</span>`
+        : `<span class="badge-origin badge-origin-manual"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${this._t('t_backup_badge_manual', 'Manual')}</span>`;
+
+      const scope = b.scope || 'full';
+      let scopeBadge = '';
+      if (scope === 'worlds') {
+        scopeBadge = `<span class="badge-scope badge-scope-worlds">${this._t('t_backup_scope_worlds', 'Solo Mundos')}</span>`;
+      } else if (scope === 'worlds_plugins') {
+        scopeBadge = `<span class="badge-scope badge-scope-worlds_plugins">${this._t('t_backup_scope_worlds_plugins', 'Mundos + Plugins')}</span>`;
+      } else if (scope === 'custom') {
+        scopeBadge = `<span class="badge-scope badge-scope-custom">${this._t('t_backup_scope_custom', 'Personalizado')}</span>`;
+      } else {
+        scopeBadge = `<span class="badge-scope badge-scope-full">${this._t('t_backup_badge_full', 'Completo')}</span>`;
+      }
+
+      tr.innerHTML = `
+        <td>
+          <div style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-family: var(--font-mono); font-size: 0.86rem; color: var(--text);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            ${this.escapeHtml(b.filename)}
+          </div>
+        </td>
+        <td>${originBadge}</td>
+        <td>${scopeBadge}</td>
+        <td style="color: var(--text-dim); font-size: 0.84rem;">${b.created_at || '--'}</td>
+        <td style="font-family: var(--font-mono); font-size: 0.84rem; color: var(--text-muted);">${b.size_formatted || '--'}</td>
+        <td style="text-align: right;">
+          <div style="display: inline-flex; gap: 6px;">
+            <a href="/api/backups/download/${encodeURIComponent(b.filename)}" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" title="${this._t('t_backup_download_title', 'Descargar archivo zip')}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              ${this._t('t_backup_download', 'Descargar')}
+            </a>
+            <button class="btn btn-warning" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" data-action="restore" title="${this._t('t_backup_restore_title', 'Restaurar copia de seguridad')}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              ${this._t('t_backup_restore', 'Restaurar')}
+            </button>
+            <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center;" data-action="delete" title="${this._t('t_backup_delete_title', 'Eliminar copia')}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        </td>
+      `;
+      tr.querySelector('[data-action="restore"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.restoreBackup(b.filename);
+      });
+      tr.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.deleteBackup(b.filename);
+      });
+      tableBody.appendChild(tr);
+    });
+  },
+
+  openConfigModal(policyId = null) {
+    const policy = policyId ? this.policiesList.find(p => p.id === policyId) : null;
+    if (!policy && this.policiesList.length >= 4) {
+      App.showToast(this._t('t_backup_warn_max_policies', 'Solo puedes crear hasta 4 políticas de respaldo.'), 'warning');
+      return;
+    }
+
+    const modal = document.getElementById('modal-backup-config');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('backup-policy-modal-title');
+    const idInput = document.getElementById('backup-policy-id');
+    const nameInput = document.getElementById('backup-policy-name');
+    const compToggle = document.getElementById('backup-config-compression');
+    const stopToggle = document.getElementById('backup-config-stop');
+    const preCmdInput = document.getElementById('backup-config-pre-cmd');
+    const postCmdInput = document.getElementById('backup-config-post-cmd');
+    const delBtn = document.getElementById('btn-delete-policy-modal');
+
+    if (policy) {
+      if (titleEl) titleEl.textContent = this._t('t_backup_edit_policy_title', 'Editar Política de Respaldo');
+      if (idInput) idInput.value = policy.id;
+      if (nameInput) nameInput.value = policy.name || '';
+      if (compToggle) compToggle.checked = policy.compression !== false;
+      if (stopToggle) stopToggle.checked = !!policy.stop_server;
+      if (preCmdInput) preCmdInput.value = policy.pre_command || '';
+      if (postCmdInput) postCmdInput.value = policy.post_command || '';
+      if (delBtn) delBtn.style.display = this.policiesList.length > 1 ? 'inline-flex' : 'none';
+      this.configTargets = Array.isArray(policy.targets) ? policy.targets : [];
+      this.selectConfigScope(policy.scope === 'custom' ? 'custom' : 'full');
+    } else {
+      if (titleEl) titleEl.textContent = this._t('t_backup_new_policy_title', 'Nueva Política de Respaldo');
+      if (idInput) idInput.value = '';
+      if (nameInput) nameInput.value = '';
+      if (compToggle) compToggle.checked = true;
+      if (stopToggle) stopToggle.checked = false;
+      if (preCmdInput) preCmdInput.value = '';
+      if (postCmdInput) postCmdInput.value = '';
+      if (delBtn) delBtn.style.display = 'none';
+      this.configTargets = [];
+      this.selectConfigScope('full');
+    }
+
+    modal.classList.add('open');
+  },
+
+  openRetentionModal() {
+    const modal = document.getElementById('modal-backup-retention');
+    const input = document.getElementById('backup-retention-max');
+    if (input) input.value = this.maxBackupsCount || 5;
+    if (modal) modal.classList.add('open');
+  },
+
+  closeRetentionModal() {
+    const modal = document.getElementById('modal-backup-retention');
+    if (modal) modal.classList.remove('open');
+  },
+
+  async saveRetentionMax() {
+    const input = document.getElementById('backup-retention-max');
+    const maxCount = Math.max(1, Math.min(50, parseInt(input?.value || '5', 10) || 5));
+    try {
+      const res = await fetch('/api/backups/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          backup_max_count: maxCount,
+          backup_scope: this.configScope || 'full',
+          backup_targets: this.configTargets || [],
+          backup_compression: this.configCompression !== false,
+          backup_stop_server: !!this.configStopServer,
+          backup_pre_command: this.configPreCommand || ''
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error guardando límite global');
+      this.maxBackupsCount = maxCount;
+      this.updateSummaryBadges();
+      this.closeRetentionModal();
+      await this.fetchBackupsList();
+      App.showToast(this._tf('t_backup_toast_retention_saved', [maxCount], 'Rotación global actualizada a máximo {0} copias.'), 'success');
+    } catch (err) {
+      App.showToast(err.message, 'danger');
+    }
+  },
+
+  async deleteCurrentPolicy() {
+    const idInput = document.getElementById('backup-policy-id');
+    const nameInput = document.getElementById('backup-policy-name');
+    const pid = idInput ? idInput.value.trim() : '';
+    const pname = nameInput ? nameInput.value.trim() : '';
+    if (!pid) return;
+    const deleted = await this.deletePolicy(pid, pname);
+    if (deleted) {
+      this.closeConfigModal();
+    }
+  },
+
+  renderPoliciesList() {
+    const container = document.getElementById('backups-policies-list');
+    const newBtn = document.getElementById('btn-new-policy');
+    if (newBtn) {
+      const atLimit = (this.policiesList || []).length >= 4;
+      newBtn.style.display = atLimit ? 'none' : 'inline-flex';
+    }
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!this.policiesList || this.policiesList.length === 0) {
+      container.innerHTML = `<div style="color: var(--text-dim); font-size: 0.84rem;">No hay políticas configuradas.</div>`;
+      return;
+    }
+
+    this.policiesList.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'backup-policy-card';
+
+      const scopeText = p.scope === 'custom'
+        ? this._tf('t_backup_policy_custom_count', [(p.targets || []).length], 'Personalizado ({0} elementos)')
+        : this._t('t_backup_scope_full', 'Servidor Completo');
+
+      const flags = [];
+      flags.push(p.compression !== false
+        ? this._t('t_backup_flag_zip_compressed', 'ZIP comprimido')
+        : this._t('t_backup_flag_zip_fast', 'ZIP rápido (STORE)'));
+      if (p.stop_server) flags.push(this._t('t_backup_flag_stop_server', 'Apaga servidor'));
+      if (p.pre_command) flags.push(`Pre: ${p.pre_command}`);
+      if (p.post_command) flags.push(`Post: ${p.post_command}`);
+
+      card.innerHTML = `
+        <div class="backup-policy-card-header">
+          <div style="min-width: 0;">
+            <div class="backup-policy-name">${this.escapeHtml(p.name)}</div>
+            <div class="backup-policy-scope">${this.escapeHtml(scopeText)}</div>
+          </div>
+          <button type="button" class="action-icon-btn" data-action="edit-policy" title="${this._t('t_backup_edit_policy_btn', 'Editar política')}" aria-label="${this._t('t_backup_edit_policy_btn', 'Editar política')}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
+        <div class="backup-policy-flags">${flags.map(f => `<span class="backup-policy-flag">${this.escapeHtml(f)}</span>`).join('')}</div>
+      `;
+
+      card.querySelector('[data-action="edit-policy"]')?.addEventListener('click', () => this.openConfigModal(p.id));
+      container.appendChild(card);
+    });
+  },
+
+  async deletePolicy(policyId, policyName) {
+    const ok = await App.confirm({
+      title: this._t('t_backup_delete_policy_title', 'Eliminar Política de Respaldo'),
+      message: this._tf('t_backup_delete_policy_msg', [policyName], "¿Deseas eliminar la política '{0}'? Las tareas que la usen pasarán a usar la política principal."),
+      confirmText: this._t('t_backup_confirm_delete_btn', 'Eliminar'),
+      danger: true
+    });
+    if (!ok) return false;
+
+    try {
+      const res = await fetch(`/api/backups/policies/${encodeURIComponent(policyId)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error eliminando política');
+      this.policiesList = data.policies || [];
+      this.renderPoliciesList();
+      this.updateSummaryBadges();
+      App.showToast(this._t('t_backup_policy_deleted', 'Política eliminada correctamente.'), 'success');
+      return true;
+    } catch (err) {
+      App.showToast(err.message, 'danger');
+      return false;
+    }
+  },
+
+  closeConfigModal() {
+    const modal = document.getElementById('modal-backup-config');
+    if (modal) {
+      modal.classList.remove('open');
     }
   },
 
@@ -147,7 +359,11 @@ const Backups = {
       if (stopModal) stopModal.checked = this.configStopServer !== undefined ? this.configStopServer : false;
 
       const preCmdModal = document.getElementById('backup-modal-pre-cmd');
-      if (preCmdModal) preCmdModal.value = this.configPreCommand !== undefined ? this.configPreCommand : 'save-all';
+      const cleanPreCmd = (this.configPreCommand && this.configPreCommand.toLowerCase() !== 'save-all') ? this.configPreCommand : '';
+      if (preCmdModal) preCmdModal.value = cleanPreCmd;
+
+      const postCmdModal = document.getElementById('backup-modal-post-cmd');
+      if (postCmdModal) postCmdModal.value = this.configPostCommand || '';
     }
   },
 
@@ -321,10 +537,12 @@ const Backups = {
     const compModal = document.getElementById('backup-modal-compression');
     const stopModal = document.getElementById('backup-modal-stop');
     const preCmdModal = document.getElementById('backup-modal-pre-cmd');
+    const postCmdModal = document.getElementById('backup-modal-post-cmd');
 
     const compression = compModal ? compModal.checked : true;
     const stopServer = stopModal ? stopModal.checked : false;
-    const preCommand = preCmdModal ? preCmdModal.value.trim() : 'save-all';
+    const preCommand = preCmdModal ? preCmdModal.value.trim() : '';
+    const postCommand = postCmdModal ? postCmdModal.value.trim() : '';
 
     let selectedTargets = null;
 
@@ -352,7 +570,8 @@ const Backups = {
         targets: selectedTargets,
         compression: compression,
         stop_server: stopServer,
-        pre_command: preCommand
+        pre_command: preCommand,
+        post_command: postCommand
       };
 
       const res = await fetch('/api/backups/create', {
@@ -427,39 +646,42 @@ const Backups = {
 
   async fetchBackupConfig() {
     try {
-      const res = await fetch('/api/backups/config');
+      const res = await fetch('/api/backups/policies');
       if (!res.ok) return;
-      const cfg = await res.json();
+      const data = await res.json();
 
-      const inputMax = document.getElementById('backup-config-max');
-      if (inputMax) inputMax.value = cfg.backup_max_count || 5;
+      this.maxBackupsCount = parseInt(data.max_count || 5, 10) || 5;
+      this.policiesList = Array.isArray(data.policies) ? data.policies : [];
 
-      const compToggle = document.getElementById('backup-config-compression');
-      if (compToggle) compToggle.checked = cfg.backup_compression !== false;
+      const primary = this.policiesList[0] || {};
+      this.configCompression = primary.compression !== false;
+      this.configStopServer = !!primary.stop_server;
+      this.configPreCommand = primary.pre_command || '';
+      this.configPostCommand = primary.post_command || '';
+      this.configScope = (primary.scope === 'custom') ? 'custom' : 'full';
+      this.configTargets = Array.isArray(primary.targets) ? primary.targets : [];
 
-      const stopToggle = document.getElementById('backup-config-stop');
-      if (stopToggle) stopToggle.checked = !!cfg.backup_stop_server;
-
-      const preCmdInput = document.getElementById('backup-config-pre-cmd');
-      if (preCmdInput) preCmdInput.value = cfg.backup_pre_command !== undefined ? cfg.backup_pre_command : 'save-all';
-
-      this.configCompression = cfg.backup_compression !== false;
-      this.configStopServer = !!cfg.backup_stop_server;
-      this.configPreCommand = cfg.backup_pre_command !== undefined ? cfg.backup_pre_command : 'save-all';
-
-      this.configScope = (cfg.backup_scope === 'custom') ? 'custom' : 'full';
-      this.configTargets = Array.isArray(cfg.backup_targets) ? cfg.backup_targets : [];
-      this.selectConfigScope(this.configScope);
+      this.renderPoliciesList();
+      this.updateSummaryBadges();
     } catch (err) {
-      console.warn("Could not fetch backup config:", err);
+      console.warn("Could not fetch backup policies:", err);
     }
   },
 
   async saveBackupConfig() {
-    const inputMax = document.getElementById('backup-config-max');
+    const idInput = document.getElementById('backup-policy-id');
+    const nameInput = document.getElementById('backup-policy-name');
     const compToggle = document.getElementById('backup-config-compression');
     const stopToggle = document.getElementById('backup-config-stop');
     const preCmdInput = document.getElementById('backup-config-pre-cmd');
+    const postCmdInput = document.getElementById('backup-config-post-cmd');
+
+    const policyName = (nameInput ? nameInput.value.trim() : '') || '';
+    if (!policyName) {
+      App.showToast(this._t('t_backup_warn_policy_name', 'Ingresa un nombre para la política de respaldo'), 'warning');
+      if (nameInput) nameInput.focus();
+      return;
+    }
 
     let selectedTargets = [];
 
@@ -473,28 +695,33 @@ const Backups = {
     }
 
     const payload = {
-      backup_max_count: parseInt(inputMax?.value || '5', 10),
-      backup_scope: this.configScope || 'full',
-      backup_targets: selectedTargets,
-      backup_compression: compToggle ? compToggle.checked : true,
-      backup_stop_server: stopToggle ? stopToggle.checked : false,
-      backup_pre_command: preCmdInput ? preCmdInput.value.trim() : 'save-all'
+      id: (idInput && idInput.value.trim()) ? idInput.value.trim() : null,
+      name: policyName,
+      scope: this.configScope || 'full',
+      targets: selectedTargets,
+      compression: compToggle ? compToggle.checked : true,
+      stop_server: stopToggle ? stopToggle.checked : false,
+      pre_command: preCmdInput ? preCmdInput.value.trim() : '',
+      post_command: postCmdInput ? postCmdInput.value.trim() : ''
     };
 
     try {
-      const res = await fetch('/api/backups/config', {
+      const res = await fetch('/api/backups/policies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_save_cfg', 'Error guardando configuración de respaldo'));
+      if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_save_cfg', 'Error guardando política de respaldo'));
 
-      this.configCompression = payload.backup_compression;
-      this.configStopServer = payload.backup_stop_server;
-      this.configPreCommand = payload.backup_pre_command;
+      this.maxBackupsCount = data.max_count || payload.backup_max_count || 5;
+      this.policiesList = Array.isArray(data.policies) ? data.policies : [];
+      this.renderPoliciesList();
+      this.updateSummaryBadges();
+      this.closeConfigModal();
+      await this.fetchBackupsList();
 
-      App.showToast(this._t('t_backup_toast_cfg_saved', 'Configuración de alcance y retención guardada correctamente.'), 'success');
+      App.showToast(this._t('t_backup_toast_cfg_saved', 'Política de respaldo guardada correctamente.'), 'success');
     } catch (err) {
       App.showToast(err.message, 'danger');
     }

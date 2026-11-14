@@ -7,6 +7,13 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ## [1.5.0] - 2026-11-13
 
+### Añadido (Added)
+- **Políticas de Respaldo Reutilizables y Rotación Global (`app/core/backup_manager.py`, `app/routers/backups.py`, `app/routers/tasks.py`, `app/core/task_scheduler.py`, `web/templates/tabs/backups.html`, `web/templates/components/modals.html`, `web/static/js/backups.js`, `web/static/js/tasks.js`):**
+  - Gestión de hasta 4 políticas de respaldo configurables (alcance completo o personalizado, compresión ZIP, apagado seguro, `pre_command` y `post_command`), seleccionables al programar tareas de tipo `backup`.
+  - Ejecución automática de `save-all` antes de copias con el servidor en línea, soporte para comando posterior (`post_command`), nombres normalizados (`<server-slug>_YYYY-MM-DD_HH-MM-SS.zip`) con metadatos en `.backups_meta.json`, filtros por origen (`Todas`, `Automáticas`, `Manuales`) y modal rápido de retención global.
+- **Selector de Idioma en el Login (`web/templates/login.html`, `web/static/js/login.js`, `web/static/js/i18n.js`):**
+  - Botón `ES` / `EN` en la tarjeta de inicio de sesión conectado mediante `addEventListener` (compatible con CSP) y mensaje simplificado de sesión caducada (`login_session_expired_desc`).
+
 ### Cambiado (Changed)
 - **Rediseño Visual del Frontend (`web/static/css/style.css`, `web/static/css/redesign.css`, `web/templates/base.html`, `web/templates/index.html`, `web/templates/components/banner.html`, `web/templates/tabs/console.html`):**
   - Adopción de la paleta *Mineral Slate & Moss* (`#141619` Basalt, `#1b1e23` Andesite, `#23272e` Slate, `#e5e7eb` Chalk, `#3ca374` Moss) con tipografías `Outfit` y `JetBrains Mono` y consola inspirada en Nord (`#101215` / `#d8dee9`).
@@ -26,6 +33,13 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Eliminación de un cierre `</div>` huérfano en `installer.html`.
   - Corrección del ancho del input `#setting-session-timeout` en `settings.html`.
   - Persistencia del estado deshabilitado de `#btn-install-server` al cambiar de pestaña durante una instalación activa en `installer.js`.
+- **Protección de Backups Durante Descargas/Instalaciones (`app/core/backup_manager.py`, `app/core/task_scheduler.py`):**
+  - Bloqueo de copias manuales y omisión de copias programadas mientras `downloader.progress["is_downloading"]` está activo.
+- **Exportación CSV de Logs con UTF-8 BOM (`app/core/activity_manager.py`):**
+  - Escritura de BOM UTF-8 (`\ufeff`) al exportar logs a CSV para conservar correctamente tildes y `ñ`/`Ñ` en Excel.
+- **Cobertura Completa de Traducciones ES/EN (`web/static/js/i18n.js`, `web/static/js/i18n-ext/*.js`, `web/static/js/console.js`, `web/static/js/logs.js`, `web/static/js/installer.js`, `web/static/js/backups.js`, `web/static/js/tasks.js`, `web/templates/tabs/logs.html`, `web/templates/components/modals.html`):**
+  - Traducción de estados de servidor (`No iniciado` / `Fuera de línea`), placeholders en modales de respaldo, buscador/insignias/registros en Logs y selectores/tarjetas de versiones en el Instalador.
+  - Refactorización de `refreshLanguage()` en `installer.js` (`_renderUpdateInfo()`) para actualizar el idioma al instante usando la caché en memoria sin reconsultar `/api/installer/update-info`.
 
 ### Eliminado (Removed)
 - **Activos y Código Obsoleto:**
