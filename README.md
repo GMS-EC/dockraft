@@ -106,7 +106,7 @@ Además de la versión clásica en contenedor Docker, **Dockraft** cuenta con ve
 
 En la sección de [**Releases**](https://github.com/GMS-EC/dockraft/releases/latest) encontrarás junto al código fuente (`Source code`):
 
-- **`Dockraft-Setup-<version>.exe`**: Instalador para Windows (64 bits).
+- **`Dockraft-<version>.exe`**: Ejecutable portable de un solo archivo para Windows (64 bits, sin instalación).
 - **`Dockraft-<version>-x86_64.AppImage`**: Ejecutable autocontenido para cualquier distribución Linux (`chmod +x Dockraft-*.AppImage && ./Dockraft-*.AppImage`).
 
 #### 🧰 Qué incluye la edición de Escritorio
@@ -138,7 +138,7 @@ En la sección de [**Releases**](https://github.com/GMS-EC/dockraft/releases/lat
   pip install -r requirements.txt -r packaging/windows/requirements-windows.txt
   powershell -ExecutionPolicy Bypass -File .\packaging\windows\build_windows.ps1
   ```
-  _(Genera `dist\Dockraft\Dockraft.exe` y, si tienes Inno Setup 6 instalado, el instalador `dist\Dockraft-Setup-<version>.exe`)._
+  _(Genera el ejecutable portable `dist\Dockraft-<version>.exe`)._
 - **En Linux (Bash)**:
   ```bash
   pip install -r requirements.txt -r packaging/linux/requirements-linux.txt
@@ -344,7 +344,7 @@ Alongside the classic Docker container, **Dockraft** provides native desktop bui
 
 Available on the [**Releases**](https://github.com/GMS-EC/dockraft/releases/latest) page alongside the source code archives:
 
-- **`Dockraft-Setup-<version>.exe`**: Windows x64 installer.
+- **`Dockraft-<version>.exe`**: Portable single-file executable for Windows x64 (no installation required).
 - **`Dockraft-<version>-x86_64.AppImage`**: Self-contained Linux x86_64 AppImage (`chmod +x Dockraft-*.AppImage && ./Dockraft-*.AppImage`).
 
 #### 🧰 Desktop Features
