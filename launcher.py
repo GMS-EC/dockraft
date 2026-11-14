@@ -3163,6 +3163,46 @@ def _handle_dialog_mode(payload_raw: str) -> int:
     return _run_dark_message_dialog(title, message, [(_tr("Aceptar", "OK"), 0, True)], default_idx=0)
 
 
+_SINGLE_INSTANCE_MUTEX = None
+
+
+def _update_splash(text: str) -> None:
+    try:
+        import pyi_splash  # type: ignore
+
+        if pyi_splash.is_alive():
+            pyi_splash.update_text(text)
+    except Exception:
+        pass
+
+
+def _close_splash() -> None:
+    try:
+        import pyi_splash  # type: ignore
+
+        if pyi_splash.is_alive():
+            pyi_splash.close()
+    except Exception:
+        pass
+
+
+def _acquire_single_instance_mutex() -> bool:
+    """Acquires an OS mutex for the main launcher so double-clicking Dockraft.exe twice doesn't start duplicate processes."""
+    global _SINGLE_INSTANCE_MUTEX
+    if sys.platform == "win32":
+        try:
+            kernel32 = ctypes.windll.kernel32
+            mutex = kernel32.CreateMutexW(None, False, "Local\\DockraftMainLauncherMutex_v1")
+            last_err = kernel32.GetLastError()
+            if mutex:
+                _SINGLE_INSTANCE_MUTEX = mutex
+            if last_err == 183:  # ERROR_ALREADY_EXISTS
+                return False
+        except Exception:
+            pass
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Dockraft Desktop Launcher")
     parser.add_argument("--instance-dir", default=os.getenv("DOCKRAFT_INSTANCE_DIR", ""), help="Carpeta de datos de la instancia")
@@ -3178,20 +3218,35 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.dialog_mode:
+        _close_splash()
         sys.exit(_handle_dialog_mode(args.dialog_mode))
     if args.instances_ui:
+        _close_splash()
         _run_instances_dialog()
         return
     if args.settings_ui:
+        _close_splash()
         _run_settings_dialog()
         return
     if args.about_ui:
+        _close_splash()
         _run_about_dialog()
         return
 
     has_gui = sys.platform == "win32" or bool(os.getenv("DISPLAY") or os.getenv("WAYLAND_DISPLAY"))
     is_headless = args.headless or not has_gui
+    if is_headless or args.setup:
+        _close_splash()
 
+    # Single-instance guard for the main desktop launcher
+    if not is_headless and not args.instance_dir and not args.setup:
+        if not _acquire_single_instance_mutex():
+            _close_splash()
+            if _discover_all_instances():
+                _run_instances_dialog()
+            return
+
+    _update_splash(_tr("Cargando configuración de Dockraft...", "Loading Dockraft configuration..."))
     cfg = _load_launcher_config()
     existing_instances = _discover_all_instances()
     has_saved_instance = len(existing_instances) > 0
@@ -3203,6 +3258,7 @@ def main() -> None:
         and not str(cfg.get("default_admin_password") or "").strip()
     )
     if is_first_launch:
+        _close_splash()
         if not _run_settings_dialog(first_run=True):
             return
         cfg = _load_launcher_config()
@@ -3219,6 +3275,7 @@ def main() -> None:
     chosen_mc_port = None
 
     if should_show_setup:
+        _close_splash()
         # If invoked via '--setup' while another instance is already running, use the standalone new-instance flow
         if args.setup and has_saved_instance:
             _handle_new_instance_flow()
@@ -3269,6 +3326,7 @@ def main() -> None:
         update_existing=should_show_setup,
     )
     _ensure_stdio(instance_dir)
+    _update_splash(_tr("Iniciando panel web de Dockraft...", "Starting Dockraft web panel..."))
 
     import uvicorn
     from app.config import settings
@@ -3326,6 +3384,7 @@ def main() -> None:
     threading.Thread(target=_watch_local_stop_signal, daemon=True).start()
 
     ready = _wait_for_port(bind_host, bind_port, timeout=15.0)
+    _close_splash()
     if ready and not args.no_browser and not is_headless:
         _open_url(_build_autofill_url(instance_dir, bind_port, bind_host))
 

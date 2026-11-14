@@ -41,11 +41,25 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+splash = Splash(
+    str(ROOT / "packaging" / "windows" / "splash.png"),
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=(20, 186),
+    text_size=10,
+    text_color="#58a6ff",
+    text_default="Iniciando Dockraft... / Starting Dockraft...",
+    minify_script=True,
+    always_on_top=True,
+)
+
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
     a.datas,
+    splash,
+    splash.binaries,
     [],
     name="Dockraft",
     debug=False,
