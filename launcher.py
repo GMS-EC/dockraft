@@ -1513,6 +1513,8 @@ def _run_dark_message_dialog(
 def _prompt_dark_dialog(title: str, message: str, mode: str) -> int:
     try:
         payload = json.dumps({"title": title, "message": message, "mode": mode})
+        if threading.current_thread() is threading.main_thread():
+            return _handle_dialog_mode(payload)
         extra_kw = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)} if sys.platform == "win32" else {}
         proc = subprocess.run(_executable_argv() + ["--dialog-mode", payload], env=_child_dockraft_env(), **extra_kw)
         return proc.returncode
@@ -1866,6 +1868,7 @@ def _run_setup_dialog(
     root.geometry(f"{w}x{h}+{x}+{y}")
     root.minsize(w, h)
     _apply_dark_titlebar(root, allow_maximize=True)
+    _close_splash()
     root.mainloop()
     return result
 
@@ -2369,6 +2372,7 @@ def _run_instances_dialog() -> None:
     root.geometry(f"{w}x{h}+{x}+{y}")
     root.minsize(880, 500)
     _apply_dark_titlebar(root, allow_maximize=True)
+    _close_splash()
     root.mainloop()
 
 
@@ -2721,6 +2725,7 @@ def _run_settings_dialog(first_run: bool = False) -> bool:
     root.geometry(f"{w}x{h}+{x}+{y}")
     root.minsize(w, h)
     _apply_dark_titlebar(root, allow_maximize=True)
+    _close_splash()
     root.mainloop()
     return saved_ok["val"]
 
@@ -3061,6 +3066,7 @@ def _run_about_dialog() -> None:
     root.geometry(f"{w}x{h}+{x}+{y}")
     root.minsize(w, h)
     _apply_dark_titlebar(root, allow_maximize=False)
+    _close_splash()
     root.mainloop()
 
 
@@ -3258,7 +3264,6 @@ def main() -> None:
         and not str(cfg.get("default_admin_password") or "").strip()
     )
     if is_first_launch:
-        _close_splash()
         if not _run_settings_dialog(first_run=True):
             return
         cfg = _load_launcher_config()
@@ -3275,7 +3280,6 @@ def main() -> None:
     chosen_mc_port = None
 
     if should_show_setup:
-        _close_splash()
         # If invoked via '--setup' while another instance is already running, use the standalone new-instance flow
         if args.setup and has_saved_instance:
             _handle_new_instance_flow()
@@ -3384,40 +3388,33 @@ def main() -> None:
     threading.Thread(target=_watch_local_stop_signal, daemon=True).start()
 
     ready = _wait_for_port(bind_host, bind_port, timeout=15.0)
-    _close_splash()
-    if ready and not args.no_browser and not is_headless:
+    if ready and not args.no_browser and not is_headless and should_show_setup:
+        _close_splash()
         _open_url(_build_autofill_url(instance_dir, bind_port, bind_host))
 
     if not is_headless:
         try:
+            import queue
             import pystray
 
-            ui_procs: dict[str, subprocess.Popen] = {}
-
-            def _spawn_ui_window(flag: str):
-                existing = ui_procs.get(flag)
-                if existing is not None and existing.poll() is None:
-                    return
-                extra_kw = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)} if sys.platform == "win32" else {}
-                ui_procs[flag] = subprocess.Popen(
-                    _executable_argv() + [flag],
-                    env=_child_dockraft_env(),
-                    **extra_kw,
-                )
+            ui_queue: queue.Queue[str] = queue.Queue()
 
             def _menu_instances(icon, item):
-                _spawn_ui_window("--instances-ui")
+                ui_queue.put("instances")
 
             def _menu_new_instance(icon, item):
-                _spawn_ui_window("--setup")
+                ui_queue.put("new_instance")
 
             def _menu_settings(icon, item):
-                _spawn_ui_window("--settings-ui")
+                ui_queue.put("settings")
 
             def _menu_about(icon, item):
-                _spawn_ui_window("--about-ui")
+                ui_queue.put("about")
 
             def _menu_quit_all(icon, item):
+                ui_queue.put("quit")
+
+            def _do_quit_all(icon_obj) -> bool:
                 from app.core.process_manager import process_manager
 
                 active_mc = _find_all_instance_mc_processes()
@@ -3443,7 +3440,7 @@ def main() -> None:
                         "quit",
                     )
                     if ans == 2:
-                        return
+                        return False
                     stop_servers = (ans == 6)
 
                 if stop_servers and local_running:
@@ -3455,16 +3452,13 @@ def main() -> None:
                         except Exception:
                             pass
 
-                for p_ui in list(ui_procs.values()):
-                    if p_ui.poll() is None:
-                        try:
-                            p_ui.terminate()
-                        except Exception:
-                            pass
-
                 _terminate_all_other_dockraft_processes(stop_mc_servers=stop_servers)
                 server.should_exit = True
-                icon.stop()
+                try:
+                    icon_obj.stop()
+                except Exception:
+                    pass
+                return True
 
             menu = pystray.Menu(
                 pystray.MenuItem(lambda _item: _tr("Instancias", "Instances"), _menu_instances, default=True),
@@ -3502,11 +3496,44 @@ def main() -> None:
                         "Dockraft",
                     )
 
-            tray.run(setup=_on_tray_ready)
+            threading.Thread(target=lambda: tray.run(setup=_on_tray_ready), daemon=True).start()
+
+            # When launching Dockraft normally with existing instances, open the Instance Manager immediately
+            if not should_show_setup and not args.no_browser:
+                ui_queue.put("instances")
+            else:
+                _close_splash()
+
+            while server_thread.is_alive():
+                try:
+                    cmd_action = ui_queue.get(timeout=0.3)
+                except queue.Empty:
+                    continue
+                # Drain any duplicate clicks queued while a window was open
+                while not ui_queue.empty():
+                    try:
+                        nxt = ui_queue.get_nowait()
+                        if nxt == "quit":
+                            cmd_action = "quit"
+                    except queue.Empty:
+                        break
+                if cmd_action == "instances":
+                    _run_instances_dialog()
+                elif cmd_action == "new_instance":
+                    _handle_new_instance_flow()
+                elif cmd_action == "settings":
+                    _run_settings_dialog()
+                elif cmd_action == "about":
+                    _run_about_dialog()
+                elif cmd_action == "quit":
+                    if _do_quit_all(tray):
+                        break
+
             server.should_exit = True
             server_thread.join(timeout=5.0)
             return
         except Exception as e:
+            _close_splash()
             print(f"[Dockraft] Bandeja del sistema no disponible ({e}); continuando en primer plano.", file=sys.stderr)
 
     try:
