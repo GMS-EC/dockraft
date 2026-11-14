@@ -2,6 +2,8 @@ name: GitHub Release & Desktop Builds
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
       - 'v*'
@@ -11,8 +13,61 @@ permissions:
   contents: write
 
 jobs:
+  detect-version:
+    name: Detectar versión en CHANGELOG.md
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version: ${{ steps.check.outputs.version }}
+      tag_name: ${{ steps.check.outputs.tag_name }}
+    steps:
+      - name: Descargar repositorio con etiquetas
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verificar versión y etiqueta Git
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+            VERSION="${TAG_NAME#v}"
+          else
+            VERSION=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?\]' CHANGELOG.md | sed -E 's/^## \[([^]]+)\]/\1/' || true)
+            if [ -z "$VERSION" ]; then
+              echo "No se encontró versión válida en CHANGELOG.md"
+              echo "should_release=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            TAG_NAME="v${VERSION}"
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+
+          # Si el Release ya fue publicado en GitHub, no volver a compilar
+          if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
+            echo "La release ${TAG_NAME} ya existe en GitHub. Omitiendo compilación."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Si estamos en main y el tag aún no existe en el repositorio remoto, crearlo automáticamente
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -f "${TAG_NAME}"
+            git push origin "refs/tags/${TAG_NAME}"
+          fi
+
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+
   build-windows:
     name: Construir Windows (.exe)
+    needs: detect-version
+    if: needs.detect-version.outputs.should_release == 'true'
     runs-on: windows-latest
     steps:
       - name: Descargar repositorio
@@ -40,7 +95,7 @@ jobs:
       - name: Construir ejecutable e instalador Windows
         shell: pwsh
         env:
-          DOCKRAFT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          DOCKRAFT_VERSION: ${{ needs.detect-version.outputs.version }}
         run: |
           .\packaging\windows\build_windows.ps1
 
@@ -53,6 +108,8 @@ jobs:
 
   build-linux:
     name: Construir Linux (.AppImage)
+    needs: detect-version
+    if: needs.detect-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Descargar repositorio
@@ -84,7 +141,7 @@ jobs:
 
       - name: Construir AppImage Linux
         env:
-          DOCKRAFT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          DOCKRAFT_VERSION: ${{ needs.detect-version.outputs.version }}
         run: |
           chmod +x packaging/linux/build_appimage.sh packaging/linux/AppRun
           ./packaging/linux/build_appimage.sh
@@ -98,8 +155,8 @@ jobs:
 
   release:
     name: Publicar GitHub Release
-    needs: [build-windows, build-linux]
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [detect-version, build-windows, build-linux]
+    if: needs.detect-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Descargar repositorio
@@ -114,6 +171,8 @@ jobs:
       - name: Crear y Publicar GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.detect-version.outputs.tag_name }}
+          name: ${{ needs.detect-version.outputs.tag_name }}
           generate_release_notes: true
           files: |
             release-assets/Dockraft-Setup-*.exe

@@ -71,6 +71,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Extraer versión de CHANGELOG.md
+        id: changelog_ver
+        run: |
+          VER=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?\]' CHANGELOG.md | sed -E 's/^## \[([^]]+)\]/\1/' || true)
+          echo "version=${VER}" >> "$GITHUB_OUTPUT"
+          echo "v_tag=${VER:+v$VER}" >> "$GITHUB_OUTPUT"
+
       - name: Generar Metadatos y Etiquetas de Docker
         id: meta
         uses: docker/metadata-action@v5
@@ -80,6 +87,8 @@ jobs:
             latest=auto
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ steps.changelog_ver.outputs.version }},enable=${{ github.ref == 'refs/heads/main' && steps.changelog_ver.outputs.version != '' }}
+            type=raw,value=${{ steps.changelog_ver.outputs.v_tag }},enable=${{ github.ref == 'refs/heads/main' && steps.changelog_ver.outputs.v_tag != '' }}
             type=ref,event=tag
             type=sha,format=short
 
