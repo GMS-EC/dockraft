@@ -87,7 +87,7 @@ if [[ -z "$APPIMAGETOOL" ]]; then
 fi
 
 echo "[4/4] Packaging AppImage..."
-OUT_APPIMAGE="$REPO_ROOT/dist/Dockraft-${VERSION}-${ARCH}.AppImage"
+OUT_APPIMAGE="$REPO_ROOT/dist/Dockraft-Linux-${VERSION}-${ARCH}.AppImage"
 mkdir -p "$REPO_ROOT/dist"
 rm -f "$OUT_APPIMAGE"
 

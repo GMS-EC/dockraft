@@ -34,7 +34,7 @@ if ($runningProcs) {
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed." }
 
 $BuiltExe = Join-Path $RepoRoot "dist\Dockraft.exe"
-$PortableExe = Join-Path $RepoRoot "dist\Dockraft-$Version.exe"
+$PortableExe = Join-Path $RepoRoot "dist\Dockraft-Windows-$Version.exe"
 if (-not (Test-Path $BuiltExe)) { throw "Expected executable not found at $BuiltExe" }
 Copy-Item -Path $BuiltExe -Destination $PortableExe -Force
 Write-Host "[3/3] Portable executable ready at: $PortableExe" -ForegroundColor Green

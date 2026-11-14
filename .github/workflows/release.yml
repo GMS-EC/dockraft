@@ -96,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dockraft-windows
-          path: dist/Dockraft-*.exe
+          path: dist/Dockraft-Windows-*.exe
           if-no-files-found: error
 
   build-linux:
@@ -143,7 +143,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dockraft-linux
-          path: dist/Dockraft-*.AppImage
+          path: dist/Dockraft-Linux-*.AppImage
           if-no-files-found: error
 
   release:
@@ -204,5 +204,5 @@ jobs:
           body_path: release_notes.md
           generate_release_notes: false
           files: |
-            release-assets/Dockraft-*.exe
-            release-assets/Dockraft-*.AppImage
+            release-assets/Dockraft-Windows-*.exe
+            release-assets/Dockraft-Linux-*.AppImage
