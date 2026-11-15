@@ -35,8 +35,10 @@ const Backups = {
   },
 
   async loadBackups() {
-    await this.fetchBackupConfig();
-    await this.fetchBackupsList();
+    await Promise.all([
+      this.fetchBackupConfig(),
+      this.fetchBackupsList()
+    ]);
   },
 
   setOriginFilter(filter) {
@@ -72,8 +74,7 @@ const Backups = {
 
     try {
       const res = await fetch('/api/backups/list');
-      if (!res.ok) throw new Error(this._t('t_backup_err_fetch_list', 'Error al obtener la lista de backups'));
-      this.backupsList = await res.json();
+      this.backupsList = await window.readApiJson(res, this._t('t_backup_err_fetch_list', 'Error al obtener la lista de backups'));
 
       let totalBytes = 0;
       this.backupsList.forEach(b => { totalBytes += (b.size_bytes || 0); });
@@ -83,28 +84,55 @@ const Backups = {
       this.renderBackupsTable();
     } catch (err) {
       console.error(err);
+      if (!this.backupsList || this.backupsList.length === 0) {
+        this.renderBackupsTable(err.message);
+      }
       App.showToast(err.message, 'danger');
     }
   },
 
-  renderBackupsTable() {
+  renderBackupsTable(errorMsg = '') {
     const tableBody = document.getElementById('backups-table-body');
     const emptyState = document.getElementById('backups-empty-state');
     if (!tableBody) return;
+    const tableEl = tableBody.closest('table');
 
-    const filtered = this.backupsList.filter(b => {
+    const list = Array.isArray(this.backupsList) ? this.backupsList : [];
+    const filtered = list.filter(b => {
       if (this.originFilter === 'auto') return !!b.is_auto;
       if (this.originFilter === 'manual') return !b.is_auto;
       return true;
     });
 
     tableBody.innerHTML = '';
-    if (filtered.length === 0) {
-      if (emptyState) emptyState.style.display = 'block';
+    if (errorMsg || filtered.length === 0) {
+      if (tableEl) tableEl.style.display = 'none';
+      if (emptyState) {
+        emptyState.style.display = 'block';
+        let errBanner = emptyState.querySelector('[data-role="fetch-error"]');
+        if (errorMsg) {
+          if (!errBanner) {
+            errBanner = document.createElement('div');
+            errBanner.setAttribute('data-role', 'fetch-error');
+            errBanner.style.cssText = 'margin-top:8px;font-size:12px;color:var(--danger, #f87171);';
+            emptyState.appendChild(errBanner);
+          }
+          errBanner.textContent = errorMsg;
+          errBanner.style.display = 'block';
+        } else if (errBanner) {
+          errBanner.style.display = 'none';
+          errBanner.textContent = '';
+        }
+      }
       return;
     }
 
-    if (emptyState) emptyState.style.display = 'none';
+    if (tableEl) tableEl.style.display = '';
+    if (emptyState) {
+      emptyState.style.display = 'none';
+      const errBanner = emptyState.querySelector('[data-role="fetch-error"]');
+      if (errBanner) errBanner.style.display = 'none';
+    }
 
     filtered.forEach(b => {
       const tr = document.createElement('tr');
@@ -579,8 +607,7 @@ const Backups = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_create', 'Error al crear la copia de seguridad'));
+      const data = await window.readApiJson(res, this._t('t_backup_err_create', 'Error al crear la copia de seguridad'));
 
       App.showToast(this._tf('t_backup_toast_created', [data.filename, data.size_formatted], 'Copia creada con éxito: {0} ({1})'), 'success');
       this.closeCreateModal();
@@ -612,8 +639,7 @@ const Backups = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_restore', 'Error al restaurar la copia'));
+      const data = await window.readApiJson(res, this._t('t_backup_err_restore', 'Error al restaurar la copia'));
 
       App.showToast(this._t('t_backup_toast_restored', 'Copia de seguridad restaurada correctamente.'), 'success');
     } catch (err) {
@@ -634,8 +660,7 @@ const Backups = {
       const res = await fetch(`/api/backups/${encodeURIComponent(filename)}`, {
         method: 'DELETE'
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_delete', 'Error al eliminar copia'));
+      const data = await window.readApiJson(res, this._t('t_backup_err_delete', 'Error al eliminar copia'));
 
       this.backupsList = (this.backupsList || []).filter(b => b.filename !== filename);
       const totalSizeEl = document.getElementById('backups-total-size');
@@ -719,10 +744,9 @@ const Backups = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_save_cfg', 'Error guardando política de respaldo'));
+      const data = await window.readApiJson(res, this._t('t_backup_err_save_cfg', 'Error guardando política de respaldo'));
 
-      this.maxBackupsCount = data.max_count || payload.backup_max_count || 5;
+      this.maxBackupsCount = data.max_count || this.maxBackupsCount || 5;
       this.policiesList = Array.isArray(data.policies) ? data.policies : [];
       this.renderPoliciesList();
       this.updateSummaryBadges();

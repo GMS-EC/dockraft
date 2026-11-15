@@ -29,6 +29,7 @@ const Installer = {
   },
 
   init() {
+    this._initialized = true;
     if (this._langListener) return;
     this._langListener = true;
     window.addEventListener('dockraft:language_changed', () => {
@@ -317,7 +318,7 @@ const Installer = {
 
     try {
       const res = await fetch(`/api/installer/versions?type=${type}`);
-      const data = await res.json();
+      const data = await window.readApiJson(res, I18n.fmt('t_install_err_load_versions_for', [type]));
       this.versionsCache[type] = data.versions || [];
 
       select.innerHTML = '';
@@ -342,24 +343,23 @@ const Installer = {
   },
 
   async loadJavaRuntimes() {
+    const select = document.getElementById('installer-java-select');
+    if (!select) return;
+
     try {
       const res = await fetch('/api/java/runtimes');
-      if (res.ok) {
-        this.runtimes = await res.json();
-        const select = document.getElementById('installer-java-select');
-        if (select) {
-          select.innerHTML = '';
-          if (this.runtimes.length === 0) {
-            select.innerHTML = '<option value="java">' + I18n.t('t_install_java_default') + '</option>';
-          } else {
-            this.runtimes.forEach(rt => {
-              const opt = document.createElement('option');
-              opt.value = rt.path;
-              opt.textContent = `${rt.name} [${rt.path}]`;
-              select.appendChild(opt);
-            });
-          }
-        }
+      if (!res.ok) return;
+      this.runtimes = await res.json();
+      select.innerHTML = '';
+      if (this.runtimes.length === 0) {
+        select.innerHTML = '<option value="java">' + I18n.t('t_install_java_default') + '</option>';
+      } else {
+        this.runtimes.forEach(rt => {
+          const opt = document.createElement('option');
+          opt.value = rt.path;
+          opt.textContent = `${rt.name} [${rt.path}]`;
+          select.appendChild(opt);
+        });
       }
     } catch (e) {
       console.warn("Could not fetch Java runtimes:", e);
@@ -453,11 +453,7 @@ const Installer = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || I18n.t('t_install_err_install_failed'));
-      }
+      await window.readApiJson(res, I18n.t('t_install_err_install_failed'));
 
       App.showToast(I18n.t('t_install_toast_download_bg'), 'success');
 
@@ -1151,10 +1147,7 @@ const Installer = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ version: targetVer })
       });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || I18n.t('t_install_err_update_start'));
-      }
+      await window.readApiJson(res, I18n.t('t_install_err_update_start'));
 
       App.showToast(I18n.t('t_install_toast_update_started'), 'info');
 
@@ -1261,10 +1254,7 @@ const Installer = {
         method: 'POST',
         body: formData
       });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || I18n.t('t_install_err_import_failed'));
-      }
+      const data = await window.readApiJson(res, I18n.t('t_install_err_import_failed'));
 
       if (progBar) progBar.style.width = '100%';
       if (progText) progText.textContent = I18n.t('t_install_import_done');
@@ -1826,10 +1816,7 @@ const Installer = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const resData = await res.json();
-      if (!res.ok) {
-        throw new Error(resData.detail || I18n.t('t_install_err_update_start'));
-      }
+      await window.readApiJson(res, I18n.t('t_install_err_update_start'));
 
       this._pollInstallerProgress({
         barEl: pBar,
@@ -1837,21 +1824,23 @@ const Installer = {
         textEl: pText,
         defaultStatus: 'Updating',
         onComplete: () => {
-          setTimeout(() => {
+          setTimeout(async () => {
             if (pBox) pBox.style.display = 'none';
+            this.isInstalling = false;
             if (btnApply) {
               btnApply.disabled = false;
-              btnApply.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span data-i18n="t_install_btn_update">${I18n.t('t_install_btn_update')}</span>`;
+              this.updateApplyButtonText();
             }
             App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
-            this.checkUpdateInfo();
+            await this.checkLockState();
           }, 1500);
         },
         onError: (statusMsg) => {
           if (pBox) pBox.style.display = 'none';
+          this.isInstalling = false;
           if (btnApply) {
             btnApply.disabled = false;
-            btnApply.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span data-i18n="t_install_btn_update">${I18n.t('t_install_btn_update')}</span>`;
+            this.updateApplyButtonText();
           }
           if (statusMsg) {
             App.showToast(I18n.fmt('t_install_err_update_fail', [statusMsg]), 'danger');
@@ -1864,7 +1853,7 @@ const Installer = {
       if (pBox) pBox.style.display = 'none';
       if (btnApply) {
         btnApply.disabled = false;
-        btnApply.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span data-i18n="t_install_btn_update">${I18n.t('t_install_btn_update')}</span>`;
+        this.updateApplyButtonText();
       }
       App.showToast(I18n.fmt('t_install_err_update_fail', [e.message]), 'danger');
     }
@@ -1872,3 +1861,9 @@ const Installer = {
 };
 
 window.Installer = Installer;
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => Installer.init());
+} else {
+  Installer.init();
+}

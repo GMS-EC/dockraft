@@ -48,12 +48,6 @@ body {
     width: calc(100% - 244px);
   }
 
-  .server-overview-banner {
-    position: sticky;
-    top: 0;
-    z-index: 90;
-  }
-
   .header {
     width: 244px;
     height: 100dvh;

@@ -715,7 +715,7 @@ const Console = {
 
     try {
       const res = await fetch('/api/diagnostics/analyze');
-      const data = await res.json();
+      const data = await window.readApiJson(res, this._t('t_console_diag_err_query', 'No se pudo consultar el endpoint de diagnósticos.'));
 
       if (loading) loading.style.display = 'none';
       if (results) results.style.display = 'block';
@@ -773,11 +773,7 @@ const Console = {
 
     try {
       const res = await fetch('/api/diagnostics/share', { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || this._t('t_console_share_err_upload', 'Error al subir log a mclo.gs'));
-      }
+      const data = await window.readApiJson(res, this._t('t_console_share_err_upload', 'Error al subir log a mclo.gs'));
 
       if (resultBox) resultBox.style.display = 'block';
       if (urlInput) urlInput.value = data.url;

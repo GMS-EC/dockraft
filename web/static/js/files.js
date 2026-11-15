@@ -976,8 +976,7 @@ const Files = {
 
     try {
       const res = await fetch(`/api/files/content?path=${encodeURIComponent(filePath)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || this.tr('t_file_err_load', 'Error al cargar el archivo'));
+      const data = await window.readApiJson(res, this.tr('t_file_err_load', 'Error al cargar el archivo'));
       if (textarea) {
         textarea.value = data.content;
         this.updateEditorStatusBar();

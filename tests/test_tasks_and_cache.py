@@ -72,7 +72,7 @@ async def test_task_scheduler_backup_action_uses_downloader_progress(monkeypatch
     assert len(calls) == 1
 
 
-def test_api_responses_have_no_cache_headers():
+def test_api_and_html_responses_have_no_cache_headers():
     res = client.get("/api/health")
     assert res.status_code == 200
     assert "no-store" in res.headers.get("cache-control", "")
@@ -81,7 +81,58 @@ def test_api_responses_have_no_cache_headers():
 
     res_page = client.get("/")
     assert res_page.status_code == 200
-    assert "no-store" not in res_page.headers.get("cache-control", "")
+    assert "no-store" in res_page.headers.get("cache-control", "")
+    assert res_page.headers.get("pragma") == "no-cache"
+
+    res_login = client.get("/login")
+    assert res_login.status_code == 200
+    assert "no-store" in res_login.headers.get("cache-control", "")
+
+    res_static = client.get("/static/css/redesign.css")
+    assert res_static.status_code == 200
+    assert "no-store" not in res_static.headers.get("cache-control", "")
+
+
+def test_frontend_audit_regressions():
+    from pathlib import Path
+    import re
+
+    root = Path(__file__).resolve().parent.parent
+    sw_js = (root / "web/static/sw.js").read_text(encoding="utf-8")
+    app_js = (root / "web/static/js/app.js").read_text(encoding="utf-8")
+    installer_js = (root / "web/static/js/installer.js").read_text(encoding="utf-8")
+    backups_js = (root / "web/static/js/backups.js").read_text(encoding="utf-8")
+    logs_js = (root / "web/static/js/logs.js").read_text(encoding="utf-8")
+    metrics_js = (root / "web/static/js/metrics.js").read_text(encoding="utf-8")
+    redesign_css = (root / "web/static/css/redesign.css").read_text(encoding="utf-8")
+
+    # Service Worker does not precache unversioned CSS/JS and uses fresh update checks
+    assert "dockraft-v16" in sw_js
+    assert "/static/css/style.css" not in sw_js
+    assert "/static/css/redesign.css" not in sw_js
+    assert "/static/js/i18n.js" not in sw_js
+    assert "updateViaCache: 'none'" in app_js
+    assert "window.readApiJson" in app_js
+
+    # Resolved method/property regressions
+    assert "checkUpdateInfo" not in installer_js
+    assert "Installer.init()" in installer_js
+    assert "payload.backup_max_count" not in backups_js
+    assert "Promise.all" in backups_js
+    assert "closest('table')" in backups_js
+    assert "Logs.init()" in logs_js
+    assert "closest('table')" in logs_js
+    assert "Metrics.init()" in metrics_js
+
+    # Desktop banner no longer sticks over scrolled tab cards
+    banner_sticky = re.search(r"\.server-overview-banner\s*\{[^}]*position\s*:\s*sticky", redesign_css)
+    assert banner_sticky is None
+
+    # Rendered index.html has no duplicate element IDs
+    html = client.get("/").text
+    ids = re.findall(r'\bid="([^"]+)"', html)
+    dupes = {i for i in ids if ids.count(i) > 1}
+    assert dupes == set()
 
 
 def test_file_delete_reflects_immediately_in_listing():

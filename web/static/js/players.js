@@ -537,61 +537,49 @@ const Players = {
     }
   },
 
-  async kickAll(reason = '') {
+  async _postAction(endpoint, payload, fallbackMsg) {
     try {
-      const res = await fetch('/api/players/kick-all', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason })
+        body: JSON.stringify(payload)
       });
-      const data = await res.json();
-      if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message, 'success');
-        await this.fetchPlayers();
-      } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message || this.tr('t_player_err_kickall', 'Error al expulsar a todos'), 'danger');
+      const data = await window.readApiJson(res, fallbackMsg);
+      if (typeof App !== 'undefined' && App.showToast && data && data.message) {
+        App.showToast(data.message, 'success');
       }
+      await this.fetchPlayers();
+      return true;
     } catch (e) {
-      if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
+      if (typeof App !== 'undefined' && App.showToast) {
+        App.showToast(e.message || fallbackMsg, 'danger');
+      }
+      return false;
     }
+  },
+
+  async kickAll(reason = '') {
+    return this._postAction(
+      '/api/players/kick-all',
+      { reason },
+      this.tr('t_player_err_kickall', 'Error al expulsar a todos')
+    );
   },
 
   async kick(player, reason = '') {
-    try {
-      const res = await fetch('/api/players/kick', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player, reason })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message, 'success');
-        await this.fetchPlayers();
-      } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message || this.tr('t_player_err_kick', 'Error al expulsar'), 'danger');
-      }
-    } catch (e) {
-      if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
-    }
+    return this._postAction(
+      '/api/players/kick',
+      { player, reason },
+      this.tr('t_player_err_kick', 'Error al expulsar')
+    );
   },
 
   async ban(player, reason = '') {
-    try {
-      const res = await fetch('/api/players/ban', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player, reason })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message, 'success');
-        await this.fetchPlayers();
-      } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message || this.tr('t_player_err_ban', 'Error al banear'), 'danger');
-      }
-    } catch (e) {
-      if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
-    }
+    return this._postAction(
+      '/api/players/ban',
+      { player, reason },
+      this.tr('t_player_err_ban', 'Error al banear')
+    );
   },
 
   async pardon(player) {
@@ -602,22 +590,11 @@ const Players = {
       type: 'info'
     });
     if (!ok) return;
-    try {
-      const res = await fetch('/api/players/pardon', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message, 'success');
-        await this.fetchPlayers();
-      } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message || this.tr('t_player_err_pardon', 'Error al desbanear'), 'danger');
-      }
-    } catch (e) {
-      if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
-    }
+    return this._postAction(
+      '/api/players/pardon',
+      { player },
+      this.tr('t_player_err_pardon', 'Error al desbanear')
+    );
   },
 
   async setOp(player, isOp) {
@@ -640,22 +617,11 @@ const Players = {
     });
     if (!ok) return;
 
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message, 'success');
-        await this.fetchPlayers();
-      } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message || this.tr('t_player_err_op', 'Error al cambiar permisos de operador'), 'danger');
-      }
-    } catch (e) {
-      if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
-    }
+    return this._postAction(
+      endpoint,
+      { player },
+      this.tr('t_player_err_op', 'Error al cambiar permisos de operador')
+    );
   },
 
   openAddModal() {
@@ -676,23 +642,12 @@ const Players = {
     const player = input ? input.value.trim() : '';
     if (!player) return;
 
-    try {
-      const res = await fetch('/api/players/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        this.closeAddModal();
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message, 'success');
-        await this.fetchPlayers();
-      } else {
-        if (typeof App !== 'undefined' && App.showToast) App.showToast(data.message, 'danger');
-      }
-    } catch (e) {
-      if (typeof App !== 'undefined' && App.showToast) App.showToast(e.message, 'danger');
-    }
+    const ok = await this._postAction(
+      '/api/players/add',
+      { player },
+      this.tr('t_player_err_add', 'Error al añadir jugador')
+    );
+    if (ok) this.closeAddModal();
   },
 
   escapeHtml(str) {

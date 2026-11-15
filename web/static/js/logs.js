@@ -9,7 +9,12 @@ const Logs = {
   currentPage: 1,
   pageSize: 25,
 
+  _msg(es, en) {
+    return (typeof I18n !== 'undefined' && I18n.currentLang === 'en') ? en : es;
+  },
+
   async init() {
+    this._initialized = true;
     this.setupEvents();
   },
 
@@ -27,8 +32,10 @@ const Logs = {
 
     try {
       const res = await fetch('/api/activity/logs?limit=500');
-      if (!res.ok) throw new Error("Error al consultar registros de actividad");
-      const data = await res.json();
+      const data = await window.readApiJson(
+        res,
+        this._msg('Error al consultar registros de actividad', 'Failed to fetch activity logs')
+      );
       this.logs = data.logs || [];
 
       // Update counters
@@ -40,18 +47,20 @@ const Logs = {
       const cmds = this.logs.filter(l => l.category === 'console').length;
       const sys = this.logs.filter(l => l.category !== 'console').length;
 
-      const isEn = typeof I18n !== 'undefined' && I18n.currentLang === 'en';
-      if (totalEl) totalEl.textContent = isEn ? `${total} records` : `${total} registros`;
-      if (cmdsEl) cmdsEl.textContent = isEn ? `${cmds} commands` : `${cmds} comandos`;
-      if (sysEl) sysEl.textContent = isEn ? `${sys} events` : `${sys} eventos`;
+      if (totalEl) totalEl.textContent = this._msg(`${total} registros`, `${total} records`);
+      if (cmdsEl) cmdsEl.textContent = this._msg(`${cmds} comandos`, `${cmds} commands`);
+      if (sysEl) sysEl.textContent = this._msg(`${sys} eventos`, `${sys} events`);
 
       this.render();
 
       if (showToast) {
-        App.showToast("Registros actualizados correctamente", 'info');
+        App.showToast(this._msg('Registros actualizados correctamente', 'Logs refreshed successfully'), 'info');
       }
     } catch (err) {
       console.warn("Could not load activity logs:", err);
+      if (this.logs.length === 0) {
+        this.render();
+      }
       if (showToast) {
         App.showToast(err.message, 'danger');
       }
@@ -87,14 +96,17 @@ const Logs = {
       return true;
     });
 
+    const tableEl = tbody.closest('table');
     if (filtered.length === 0) {
       tbody.innerHTML = '';
+      if (tableEl) tableEl.style.display = 'none';
       if (emptyState) emptyState.style.display = 'block';
-      if (pageInfo) pageInfo.textContent = 'Mostrando 0 registros';
+      if (pageInfo) pageInfo.textContent = this._msg('Mostrando 0 registros', 'Showing 0 records');
       if (controls) controls.innerHTML = '';
       return;
     }
 
+    if (tableEl) tableEl.style.display = '';
     if (emptyState) emptyState.style.display = 'none';
 
     // Pagination calculations
@@ -410,18 +422,20 @@ const Logs = {
 
   async clearLogs() {
     const ok = await App.confirm({
-      title: 'Vaciar Historial de Registros',
-      message: '¿Estás seguro de que deseas eliminar todo el historial de auditoría y comandos de consola?\n\nEsta acción no se puede deshacer.',
-      confirmText: 'Limpiar Todo',
+      title: this._msg('Vaciar Historial de Registros', 'Clear Log History'),
+      message: this._msg(
+        '¿Estás seguro de que deseas eliminar todo el historial de auditoría y comandos de consola?\n\nEsta acción no se puede deshacer.',
+        'Are you sure you want to delete all audit and console command history?\n\nThis action cannot be undone.'
+      ),
+      confirmText: this._msg('Limpiar Todo', 'Clear All'),
       danger: true
     });
     if (!ok) return;
 
     try {
       const res = await fetch('/api/activity/clear', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error al limpiar registros");
-      App.showToast("Historial de registros vaciado", 'success');
+      await window.readApiJson(res, this._msg('Error al limpiar registros', 'Failed to clear logs'));
+      App.showToast(this._msg('Historial de registros vaciado', 'Log history cleared'), 'success');
       await this.loadLogs();
     } catch (err) {
       App.showToast(err.message, 'danger');
@@ -435,6 +449,20 @@ const Logs = {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    App.showToast(`Descargando registros en formato ${format.toUpperCase()}...`, 'info');
+    App.showToast(
+      this._msg(
+        `Descargando registros en formato ${format.toUpperCase()}...`,
+        `Downloading logs as ${format.toUpperCase()}...`
+      ),
+      'info'
+    );
   }
 };
+
+window.Logs = Logs;
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => Logs.init());
+} else {
+  Logs.init();
+}

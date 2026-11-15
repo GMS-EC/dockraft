@@ -526,3 +526,11 @@ const Metrics = {
     this.redraw();
   }
 };
+
+window.Metrics = Metrics;
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => Metrics.init());
+} else {
+  Metrics.init();
+}

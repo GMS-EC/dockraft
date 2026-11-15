@@ -27,7 +27,10 @@
       }
     }
     const res = await originalFetch.apply(this, args);
-    if (res && res.status === 401 && !url.includes('/api/auth/login')) {
+    const isAuthRedirect = Boolean(
+      res && res.redirected && res.url && res.url.includes('/login') && url.includes('/api/')
+    );
+    if (((res && res.status === 401) || isAuthRedirect) && !url.includes('/api/auth/login')) {
       if (typeof App !== 'undefined' && App.handleSessionExpired) {
         App.handleSessionExpired();
       } else {
@@ -35,6 +38,37 @@
       }
     }
     return res;
+  };
+
+  window.readApiJson = async function(res, fallbackMsg = 'Error en la petición') {
+    if (res && res.redirected && res.url && res.url.includes('/login')) {
+      if (typeof App !== 'undefined' && App.handleSessionExpired) {
+        App.handleSessionExpired();
+      } else {
+        window.location.href = '/login?expired=1';
+      }
+      throw new Error(fallbackMsg);
+    }
+    let data = null;
+    let parseFailed = false;
+    try {
+      const raw = await res.text();
+      if (raw) {
+        data = JSON.parse(raw);
+      } else if (res.ok) {
+        data = {};
+      }
+    } catch (_) {
+      parseFailed = true;
+    }
+    if (!res.ok) {
+      const detail = data && (data.detail || data.message || data.error);
+      throw new Error(detail || `${fallbackMsg} (HTTP ${res.status})`);
+    }
+    if (parseFailed || data === null) {
+      throw new Error(fallbackMsg);
+    }
+    return data;
   };
 })();
 
@@ -72,7 +106,7 @@ const App = {
 
     // Register Service Worker for PWA if supported
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-      navigator.serviceWorker.register('/static/sw.js').then((reg) => {
+      navigator.serviceWorker.register('/static/sw.js', { updateViaCache: 'none' }).then((reg) => {
         reg.update().catch(() => {});
         console.log('[Dockraft PWA] Service Worker registrado con éxito:', reg.scope);
       }).catch((err) => {
@@ -220,6 +254,18 @@ const App = {
     }
   },
 
+  readJson(res, fallbackMsg) {
+    return window.readApiJson(res, fallbackMsg);
+  },
+
+  initModules() {
+    Console.init();
+    if (typeof Tasks !== 'undefined') Tasks.init();
+    if (typeof Logs !== 'undefined' && !Logs._initialized) Logs.init();
+    if (typeof Metrics !== 'undefined' && !Metrics._initialized) Metrics.init();
+    if (typeof Installer !== 'undefined' && !Installer._initialized) Installer.init();
+  },
+
   async checkAuth() {
     try {
       const res = await fetch('/api/auth/status');
@@ -227,7 +273,7 @@ const App = {
         this.handleSessionExpired();
         return;
       }
-      const data = await res.json();
+      const data = await window.readApiJson(res, 'Error checking authentication status');
       this.authRequired = data.auth_required;
       if (data.session_timeout_minutes) {
         this.sessionTimeoutMinutes = data.session_timeout_minutes;
@@ -235,12 +281,10 @@ const App = {
       if (this.authRequired) {
         this.setupSessionMonitoring(this.sessionTimeoutMinutes);
       }
-      Console.init();
-      if (typeof Tasks !== 'undefined') Tasks.init();
+      this.initModules();
     } catch (e) {
       console.warn("Auth check error:", e);
-      Console.init();
-      if (typeof Tasks !== 'undefined') Tasks.init();
+      this.initModules();
     }
   },
 
