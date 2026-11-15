@@ -637,6 +637,14 @@ const Backups = {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || this._t('t_backup_err_delete', 'Error al eliminar copia'));
 
+      this.backupsList = (this.backupsList || []).filter(b => b.filename !== filename);
+      const totalSizeEl = document.getElementById('backups-total-size');
+      if (totalSizeEl) {
+        const totalBytes = this.backupsList.reduce((acc, b) => acc + (b.size_bytes || 0), 0);
+        totalSizeEl.textContent = this.formatBytes(totalBytes);
+      }
+      this.updateSummaryBadges();
+      this.renderBackupsTable();
       App.showToast(this._t('t_backup_toast_deleted', 'Copia de seguridad eliminada'), 'success');
       await this.fetchBackupsList();
     } catch (err) {

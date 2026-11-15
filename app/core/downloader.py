@@ -22,6 +22,18 @@ class DownloadManager:
         self._bedrock_cache: Dict[str, Dict[str, str]] = {}
         self._paper_classified_cache: Dict[str, Dict[str, Any]] = {}
 
+    @property
+    def progress(self) -> Dict[str, Any]:
+        """Expose current download progress with `is_downloading` compatibility flag."""
+        active = self.active_download or {}
+        status = active.get("status", "idle")
+        return {
+            "status": status,
+            "percent": active.get("percent", 0),
+            **active,
+            "is_downloading": status in ("downloading", "extracting"),
+        }
+
     async def get_paper_versions(self, project: str = "paper") -> List[str]:
         """Fetches available Minecraft versions for Paper/Folia/Velocity using PaperMC v3 API."""
         url = f"https://fill.papermc.io/v3/projects/{project}"

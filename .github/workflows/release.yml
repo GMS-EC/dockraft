@@ -47,11 +47,14 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
 
-          # Si el Release ya fue publicado en GitHub, no volver a compilar
-          if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
-            echo "La release ${TAG_NAME} ya existe en GitHub. Omitiendo compilación."
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-            exit 0
+          # Si el Release ya fue publicado en GitHub, omitir compilación en pushes normales a main,
+          # pero permitir reconstruir y actualizar la release al empujar un tag explícito o usar workflow_dispatch
+          if [[ "${GITHUB_REF}" != refs/tags/v* && "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]]; then
+            if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
+              echo "La release ${TAG_NAME} ya existe en GitHub. Omitiendo compilación."
+              echo "should_release=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           fi
 
           # Si estamos en main y el tag aún no existe en el repositorio remoto, crearlo automáticamente

@@ -53,27 +53,27 @@ class BulkCompressRequest(BaseModel):
 
 @router.get("/api/files/list", dependencies=[Depends(get_current_user)])
 async def file_list(path: str = Query("")):
-    return file_manager.list_directory(path)
+    return await asyncio.to_thread(file_manager.list_directory, path)
 
 
 @router.get("/api/files/content", dependencies=[Depends(get_current_user)])
 async def file_content(path: str = Query(...)):
-    return file_manager.read_file(path)
+    return await asyncio.to_thread(file_manager.read_file, path)
 
 
 @router.post("/api/files/save", dependencies=[Depends(get_current_user)])
 async def file_save(req: FileSaveRequest):
-    return file_manager.write_file(req.path, req.content)
+    return await asyncio.to_thread(file_manager.write_file, req.path, req.content)
 
 
 @router.post("/api/files/folder", dependencies=[Depends(get_current_user)])
 async def file_folder(req: FolderCreateRequest):
-    return file_manager.create_folder(req.path)
+    return await asyncio.to_thread(file_manager.create_folder, req.path)
 
 
 @router.delete("/api/files/delete", dependencies=[Depends(get_current_user)])
 async def file_delete(path: str = Query(...)):
-    return file_manager.delete_item(path)
+    return await asyncio.to_thread(file_manager.delete_item, path)
 
 
 @router.post("/api/files/upload", dependencies=[Depends(get_current_user)])
@@ -100,12 +100,12 @@ async def file_download(path: str = Query(...)):
 
 @router.post("/api/files/rename", dependencies=[Depends(get_current_user)])
 async def file_rename(req: FileRenameRequest):
-    return file_manager.rename_item(req.path, req.new_name)
+    return await asyncio.to_thread(file_manager.rename_item, req.path, req.new_name)
 
 
 @router.post("/api/files/duplicate", dependencies=[Depends(get_current_user)])
 async def file_duplicate(req: FileDuplicateRequest):
-    return file_manager.duplicate_item(req.path)
+    return await asyncio.to_thread(file_manager.duplicate_item, req.path)
 
 
 @router.post("/api/files/compress", dependencies=[Depends(get_current_user)])
@@ -115,12 +115,12 @@ async def file_compress(req: FileCompressRequest):
 
 @router.post("/api/files/create", dependencies=[Depends(get_current_user)])
 async def file_create(req: FileCreateRequest):
-    return file_manager.create_file(req.path)
+    return await asyncio.to_thread(file_manager.create_file, req.path)
 
 
 @router.post("/api/files/bulk-delete", dependencies=[Depends(get_current_user)])
 async def file_bulk_delete(req: BulkDeleteRequest):
-    return file_manager.bulk_delete(req.paths)
+    return await asyncio.to_thread(file_manager.bulk_delete, req.paths)
 
 
 @router.post("/api/files/bulk-compress", dependencies=[Depends(get_current_user)])

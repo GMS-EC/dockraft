@@ -302,7 +302,7 @@ const Tasks = {
         if (typeof App !== 'undefined') {
           App.showToast(data.message || this.tr('t_tasks_toast_run_success', 'Tarea ejecutada con éxito'), 'success');
         }
-        this.loadTasks();
+        await this.loadTasks();
       } else {
         const err = await res.json();
         if (typeof App !== 'undefined') {
@@ -520,7 +520,7 @@ const Tasks = {
             editId ? `Tarea '${name}' actualizada con éxito` : `Tarea '${name}' creada con éxito`
           ), 'success');
         }
-        this.loadTasks();
+        await this.loadTasks();
       } else {
         const err = await res.json();
         if (typeof App !== 'undefined') {

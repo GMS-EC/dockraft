@@ -12,11 +12,21 @@
 })();
 
 // Global fetch interceptor to handle 401 Unauthorized / Session Expiration immediately
+// and prevent stale browser/proxy caching on API requests.
 (function() {
   const originalFetch = window.fetch;
   window.fetch = async function(...args) {
-    const res = await originalFetch.apply(this, args);
     const url = (typeof args[0] === 'string') ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+    if (url.includes('/api/')) {
+      if (typeof args[0] === 'string') {
+        const init = args[1] ? { ...args[1] } : {};
+        if (!init.cache) init.cache = 'no-store';
+        args[1] = init;
+      } else if (args[0] instanceof Request && !args[1]) {
+        args[1] = { cache: 'no-store' };
+      }
+    }
+    const res = await originalFetch.apply(this, args);
     if (res && res.status === 401 && !url.includes('/api/auth/login')) {
       if (typeof App !== 'undefined' && App.handleSessionExpired) {
         App.handleSessionExpired();

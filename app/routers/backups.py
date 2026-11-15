@@ -54,12 +54,12 @@ class BackupPolicyRequest(BaseModel):
 
 @router.get("/api/backups/list", dependencies=[Depends(get_current_user)])
 async def get_backups():
-    return backup_manager.list_backups()
+    return await asyncio.to_thread(backup_manager.list_backups)
 
 
 @router.get("/api/backups/targets", dependencies=[Depends(get_current_user)])
 async def get_backup_targets():
-    return backup_manager.get_available_targets()
+    return await asyncio.to_thread(backup_manager.get_available_targets)
 
 
 @router.post("/api/backups/create", dependencies=[Depends(get_current_user)])
@@ -133,7 +133,7 @@ async def restore_backup(req: BackupRestoreRequest):
 
 @router.delete("/api/backups/{filename}", dependencies=[Depends(get_current_user)])
 async def delete_backup(filename: str):
-    res = backup_manager.delete_backup(filename)
+    res = await asyncio.to_thread(backup_manager.delete_backup, filename)
     if res.get("status") == "success":
         try:
             activity_manager.log("backup", "Copia eliminada", f"Eliminada copia '{filename}'", user="admin", status="info")

@@ -463,8 +463,11 @@ const Files = {
         if (typeof App !== 'undefined' && App.showToast) {
           App.showToast(this.trf('t_file_bulk_deleted', [data.deleted_count || count], `${data.deleted_count || count} elementos eliminados`), 'success');
         }
+        const deletedSet = new Set(paths);
+        this.rawItems = (this.rawItems || []).filter(it => !deletedSet.has((this.currentPath ? this.currentPath + '/' : '') + it.name));
         this.clearSelection();
-        this.loadDirectory(this.currentPath);
+        this.renderFileList(this.rawItems);
+        await this.loadDirectory(this.currentPath, { silent: true });
       } else {
         if (typeof App !== 'undefined' && App.showToast) {
           App.showToast(data.detail || this.tr('t_file_bulk_err_delete', 'Error al eliminar algunos elementos'), 'danger');
@@ -509,7 +512,7 @@ const Files = {
           App.showToast(this.trf('t_file_bulk_compressed', [data.archive_name], `Archivo ZIP creado: "${data.archive_name}"`), 'success');
         }
         this.clearSelection();
-        this.loadDirectory(this.currentPath);
+        await this.loadDirectory(this.currentPath, { silent: true });
       } else {
         if (typeof App !== 'undefined' && App.showToast) {
           App.showToast(data.detail || this.tr('t_file_bulk_err_compress', 'Error al comprimir elementos'), 'danger');
@@ -743,7 +746,7 @@ const Files = {
         if (typeof App !== 'undefined' && App.showToast) {
           App.showToast(this.trf('t_file_renamed_to', [data.name], `Renombrado a "${data.name}"`), 'success');
         }
-        this.loadDirectory(this.currentPath);
+        await this.loadDirectory(this.currentPath, { silent: true });
       } else {
         if (typeof App !== 'undefined' && App.showToast) {
           App.showToast(data.detail || this.tr('t_file_err_rename', 'Error al renombrar'), 'danger');
@@ -786,7 +789,7 @@ const Files = {
         if (typeof App !== 'undefined' && App.showToast) {
           App.showToast(this.trf('t_file_created', [fileName], `Archivo "${fileName}" creado`), 'success');
         }
-        await this.loadDirectory(this.currentPath);
+        await this.loadDirectory(this.currentPath, { silent: true });
         const ext = fileName.split('.').pop().toLowerCase();
         if (this.isEditable(ext)) {
           this.openEditor(newPath);
@@ -815,7 +818,7 @@ const Files = {
         if (typeof App !== 'undefined' && App.showToast) {
           App.showToast(this.trf('t_file_copy_created', [data.new_name], `Copia creada: "${data.new_name}"`), 'success');
         }
-        this.loadDirectory(this.currentPath);
+        await this.loadDirectory(this.currentPath, { silent: true });
       } else {
         if (typeof App !== 'undefined' && App.showToast) {
           App.showToast(data.detail || this.tr('t_file_err_duplicate', 'Error al duplicar'), 'danger');
@@ -840,7 +843,7 @@ const Files = {
         if (typeof App !== 'undefined' && App.showToast) {
           App.showToast(this.trf('t_file_compressed', [data.archive_name], `Archivo comprimido: "${data.archive_name}"`), 'success');
         }
-        this.loadDirectory(this.currentPath);
+        await this.loadDirectory(this.currentPath, { silent: true });
       } else {
         if (typeof App !== 'undefined' && App.showToast) {
           App.showToast(data.detail || this.tr('t_file_err_compress', 'Error al comprimir'), 'danger');
@@ -1032,9 +1035,11 @@ const Files = {
       });
       if (res.ok) {
         if (typeof App !== 'undefined' && App.showToast) App.showToast(this.trf('t_file_deleted', [name], `"${name}" eliminado`), 'success');
+        this.rawItems = (this.rawItems || []).filter(it => ((this.currentPath ? this.currentPath + '/' : '') + it.name) !== filePath);
         this.selectedPaths.delete(filePath);
         this.updateBulkBar();
-        this.loadDirectory(this.currentPath);
+        this.renderFileList(this.rawItems);
+        await this.loadDirectory(this.currentPath, { silent: true });
       } else {
         if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_err_delete', 'Error al eliminar'), 'danger');
       }
@@ -1054,7 +1059,7 @@ const Files = {
       });
       if (res.ok) {
         if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_unzip_done', 'Extracción completada'), 'success');
-        this.loadDirectory(this.currentPath);
+        await this.loadDirectory(this.currentPath, { silent: true });
       } else {
         if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_err_unzip', 'Error en la extracción'), 'danger');
       }
@@ -1082,7 +1087,7 @@ const Files = {
       });
       if (res.ok) {
         if (typeof App !== 'undefined' && App.showToast) App.showToast(this.tr('t_file_folder_created', 'Carpeta creada'), 'success');
-        this.loadDirectory(this.currentPath);
+        await this.loadDirectory(this.currentPath, { silent: true });
       } else {
         const err = await res.json();
         if (typeof App !== 'undefined' && App.showToast) App.showToast(err.detail || this.tr('t_file_err_create_folder', 'Error al crear carpeta'), 'danger');

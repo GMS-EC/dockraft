@@ -23,6 +23,11 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 - **Lista Blanca Desactivada por Defecto y Arranque de Bedrock (`app/core/downloader.py`, `app/routers/installer.py`, `app/core/server_properties.py`, `web/static/js/settings.js`):**
   - Desactivación automática de `allow-list`, `white-list` y `enforce-whitelist` (`false`) y alineación de puertos/`server-name` en instalaciones nuevas (incluyendo paquetes `.zip` oficiales de Bedrock Edition), respetando la configuración del usuario en actualizaciones (`preserve_existing_configs=True`).
   - Reconciliación automática de puertos antes de cada arranque en `ProcessManager.start_server()`, guardado previo de `runtime_config` en `installer.py` y valores seguros por defecto en `getCheck()` dentro de `settings.js`.
+- **Corrección de Tareas Programadas y Respaldos con `DownloadManager.progress` (`app/core/downloader.py`, `tests/test_tasks_and_cache.py`):**
+  - Se añadió la propiedad `DownloadManager.progress` exponiendo `status`, `percent` e `is_downloading` para evitar el error `Error ejecutando tarea 'Backup': 'DownloadManager' object has no attribute 'progress'` al ejecutar tareas de respaldo o copias manuales.
+- **Actualización Inmediata del Panel Web y Desactivación de Caché en API (`app/main.py`, `app/routers/files.py`, `app/routers/backups.py`, `web/static/js/app.js`, `web/static/js/files.js`, `web/static/js/backups.js`, `web/static/js/tasks.js`, `web/static/sw.js`):**
+  - Se añadieron cabeceras `Cache-Control: no-store, no-cache, must-revalidate, max-age=0`, `Pragma: no-cache` y `Expires: 0` en todas las respuestas `/api/`, junto con `cache: 'no-store'` por defecto en el interceptor `window.fetch` para evitar listados obsoletos tras eliminar o modificar elementos.
+  - Se trasladaron las operaciones síncronas de archivos y backups a `asyncio.to_thread(...)` para no bloquear el *event loop* de FastAPI, y se incorporó actualización optimista inmediata en la tabla al eliminar archivos o backups junto a recargas silenciosas y actualización de caché del Service Worker (`dockraft-v15`).
 
 ---
 
