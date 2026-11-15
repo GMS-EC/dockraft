@@ -5,6 +5,15 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.6.1] - 2026-11-14
+
+### Corregido (Fixed)
+- **Diseño Responsivo del Panel Superior y Tarjetas en Móvil (`web/static/css/redesign.css`, `web/static/sw.js`):**
+  - Corrección de `.overview-grid` en pantallas `<= 1140px` para que permanezca contraído por defecto hasta pulsar **Expandir** y apile las tarjetas de **Detalles del Servidor** en 1 sola columna (`grid-template-columns: 1fr`) sin cortar ni desbordar textos.
+  - Apilamiento en 1 columna de las tarjetas de métricas rápidas (`CPU`, `RAM`, `Disco` y `Control`) en pantallas de teléfono (`<= 640px`) con separación entre etiquetas y valores, e invalidación de caché del Service Worker (`dockraft-v14`).
+
+---
+
 ## [1.6.0] - 2026-11-13
 
 ### Añadido (Added)

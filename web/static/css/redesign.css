@@ -304,9 +304,52 @@ body {
     background-color: var(--bg-card);
   }
 
+  .overview-grid {
+    display: none;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 12px 12px 12px;
+  }
+
+  .server-overview-banner.expanded .overview-grid {
+    display: grid !important;
+    grid-template-columns: 1fr;
+  }
+
   .overview-col {
     background-color: var(--bg-main);
     border-color: var(--border-color);
+    min-width: 0;
+  }
+
+  .overview-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .overview-label {
+    flex-shrink: 0;
+  }
+
+  .overview-val {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .grid-4 {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .stat-label {
+    gap: 8px;
   }
 }
 
