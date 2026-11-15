@@ -30,6 +30,7 @@ from typing import Any
 
 _UI_LANG_OVERRIDE: str | None = None
 _ACTIVE_MAIN_ROOT: Path | None = None
+_ACTIVE_INSTANCE_DIR: Path | None = None
 
 
 def _default_main_root() -> Path:
@@ -171,20 +172,213 @@ def _update_env_file(env_path: Path, updates: dict[str, str]) -> None:
     env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
-def _update_mc_server_port(instance_dir: Path, mc_port: int) -> None:
-    """Updates server-port in data/server.properties if the file exists."""
+def _update_mc_server_port(instance_dir: Path, mc_port: int) -> int | None:
+    """
+    Updates server-port (and Bedrock UDP/IPv6 port keys) in data/server.properties if present.
+    Returns the previous server-port value if one was present, else None.
+    """
     prop_path = instance_dir / "data" / "server.properties"
     if not prop_path.is_file():
-        return
+        return None
     try:
-        text = prop_path.read_text(encoding="utf-8", errors="replace")
-        if re.search(r"(?m)^server-port\s*=", text):
-            text = re.sub(r"(?m)^server-port\s*=.*$", f"server-port={mc_port}", text)
-        else:
-            text = text.rstrip("\r\n") + f"\nserver-port={mc_port}\n"
-        prop_path.write_text(text, encoding="utf-8")
+        from app.core.server_properties import update_server_properties_port
+
+        return update_server_properties_port(prop_path, mc_port)
     except Exception:
-        pass
+        try:
+            text = prop_path.read_text(encoding="utf-8", errors="replace")
+            m = re.search(r"(?m)^server-port\s*=\s*(\d+)", text)
+            prev_port = int(m.group(1)) if m else None
+            if m:
+                text = re.sub(r"(?m)^server-port\s*=.*$", f"server-port={mc_port}", text)
+            else:
+                text = text.rstrip("\r\n") + f"\nserver-port={mc_port}\n"
+            prop_path.write_text(text, encoding="utf-8")
+            return prev_port
+        except Exception:
+            return None
+
+
+def _find_instance_mc_processes(instance_dir: Path) -> list:
+    """Returns running Java/Bedrock server processes associated with instance_dir."""
+    try:
+        import psutil
+    except Exception:
+        return []
+
+    target = instance_dir.resolve()
+    target_norm = str(target).lower() if sys.platform == "win32" else str(target)
+    my_pid = os.getpid()
+    found = []
+    for proc in psutil.process_iter(["pid", "name", "cwd", "cmdline"]):
+        try:
+            if proc.info["pid"] == my_pid:
+                continue
+            name = str(proc.info.get("name") or "").lower()
+            cmd_str = " ".join(str(x) for x in (proc.info.get("cmdline") or [])).lower()
+            try:
+                cwd_str = str(proc.info.get("cwd") or proc.cwd() or "")
+            except Exception:
+                cwd_str = ""
+            cwd_norm = cwd_str.lower() if sys.platform == "win32" else cwd_str
+            cmd_norm = cmd_str if sys.platform == "win32" else " ".join(str(x) for x in (proc.info.get("cmdline") or []))
+            if not any(k in name or k in cmd_str for k in ("java", "bedrock_server")):
+                continue
+            if cwd_norm.startswith(target_norm) or target_norm in cmd_norm:
+                found.append(proc)
+        except Exception:
+            continue
+    return found
+
+
+def _request_instance_mc_action(web_port: int, instance_dir: Path, action: str = "status") -> tuple[bool, str]:
+    """
+    Authenticates against a running instance's Dockraft web API and checks status or triggers start/restart.
+    Returns (ok, status_or_result).
+    """
+    import http.cookiejar
+    import urllib.request
+
+    env_map = _parse_env_file(instance_dir / ".env")
+    raw_host = env_map.get("HOST", "127.0.0.1").strip()
+    connect_host = "127.0.0.1" if raw_host in ("0.0.0.0", "::", "") else raw_host
+    user, pw = _read_env_credentials(instance_dir / ".env")
+    if not pw:
+        g_user, g_pw = _get_global_credentials()
+        user = user or g_user
+        pw = pw or g_pw
+    if not user or not pw:
+        return False, "no_credentials"
+
+    base_url = f"http://{connect_host}:{int(web_port)}"
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    try:
+        login_req = urllib.request.Request(
+            f"{base_url}/api/auth/login",
+            data=json.dumps({"username": user, "password": pw}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with opener.open(login_req, timeout=5) as resp:
+            if resp.status >= 400:
+                return False, f"auth_http_{resp.status}"
+
+        status_req = urllib.request.Request(f"{base_url}/api/server/status", method="GET")
+        with opener.open(status_req, timeout=5) as resp:
+            st_data = json.loads(resp.read().decode("utf-8"))
+        mc_status = str(st_data.get("status") or "").upper()
+
+        if action == "status":
+            return True, mc_status
+        if action == "start":
+            if mc_status in ("RUNNING", "STARTING"):
+                return True, "already_running"
+            start_req = urllib.request.Request(
+                f"{base_url}/api/server/start",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with opener.open(start_req, timeout=20) as resp:
+                res_data = json.loads(resp.read().decode("utf-8"))
+            return res_data.get("status") == "success", str(res_data.get("status") or "")
+        if action == "restart":
+            if mc_status not in ("RUNNING", "STARTING"):
+                return True, "offline"
+            restart_req = urllib.request.Request(
+                f"{base_url}/api/server/restart",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with opener.open(restart_req, timeout=50) as resp:
+                res_data = json.loads(resp.read().decode("utf-8"))
+            return res_data.get("status") == "success", "restarted" if res_data.get("status") == "success" else str(res_data.get("message") or "error")
+    except Exception as exc:
+        return False, str(exc)
+
+    return False, "unknown_action"
+
+
+def _apply_port_change_sync_and_restart(
+    target_dir: Path,
+    old_web: int,
+    new_web: int,
+    old_mc: int,
+    new_mc: int,
+    prev_prop_port: int | None = None,
+) -> tuple[str, str]:
+    """
+    Applies runtime restart behavior after instance ports are updated so changes take effect immediately.
+    Returns (outcome_code, localized_message).
+    """
+    resolved_target = target_dir.resolve()
+    mc_changed = (old_mc != new_mc) or (prev_prop_port is not None and prev_prop_port != new_mc)
+    web_changed = old_web != new_web
+    panel_online = _is_port_open(old_web)
+
+    if web_changed and panel_online:
+        is_primary_tray_host = _ACTIVE_INSTANCE_DIR is not None and resolved_target == _ACTIVE_INSTANCE_DIR
+        if is_primary_tray_host:
+            if mc_changed:
+                ok_r, res_r = _request_instance_mc_action(old_web, resolved_target, "restart")
+                if ok_r and res_r == "restarted":
+                    return "warning", _tr(
+                        f"Puerto MC :{new_mc} aplicado y servidor reiniciado. El nuevo puerto web :{new_web} se aplicará al reiniciar Dockraft.",
+                        f"MC port :{new_mc} applied and server restarted. New web port :{new_web} will apply after restarting Dockraft.",
+                    )
+            return "warning", _tr(
+                f"Puerto web cambiado a :{new_web}. Reinicia Dockraft desde el icono de la bandeja para aplicar el nuevo puerto web.",
+                f"Web port changed to :{new_web}. Restart Dockraft from the tray icon to apply the new web port.",
+            )
+
+        ok_st, cur_mc_st = _request_instance_mc_action(old_web, resolved_target, "status")
+        was_mc_running = ok_st and cur_mc_st in ("RUNNING", "STARTING")
+        _stop_instance(resolved_target, old_web)
+        _spawn_instance_background(resolved_target, new_web)
+        panel_up = _wait_for_port("127.0.0.1", new_web, timeout=12.0)
+        if was_mc_running and panel_up:
+            _request_instance_mc_action(new_web, resolved_target, "start")
+            return "restarted", _tr(
+                f"Instancia reiniciada en Web :{new_web} y Minecraft :{new_mc}.",
+                f"Instance restarted on Web :{new_web} and Minecraft :{new_mc}.",
+            )
+        return "restarted" if panel_up else "warning", _tr(
+            f"Panel web reiniciado en :{new_web} (Minecraft :{new_mc}).",
+            f"Web panel restarted on :{new_web} (Minecraft :{new_mc}).",
+        )
+
+    if mc_changed:
+        if panel_online:
+            ok_r, res_r = _request_instance_mc_action(new_web, resolved_target, "restart")
+            if ok_r and res_r == "restarted":
+                return "restarted", _tr(
+                    f"Puerto actualizado a :{new_mc} y servidor Minecraft reiniciado automáticamente.",
+                    f"Port updated to :{new_mc} and Minecraft server restarted automatically.",
+                )
+            if ok_r and res_r == "offline":
+                return "saved_offline", _tr(
+                    f"Puerto actualizado a :{new_mc} en server.properties (se aplicará al iniciar).",
+                    f"Port updated to :{new_mc} in server.properties (will apply on next start).",
+                )
+            return "warning", _tr(
+                f"Puerto guardado en :{new_mc}, pero no se pudo reiniciar automáticamente ({res_r}). Reinicia desde el panel.",
+                f"Port saved as :{new_mc}, but automatic restart failed ({res_r}). Please restart from the web panel.",
+            )
+
+        if _find_instance_mc_processes(resolved_target):
+            return "warning", _tr(
+                f"Puerto guardado en :{new_mc}, pero hay un proceso de Minecraft activo sin panel web; reinícialo para aplicar el cambio.",
+                f"Port saved as :{new_mc}, but a standalone Minecraft process is running without the web panel; restart it to apply.",
+            )
+
+        return "saved_offline", _tr(
+            f"Puerto actualizado a :{new_mc} en server.properties (se aplicará al iniciar).",
+            f"Port updated to :{new_mc} in server.properties (will apply on next start).",
+        )
+
+    return "saved", _tr("Cambios de instancia guardados correctamente.", "Instance settings saved successfully.")
 
 
 def _load_launcher_config() -> dict:
@@ -873,7 +1067,13 @@ def _clean_host_env() -> dict[str, str]:
 
 
 def _open_url(url: str) -> None:
-    if sys.platform != "win32" and sys.platform != "darwin":
+    if sys.platform == "win32":
+        try:
+            os.startfile(url)
+            return
+        except Exception:
+            pass
+    elif sys.platform != "darwin":
         try:
             subprocess.Popen(
                 ["xdg-open", url],
@@ -996,6 +1196,8 @@ def _ensure_instance_env(
                 updates["PORT"] = str(port)
             if mc_port:
                 updates["MC_PORT"] = str(mc_port)
+                if _ACTIVE_INSTANCE_DIR is not None and instance_dir.resolve() == _ACTIVE_INSTANCE_DIR:
+                    os.environ["MC_PORT"] = str(mc_port)
                 _update_mc_server_port(instance_dir, mc_port)
             if admin_user.strip():
                 updates["ADMIN_USER"] = admin_user.strip()
@@ -1331,7 +1533,7 @@ def _build_tk_primitives(root, allow_resize: bool = True):
         min_w: int = 76,
     ):
         btn_font = font or (ui_font, 9)
-        meas = tkfont.Font(family=btn_font[0], size=btn_font[1], weight=btn_font[2] if len(btn_font) > 2 else "normal")
+        meas = tkfont.Font(root=root, family=btn_font[0], size=btn_font[1], weight=btn_font[2] if len(btn_font) > 2 else "normal")
         btn_w = max(min_w, meas.measure(text) + padx * 2)
         c = tk.Canvas(parent, bg=parent_bg, width=btn_w, height=height, highlightthickness=0, bd=0, cursor="hand2")
         normal_img = _make_rounded_rect_img(btn_w, height, radius, bg_col, border=border_col, outer_bg=parent_bg, border_width=1, master=root)
@@ -1344,7 +1546,9 @@ def _build_tk_primitives(root, allow_resize: bool = True):
         c.bind("<Leave>", lambda _e: c.itemconfigure(bg_id, image=normal_img))
 
         def _release(event):
-            if 0 <= event.x <= btn_w and 0 <= event.y <= height:
+            w_cur = max(btn_w, c.winfo_width())
+            h_cur = max(height, c.winfo_height())
+            if 0 <= event.x <= w_cur and 0 <= event.y <= h_cur:
                 command()
 
         c.bind("<ButtonRelease-1>", _release)
@@ -1434,14 +1638,38 @@ def _run_dark_message_dialog(
 
     _enable_win_dpi_and_app_id()
     chosen = {"code": buttons[default_idx][1] if buttons else 0}
+    if parent is None and threading.current_thread() is threading.main_thread():
+        default_root = getattr(tk, "_default_root", None)
+        if default_root is not None:
+            try:
+                if default_root.winfo_exists():
+                    parent = default_root
+            except Exception:
+                parent = None
     if parent is not None:
         root = tk.Toplevel(parent, class_="Dockraft")
         root.transient(parent)
-        root.grab_set()
     else:
         root = tk.Tk(className="Dockraft")
     root.title(title)
     ui = _build_tk_primitives(root, allow_resize=False)
+
+    def _close_dialog(val: int | None = None) -> None:
+        if val is not None:
+            chosen["code"] = val
+        try:
+            root.grab_release()
+        except Exception:
+            pass
+        if parent is None:
+            try:
+                root.quit()
+            except Exception:
+                pass
+        try:
+            root.destroy()
+        except Exception:
+            pass
 
     outer, inner = ui["rounded_panel"](root, ui["bg"], ui["card"], ui["border"], radius=16, padx=22, pady=18, expand=True)
     outer.pack(fill="both", expand=True, padx=14, pady=14)
@@ -1481,11 +1709,13 @@ def _run_dark_message_dialog(
     prim_hover = "#ef4444" if danger_primary else ui["accent_hover"]
     prim_border = "#f87171" if danger_primary else ui["accent_border"]
 
+    primary_code = next((code for _lbl, code, prim in buttons if prim), None)
+
     for label, code, primary in reversed(buttons):
         ui["rounded_button"](
             btn_row,
             label,
-            lambda val=code: (chosen.update({"code": val}), root.destroy()),
+            lambda val=code: _close_dialog(val),
             bg_col=prim_bg if primary else ui["btn_bg"],
             hover_col=prim_hover if primary else ui["btn_hover"],
             border_col=prim_border if primary else ui["btn_border"],
@@ -1495,7 +1725,10 @@ def _run_dark_message_dialog(
             height=36,
         ).pack(side="right", padx=(8, 0))
 
-    root.bind("<Escape>", lambda _e: root.destroy())
+    root.protocol("WM_DELETE_WINDOW", lambda: _close_dialog())
+    root.bind("<Escape>", lambda _e: _close_dialog())
+    if primary_code is not None:
+        root.bind("<Return>", lambda _e: _close_dialog(primary_code))
     root.update_idletasks()
     w = max(490, inner.winfo_reqwidth() + 72)
     h = max(210, inner.winfo_reqheight() + 72)
@@ -1504,6 +1737,11 @@ def _run_dark_message_dialog(
     root.geometry(f"{w}x{h}+{x}+{y}")
     _apply_dark_titlebar(root, allow_maximize=False)
     if parent is not None:
+        try:
+            root.grab_set()
+            root.focus_force()
+        except Exception:
+            pass
         parent.wait_window(root)
     else:
         root.mainloop()
@@ -1971,7 +2209,7 @@ def _run_instances_dialog() -> None:
 
         # Inline Port Editor Frame (hidden until user clicks 'Puertos' / 'Ports' on an instance)
         editor_wrap, editor_inner = ui["rounded_panel"](frame, card, "#11141a", ui["accent_border"], radius=12, padx=14, pady=10)
-        editing_state: dict[str, Any] = {"dir": None}
+        editing_state: dict[str, Any] = {"dir": None, "old_web": 0, "old_mc": 0}
         ed_title_var = tk.StringVar(value=_tr("Editar instancia", "Edit instance"))
         ed_name_var = tk.StringVar()
         ed_web_var = tk.StringVar()
@@ -2035,12 +2273,48 @@ def _run_instances_dialog() -> None:
                 )
                 return
             new_name = ed_name_var.get().strip() or target_dir.name
+            old_web = int(editing_state.get("old_web") or 0)
+            old_mc = int(editing_state.get("old_mc") or 0)
             new_web = int(ed_web_var.get().strip())
             new_mc = int(ed_mc_var.get().strip())
+
+            prev_prop_port = None
+            prop_file = target_dir / "data" / "server.properties"
+            if prop_file.is_file():
+                try:
+                    m_prev = re.search(r"(?m)^server-port\s*=\s*(\d+)", prop_file.read_text(encoding="utf-8", errors="replace"))
+                    if m_prev:
+                        prev_prop_port = int(m_prev.group(1))
+                except Exception:
+                    pass
+
             _ensure_instance_env(target_dir, None, new_web, new_mc, server_name=new_name, update_existing=True)
             _save_launcher_config(target_dir, new_web, mc_port=new_mc, name=new_name)
             _close_editor()
             _rebuild_list()
+
+            mc_changed = (old_mc != new_mc) or (prev_prop_port is not None and prev_prop_port != new_mc)
+            web_changed = old_web != new_web
+            if mc_changed or web_changed:
+                _set_notice(
+                    _tr(
+                        f"Aplicando puertos (Web :{new_web} | MC :{new_mc}) y reiniciando si el servidor está en línea...",
+                        f"Applying ports (Web :{new_web} | MC :{new_mc}) and restarting if the server is online...",
+                    ),
+                    color="#fcd34d",
+                )
+
+                def _apply_worker():
+                    outcome, info_msg = _apply_port_change_sync_and_restart(
+                        target_dir, old_web, new_web, old_mc, new_mc, prev_prop_port
+                    )
+                    tone = "#f59e0b" if outcome == "warning" else "#3fb950"
+                    if root.winfo_exists():
+                        root.after(0, lambda: (_set_notice(info_msg, color=tone), _rebuild_list()))
+
+                threading.Thread(target=_apply_worker, daemon=True).start()
+            else:
+                _set_notice(_tr("Nombre de instancia actualizado.", "Instance name updated."), color="#3fb950")
 
         ed_btns = tk.Frame(ed_fields, bg="#11141a")
         ed_btns.pack(side="right", anchor="s", pady=(14, 0))
@@ -2069,9 +2343,32 @@ def _run_instances_dialog() -> None:
             min_w=64,
         ).pack(side="left")
 
+        # Notice banner for port updates & server restarts
+        notice_var = tk.StringVar(value="")
+        notice_lbl = tk.Label(
+            frame,
+            textvariable=notice_var,
+            bg=card,
+            fg="#3fb950",
+            font=(ui_font, 8, "bold"),
+            anchor="w",
+        )
+
         # Scrollable list area for instances
         list_outer = tk.Frame(frame, bg=card)
         list_outer.pack(fill="both", expand=True)
+
+        def _set_notice(msg_text: str, color: str = "#3fb950"):
+            if not root.winfo_exists():
+                return
+            notice_var.set(msg_text)
+            notice_lbl.configure(fg=color)
+            if msg_text:
+                if not notice_lbl.winfo_ismapped():
+                    notice_lbl.pack(fill="x", pady=(0, 8), before=list_outer)
+            else:
+                if notice_lbl.winfo_ismapped():
+                    notice_lbl.pack_forget()
 
         list_canvas = tk.Canvas(list_outer, bg=card, highlightthickness=0, bd=0)
         scrollbar = tk.Scrollbar(list_outer, orient="vertical", command=list_canvas.yview)
@@ -2109,6 +2406,8 @@ def _run_instances_dialog() -> None:
 
         def _open_editor_for(inst: dict):
             editing_state["dir"] = inst["dir"]
+            editing_state["old_web"] = int(inst["port"])
+            editing_state["old_mc"] = int(inst["mc_port"])
             ed_title_var.set(_tr(f"Editar puertos — {inst['name']}", f"Edit ports — {inst['name']}"))
             ed_name_var.set(inst["name"])
             ed_web_var.set(str(inst["port"]))
@@ -2791,25 +3090,66 @@ def _parse_semver(ver: str) -> tuple[int, ...]:
     return tuple(nums)
 
 
-def _fetch_latest_version_info() -> tuple[str, str]:
+def _is_windows_setup_install() -> bool:
+    """Returns True only when running from an installed Windows Setup (--onedir) build."""
+    if sys.platform != "win32" or not getattr(sys, "frozen", False):
+        return False
+    try:
+        exe_dir = Path(sys.executable).resolve().parent
+    except Exception:
+        return False
+    if (exe_dir / ".portable").exists():
+        return False
+    return (
+        (exe_dir / ".dockraft_setup").is_file()
+        or any(exe_dir.glob("unins*.exe"))
+        or (exe_dir / "_internal").is_dir()
+    )
+
+
+def _fetch_release_update_info() -> dict[str, Any]:
+    """Queries GitHub Releases (including Windows Setup asset metadata) and remote CHANGELOG.md."""
     import urllib.request
 
     latest_ver = ""
+    release_tag_ver = ""
     release_url = "https://github.com/GMS-EC/dockraft/releases/latest"
+    setup_asset_url = ""
+    setup_asset_name = ""
+    setup_asset_size = 0
+    setup_asset_sha256 = ""
 
-    # 1. Check latest GitHub Release tag
+    # 1. Check latest GitHub Release tag and Windows Setup installer asset
     try:
         req = urllib.request.Request(
             "https://api.github.com/repos/GMS-EC/dockraft/releases/latest",
             headers={"User-Agent": "Dockraft-Desktop-Launcher"},
         )
-        with urllib.request.urlopen(req, timeout=6) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         tag = str(data.get("tag_name", "")).strip().lstrip("vV")
         if tag:
             latest_ver = tag
+            release_tag_ver = tag
         if data.get("html_url"):
             release_url = str(data["html_url"])
+        for asset in data.get("assets") or []:
+            if not isinstance(asset, dict):
+                continue
+            a_name = str(asset.get("name") or "").strip()
+            a_url = str(asset.get("browser_download_url") or "").strip()
+            if (
+                a_name.startswith("Dockraft-Windows-Setup-")
+                and a_name.lower().endswith(".exe")
+                and a_url
+            ):
+                setup_asset_name = a_name
+                setup_asset_url = a_url
+                setup_asset_size = int(asset.get("size") or 0)
+                raw_digest = str(asset.get("digest") or "").strip()
+                if raw_digest.lower().startswith("sha256:"):
+                    setup_asset_sha256 = raw_digest.split(":", 1)[1].strip().lower()
+                break
     except Exception:
         pass
 
@@ -2833,18 +3173,162 @@ def _fetch_latest_version_info() -> tuple[str, str]:
         except Exception:
             continue
 
-    return latest_ver, release_url
+    return {
+        "latest_ver": latest_ver,
+        "release_tag_ver": release_tag_ver,
+        "release_url": release_url,
+        "setup_asset_url": setup_asset_url,
+        "setup_asset_name": setup_asset_name,
+        "setup_asset_size": setup_asset_size,
+        "setup_asset_sha256": setup_asset_sha256,
+    }
 
 
-def _run_about_dialog() -> None:
+def _fetch_latest_version_info() -> tuple[str, str]:
+    info = _fetch_release_update_info()
+    return str(info["latest_ver"]), str(info["release_url"])
+
+
+def _download_setup_installer(
+    url: str,
+    filename: str,
+    expected_size: int = 0,
+    expected_sha256: str = "",
+    progress_cb=None,
+    cancel_event: threading.Event | None = None,
+) -> Path:
+    """Downloads and verifies Dockraft-Windows-Setup-*.exe into %TEMP%/Dockraft-Updates."""
+    import hashlib
+    import tempfile
+    import urllib.parse
+    import urllib.request
+
+    safe_name = Path(filename).name
+    if not safe_name.startswith("Dockraft-Windows-Setup-") or not safe_name.lower().endswith(".exe"):
+        raise ValueError(f"Unexpected setup filename: {safe_name}")
+
+    def _is_github_https(raw_url: str) -> bool:
+        parsed = urllib.parse.urlparse(raw_url)
+        host = (parsed.hostname or "").lower()
+        return parsed.scheme == "https" and (host == "github.com" or host.endswith(".githubusercontent.com"))
+
+    if not _is_github_https(url):
+        raise ValueError("Untrusted download URL")
+
+    upd_dir = Path(tempfile.gettempdir()) / "Dockraft-Updates"
+    upd_dir.mkdir(parents=True, exist_ok=True)
+    tmp_path = upd_dir / f".{safe_name}.download.tmp"
+    dest_path = upd_dir / safe_name
+
+    req = urllib.request.Request(url, headers={"User-Agent": "Dockraft-Desktop-Launcher"})
+    hasher = hashlib.sha256()
+    downloaded = 0
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            if not _is_github_https(resp.geturl()):
+                raise ValueError("Untrusted redirect host")
+            total = expected_size or int(resp.headers.get("Content-Length") or 0)
+            with open(tmp_path, "wb") as out_f:
+                first_chunk = True
+                while True:
+                    if cancel_event and cancel_event.is_set():
+                        raise RuntimeError("Download cancelled")
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    if first_chunk:
+                        first_chunk = False
+                        if not chunk.startswith(b"MZ"):
+                            raise ValueError("Downloaded file is not a valid Windows executable")
+                    out_f.write(chunk)
+                    hasher.update(chunk)
+                    downloaded += len(chunk)
+                    if progress_cb:
+                        progress_cb(downloaded, total)
+
+        if downloaded <= 0:
+            raise ValueError("Downloaded installer is empty")
+        if expected_size > 0 and downloaded != expected_size:
+            raise ValueError(f"Incomplete download ({downloaded}/{expected_size} bytes)")
+        if expected_sha256 and hasher.hexdigest().lower() != expected_sha256.lower():
+            raise ValueError("SHA-256 verification failed")
+
+        tmp_path.replace(dest_path)
+        return dest_path
+    except Exception:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise
+
+
+def _stop_all_dockraft_and_launch_installer(
+    installer_path: Path,
+    in_process_app=None,
+    in_process_server=None,
+    tray_icon=None,
+) -> None:
+    """Cleanly stops running Minecraft servers and Dockraft instances, then launches Setup.exe."""
+    if in_process_app is not None:
+        try:
+            from app.core.process_manager import process_manager
+
+            if process_manager.get_status() in ("RUNNING", "STARTING"):
+                ev_loop = getattr(in_process_app.state, "event_loop", None)
+                if ev_loop and ev_loop.is_running():
+                    fut = asyncio.run_coroutine_threadsafe(process_manager.stop_server(), ev_loop)
+                    fut.result(timeout=35)
+        except Exception:
+            pass
+
+    for inst in _discover_all_instances():
+        try:
+            inst_dir = Path(inst["dir"]).resolve()
+            inst_port = int(inst.get("port") or 0)
+            if inst_port > 0 and _is_port_open(inst_port):
+                _stop_instance(inst_dir, inst_port)
+        except Exception:
+            pass
+
+    _terminate_all_other_dockraft_processes(stop_mc_servers=True)
+
+    creation_flags = 0
+    if sys.platform == "win32":
+        creation_flags = (
+            getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
+        )
+    subprocess.Popen(
+        [str(installer_path)],
+        env=_clean_host_env(),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        close_fds=True,
+        creationflags=creation_flags,
+    )
+
+    if in_process_server is not None:
+        in_process_server.should_exit = True
+    if tray_icon is not None:
+        try:
+            tray_icon.stop()
+        except Exception:
+            pass
+
+
+def _run_about_dialog() -> Path | None:
     """Native dark window displaying Dockraft credits, GPLv3 license, version, and update checker."""
     try:
         import tkinter as tk
     except Exception:
-        return
+        return None
 
     _enable_win_dpi_and_app_id()
     cur_ver = _get_app_version().strip().lstrip("vV")
+    pending_installer: dict[str, Path | None] = {"path": None}
+    cancel_event = threading.Event()
 
     root = tk.Tk(className="Dockraft")
     ui = _build_tk_primitives(root)
@@ -2855,6 +3339,15 @@ def _run_about_dialog() -> None:
     ui_font = ui["ui_font"]
 
     state_holder: dict[str, Any] = {"outer": None}
+
+    def _close_dialog():
+        cancel_event.set()
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+    root.protocol("WM_DELETE_WINDOW", _close_dialog)
 
     def _build_content():
         if state_holder["outer"] is not None:
@@ -2980,12 +3473,114 @@ def _run_about_dialog() -> None:
             if checking_state["busy"]:
                 return
             checking_state["busy"] = True
+            cancel_event.clear()
             status_var.set(_tr("Buscando actualizaciones...", "Checking for updates..."))
             lbl_status.configure(fg="#fbbf24")
             upd_wrap._sync_height()
 
+            def _start_setup_download(info: dict[str, Any]):
+                checking_state["busy"] = True
+                asset_name = str(info["setup_asset_name"])
+                asset_url = str(info["setup_asset_url"])
+                asset_size = int(info.get("setup_asset_size") or 0)
+                asset_sha256 = str(info.get("setup_asset_sha256") or "")
+                release_url = str(info["release_url"])
+
+                status_var.set(_tr(f"Descargando {asset_name}...", f"Downloading {asset_name}..."))
+                lbl_status.configure(fg="#fbbf24")
+                upd_wrap._sync_height()
+
+                last_tick = {"t": 0.0}
+
+                def _on_progress(done_bytes: int, total_bytes: int):
+                    now = time.monotonic()
+                    if (now - last_tick["t"]) < 0.12 and (total_bytes <= 0 or done_bytes < total_bytes):
+                        return
+                    last_tick["t"] = now
+                    mb_done = done_bytes / (1024 * 1024)
+                    if total_bytes > 0:
+                        pct = min(100, int((done_bytes * 100) / total_bytes))
+                        mb_tot = total_bytes / (1024 * 1024)
+                        txt = _tr(
+                            f"Descargando actualización: {pct}% ({mb_done:.1f} / {mb_tot:.1f} MB)...",
+                            f"Downloading update: {pct}% ({mb_done:.1f} / {mb_tot:.1f} MB)...",
+                        )
+                    else:
+                        txt = _tr(
+                            f"Descargando actualización ({mb_done:.1f} MB)...",
+                            f"Downloading update ({mb_done:.1f} MB)...",
+                        )
+                    try:
+                        root.after(0, lambda t=txt: (status_var.set(t), upd_wrap._sync_height()))
+                    except Exception:
+                        pass
+
+                def _dl_worker():
+                    try:
+                        inst_path = _download_setup_installer(
+                            asset_url,
+                            asset_name,
+                            expected_size=asset_size,
+                            expected_sha256=asset_sha256,
+                            progress_cb=_on_progress,
+                            cancel_event=cancel_event,
+                        )
+
+                        def _on_ready():
+                            if cancel_event.is_set() or not root.winfo_exists():
+                                return
+                            status_var.set(
+                                _tr(
+                                    "Actualización lista. Cerrando instancias e iniciando instalador...",
+                                    "Update ready. Closing instances and launching installer...",
+                                )
+                            )
+                            lbl_status.configure(fg=ui["accent"])
+                            upd_wrap._sync_height()
+                            pending_installer["path"] = inst_path
+                            root.after(150, root.destroy)
+
+                        root.after(0, _on_ready)
+                    except Exception:
+                        def _on_err():
+                            checking_state["busy"] = False
+                            if cancel_event.is_set() or not root.winfo_exists():
+                                return
+                            status_var.set(
+                                _tr(
+                                    "No se pudo descargar el instalador automáticamente.",
+                                    "Could not download the installer automatically.",
+                                )
+                            )
+                            lbl_status.configure(fg="#f87171")
+                            upd_wrap._sync_height()
+                            ans_fb = _run_dark_message_dialog(
+                                _tr("Dockraft — Error al descargar", "Dockraft — Download Error"),
+                                _tr(
+                                    "No se pudo completar la descarga automática del instalador.\n\n"
+                                    "¿Deseas abrir la página de GitHub para descargarlo manualmente?",
+                                    "Could not complete the automatic installer download.\n\n"
+                                    "Would you like to open GitHub to download it manually?",
+                                ),
+                                [(_tr("Abrir GitHub", "Open GitHub"), 6, True), (_tr("Cerrar", "Close"), 7, False)],
+                                default_idx=0,
+                                parent=root,
+                            )
+                            if ans_fb == 6:
+                                _open_url(release_url)
+
+                        try:
+                            root.after(0, _on_err)
+                        except Exception:
+                            pass
+
+                threading.Thread(target=_dl_worker, daemon=True).start()
+
             def _worker():
-                latest_ver, release_url = _fetch_latest_version_info()
+                info = _fetch_release_update_info()
+                latest_ver = str(info["latest_ver"])
+                release_tag_ver = str(info["release_tag_ver"])
+                release_url = str(info["release_url"])
 
                 def _update_ui():
                     checking_state["busy"] = False
@@ -2998,12 +3593,55 @@ def _run_about_dialog() -> None:
                         status_var.set(_tr(f"¡Nueva versión disponible: v{latest_ver}!", f"New version available: v{latest_ver}!"))
                         lbl_status.configure(fg=ui["accent"])
                         upd_wrap._sync_height()
-                        msg = _tr(
-                            f"Hay una nueva versión disponible: v{latest_ver}\nVersión instalada: v{cur_ver}\n\n¿Deseas abrir la página de descarga en GitHub?",
-                            f"A new version is available: v{latest_ver}\nInstalled version: v{cur_ver}\n\nWould you like to open the download page on GitHub?",
+
+                        can_auto_setup = (
+                            _is_windows_setup_install()
+                            and bool(info["setup_asset_url"])
+                            and bool(release_tag_ver)
+                            and _parse_semver(release_tag_ver) > _parse_semver(cur_ver)
                         )
-                        if _prompt_dark_dialog(_tr("Dockraft — Actualización Disponible", "Dockraft — Update Available"), msg, "yesno") == 6:
-                            _open_url(release_url)
+                        if can_auto_setup:
+                            msg = _tr(
+                                f"Hay una nueva versión disponible: v{release_tag_ver}\n"
+                                f"Versión instalada: v{cur_ver}\n\n"
+                                "¿Deseas descargar e instalar la actualización automáticamente?\n"
+                                "(Si hay servidores de Minecraft activos, se guardarán y detendrán limpiamente antes de actualizar).",
+                                f"A new version is available: v{release_tag_ver}\n"
+                                f"Installed version: v{cur_ver}\n\n"
+                                "Would you like to automatically download and install the update?\n"
+                                "(Any running Minecraft servers will be cleanly saved and stopped before updating).",
+                            )
+                            choice = _run_dark_message_dialog(
+                                _tr("Dockraft — Actualización Disponible", "Dockraft — Update Available"),
+                                msg,
+                                [
+                                    (_tr("Sí, actualizar", "Yes, update"), 6, True),
+                                    (_tr("Ver en GitHub", "View on GitHub"), 8, False),
+                                    (_tr("No", "No"), 7, False),
+                                ],
+                                default_idx=0,
+                                parent=root,
+                            )
+                            if choice == 6:
+                                _start_setup_download(info)
+                            elif choice == 8:
+                                _open_url(release_url)
+                        else:
+                            msg = _tr(
+                                f"Hay una nueva versión disponible: v{latest_ver}\nVersión instalada: v{cur_ver}\n\n¿Deseas abrir la página de descarga en GitHub?",
+                                f"A new version is available: v{latest_ver}\nInstalled version: v{cur_ver}\n\nWould you like to open the download page on GitHub?",
+                            )
+                            if (
+                                _run_dark_message_dialog(
+                                    _tr("Dockraft — Actualización Disponible", "Dockraft — Update Available"),
+                                    msg,
+                                    [(_tr("Sí", "Yes"), 6, True), (_tr("No", "No"), 7, False)],
+                                    default_idx=1,
+                                    parent=root,
+                                )
+                                == 6
+                            ):
+                                _open_url(release_url)
                     else:
                         status_var.set(_tr(f"Estás al día (v{cur_ver}).", f"You are up to date (v{cur_ver})."))
                         lbl_status.configure(fg=ui["accent"])
@@ -3046,7 +3684,7 @@ def _run_about_dialog() -> None:
         ui["rounded_button"](
             btn_row,
             _tr("Cerrar", "Close"),
-            root.destroy,
+            _close_dialog,
             radius=10,
             padx=16,
             height=38,
@@ -3058,7 +3696,7 @@ def _run_about_dialog() -> None:
         root.update_idletasks()
 
     _build_content()
-    root.bind("<Escape>", lambda _e: root.destroy())
+    root.bind("<Escape>", lambda _e: _close_dialog())
     w = max(560, state_holder["outer"].winfo_reqwidth() + 72)
     h = max(440, state_holder["outer"].winfo_reqheight() + 72)
     x = (root.winfo_screenwidth() - w) // 2
@@ -3068,6 +3706,7 @@ def _run_about_dialog() -> None:
     _apply_dark_titlebar(root, allow_maximize=False)
     _close_splash()
     root.mainloop()
+    return pending_installer["path"]
 
 
 def _create_tray_image():
@@ -3236,7 +3875,9 @@ def main() -> None:
         return
     if args.about_ui:
         _close_splash()
-        _run_about_dialog()
+        inst_exe = _run_about_dialog()
+        if inst_exe is not None:
+            _stop_all_dockraft_and_launch_installer(inst_exe)
         return
 
     has_gui = sys.platform == "win32" or bool(os.getenv("DISPLAY") or os.getenv("WAYLAND_DISPLAY"))
@@ -3309,6 +3950,8 @@ def main() -> None:
     else:
         instance_dir = Path(args.instance_dir).expanduser().resolve() if args.instance_dir else _default_instance_dir()
 
+    global _ACTIVE_INSTANCE_DIR
+    _ACTIVE_INSTANCE_DIR = instance_dir.resolve()
     os.environ["DOCKRAFT_INSTANCE_DIR"] = str(instance_dir)
     if chosen_host and (args.host or not (instance_dir / ".env").is_file()):
         os.environ["HOST"] = chosen_host
@@ -3524,7 +4167,15 @@ def main() -> None:
                 elif cmd_action == "settings":
                     _run_settings_dialog()
                 elif cmd_action == "about":
-                    _run_about_dialog()
+                    inst_exe = _run_about_dialog()
+                    if inst_exe is not None:
+                        _stop_all_dockraft_and_launch_installer(
+                            inst_exe,
+                            in_process_app=app,
+                            in_process_server=server,
+                            tray_icon=tray,
+                        )
+                        break
                 elif cmd_action == "quit":
                     if _do_quit_all(tray):
                         break

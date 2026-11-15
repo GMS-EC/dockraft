@@ -5,6 +5,27 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.7.0] - 2026-11-15
+
+### Añadido (Added)
+- **Actualizador Automático para Windows Setup (`launcher.py`, `tests/test_setup_updater.py`):**
+  - Detección exclusiva en instalaciones **Windows Setup** (`_is_windows_setup_install()`) manteniendo la apertura manual en GitHub Releases para **Windows Portable** y **Linux AppImage**.
+  - Descarga directa con indicador de progreso desde el último GitHub Release (`Dockraft-Windows-Setup-<version>.exe`), validando dominio HTTPS de GitHub, cabecera ejecutable Windows (`MZ`), tamaño completo y digest `SHA-256`.
+  - Apagado limpio de todos los servidores de Minecraft activos e instancias antes de ejecutar el nuevo instalador encima, preservando instancias, mundos y backups.
+- **Sincronización Bidireccional de Puertos y Reinicio Automático (`app/core/server_properties.py`, `app/config.py`, `app/core/process_manager.py`, `app/routers/server.py`, `launcher.py`, `tests/test_server_properties_sync.py`):**
+  - Alineación automática entre el `MC_PORT` de cada instancia y `data/server.properties` (`server-port`, además de `server-udp-ports` y `server-portv6` en Bedrock) para Java, Paper, Purpur, Folia, Fabric, Forge, Vanilla y Bedrock Edition, conservando los puertos `25565`/`19132` en Docker cuando `MC_PORT` no está definido.
+  - Al editar puertos desde **Instancias → Puertos**, se actualiza `.env`, `launcher_config.json` y `data/server.properties`, reiniciando automáticamente el servidor de Minecraft activo (o la instancia secundaria si cambió el puerto web) para aplicar los cambios sin cortes de conexión.
+  - Sincronización inversa al guardar propiedades desde el Panel Web (`/api/server/properties` y `/api/server/properties/raw`) hacia `server-udp-ports`, `.env` y `launcher_config.json`.
+
+### Corregido (Fixed)
+- **Apertura de Enlaces en el Diálogo de Actualización (`launcher.py`):**
+  - Corrección de la respuesta al clic y cierre en diálogos modales oscuros al pulsar **Sí** en el aviso de nueva versión de **Acerca de** para abrir GitHub sin quedarse bloqueado.
+- **Lista Blanca Desactivada por Defecto y Arranque de Bedrock (`app/core/downloader.py`, `app/routers/installer.py`, `app/core/server_properties.py`, `web/static/js/settings.js`):**
+  - Desactivación automática de `allow-list`, `white-list` y `enforce-whitelist` (`false`) y alineación de puertos/`server-name` en instalaciones nuevas (incluyendo paquetes `.zip` oficiales de Bedrock Edition), respetando la configuración del usuario en actualizaciones (`preserve_existing_configs=True`).
+  - Reconciliación automática de puertos antes de cada arranque en `ProcessManager.start_server()`, guardado previo de `runtime_config` en `installer.py` y valores seguros por defecto en `getCheck()` dentro de `settings.js`.
+
+---
+
 ## [1.6.1] - 2026-11-14
 
 ### Corregido (Fixed)

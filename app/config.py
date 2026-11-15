@@ -5,7 +5,7 @@ import json
 import secrets
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 logger = logging.getLogger("dockraft")
 
@@ -232,5 +232,10 @@ class Settings:
         self.runtime_config.update(new_config)
         from app.core.fs_utils import atomic_write_json
         atomic_write_json(self.config_file, self.runtime_config, indent=2)
+
+    def get_configured_mc_port(self) -> Optional[int]:
+        """Returns the live MC_PORT configured for this instance (.env or env var), if set."""
+        from app.core.server_properties import read_instance_mc_port
+        return read_instance_mc_port(self.instance_dir)
 
 settings = Settings()

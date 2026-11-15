@@ -271,38 +271,6 @@ async def install_server(req: InstallRequest):
         expected_sha1 = dl_info.get("expected_sha1")
         allowed_hosts = dl_info.get("allowed_hosts")
 
-        if req.server_type == "forge":
-            java_bin = req.java_path or "java"
-
-            async def forge_install_pipeline():
-                try:
-                    installer_path = await downloader.download_file(
-                        download_url,
-                        target_file,
-                        expected_sha256=expected_sha256,
-                        expected_sha1=expected_sha1,
-                        allowed_hosts=allowed_hosts,
-                    )
-                    res = await downloader.install_forge_server(installer_path, java_bin=java_bin)
-                    settings.save_runtime_config({
-                        "server_file": res.get("server_file", "run.sh")
-                    })
-                except Exception as ex:
-                    logger.error("[Dockraft] Forge install pipeline error: %s", ex)
-
-            _track_task(forge_install_pipeline())
-        else:
-            _track_task(
-                downloader.download_file(
-                    download_url,
-                    target_file,
-                    is_zip=is_zip,
-                    expected_sha256=expected_sha256,
-                    expected_sha1=expected_sha1,
-                    allowed_hosts=allowed_hosts,
-                )
-            )
-
         resolved_server_file = (
             ("bedrock_server.exe" if sys.platform == "win32" else "bedrock_server")
             if req.server_type == "bedrock"
@@ -328,6 +296,39 @@ async def install_server(req: InstallRequest):
                 pass
 
         settings.save_runtime_config(cfg_to_save)
+
+        if req.server_type == "forge":
+            java_bin = req.java_path or "java"
+
+            async def forge_install_pipeline():
+                try:
+                    installer_path = await downloader.download_file(
+                        download_url,
+                        target_file,
+                        expected_sha256=expected_sha256,
+                        expected_sha1=expected_sha1,
+                        allowed_hosts=allowed_hosts,
+                    )
+                    res = await downloader.install_forge_server(installer_path, java_bin=java_bin)
+                    settings.save_runtime_config({
+                        "server_file": res.get("server_file", "run.sh")
+                    })
+                    downloader.ensure_initial_config(sync_initial_defaults=True)
+                except Exception as ex:
+                    logger.error("[Dockraft] Forge install pipeline error: %s", ex)
+
+            _track_task(forge_install_pipeline())
+        else:
+            _track_task(
+                downloader.download_file(
+                    download_url,
+                    target_file,
+                    is_zip=is_zip,
+                    expected_sha256=expected_sha256,
+                    expected_sha1=expected_sha1,
+                    allowed_hosts=allowed_hosts,
+                )
+            )
         return {"status": "started", "target_file": target_file, "download_url": download_url}
     except HTTPException:
         raise

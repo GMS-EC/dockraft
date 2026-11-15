@@ -15,6 +15,7 @@ from app.config import settings
 from app.core.fs_utils import atomic_write_text
 from app.core.security import build_sanitized_subprocess_env, verify_session_token
 from app.core.activity_manager import activity_manager
+from app.core.server_properties import ensure_initial_server_properties
 import logging
 
 logger = logging.getLogger("dockraft.process_manager")
@@ -834,6 +835,15 @@ class ProcessManager:
                     return {"status": "error", "message": f"Server file '{server_file}' not found in {settings.data_dir}. Please download or upload one first."}
             else:
                 return {"status": "error", "message": f"Server file '{server_file}' not found in {settings.data_dir}. Please download or upload one first."}
+
+        # Ensure server.properties exists and its ports stay aligned with instance MC_PORT
+        ensure_initial_server_properties(
+            settings.data_dir,
+            server_type=server_type,
+            server_name=cfg.get("server_name", "Mi Servidor Dockraft"),
+            instance_dir=settings.instance_dir,
+            sync_initial_defaults=False,
+        )
 
         # Build command line
         cmd: List[str] = []

@@ -380,35 +380,40 @@ const Settings = {
       return el ? el.value.trim() : '';
     };
 
-    const getCheck = (id) => {
+    const getCheck = (id, fallback = 'false') => {
       const el = document.getElementById(id);
-      return el ? (el.checked ? 'true' : 'false') : 'true';
+      return el ? (el.checked ? 'true' : 'false') : fallback;
     };
 
     const serverName = getVal('bedrock-prop-server-name') || 'Dedicated Server';
-    const isWhitelist = getCheck('bedrock-prop-white-list');
+    const isWhitelist = getCheck('bedrock-prop-white-list', 'false');
+    const bedrockPort = getVal('bedrock-prop-port') || '19132';
+    const prevUdpPorts = (this.properties['server-udp-ports'] || '').trim();
+    const shouldSyncUdp = Object.prototype.hasOwnProperty.call(this.properties, 'server-udp-ports')
+      && (!prevUdpPorts || /^\d+$/.test(prevUdpPorts));
 
     const newProps = {
       ...this.properties,
       'server-name': serverName,
       'motd': serverName,
-      'server-port': getVal('bedrock-prop-port') || '19132',
+      'server-port': bedrockPort,
       'server-portv6': getVal('bedrock-prop-portv6') || '19133',
+      ...(shouldSyncUdp ? { 'server-udp-ports': bedrockPort } : {}),
       'gamemode': getVal('bedrock-prop-gamemode') || 'survival',
       'difficulty': getVal('bedrock-prop-difficulty') || 'easy',
       'default-player-permission-level': getVal('bedrock-prop-permission-level') || 'member',
       'max-players': getVal('bedrock-prop-max-players') || '10',
       'view-distance': getVal('bedrock-prop-view-distance') || '32',
       'tick-distance': getVal('bedrock-prop-tick-distance') || '4',
-      'online-mode': getCheck('bedrock-prop-online-mode'),
-      'allow-cheats': getCheck('bedrock-prop-allow-cheats'),
+      'online-mode': getCheck('bedrock-prop-online-mode', 'true'),
+      'allow-cheats': getCheck('bedrock-prop-allow-cheats', 'false'),
       'white-list': isWhitelist,
       'allow-list': isWhitelist,
-      'texturepack-required': getCheck('bedrock-prop-texturepack-required'),
+      'texturepack-required': getCheck('bedrock-prop-texturepack-required', 'false'),
       'max-threads': getVal('bedrock-prop-max-threads') || '8',
       'player-idle-timeout': getVal('bedrock-prop-idle-timeout') || '30',
       'compression-threshold': getVal('bedrock-prop-compression') || '1',
-      'content-log-file-enabled': getCheck('bedrock-prop-content-log')
+      'content-log-file-enabled': getCheck('bedrock-prop-content-log', 'false')
     };
 
     try {
@@ -674,13 +679,13 @@ const Settings = {
       return el ? el.value.trim() : '';
     };
 
-    const getCheck = (id) => {
+    const getCheck = (id, fallback = 'false') => {
       const el = document.getElementById(id);
-      return el ? (el.checked ? 'true' : 'false') : 'true';
+      return el ? (el.checked ? 'true' : 'false') : fallback;
     };
 
     const motd = getVal('prop-motd') || 'A Dockraft Minecraft Server';
-    const isWhitelist = getCheck('prop-white-list');
+    const isWhitelist = getCheck('prop-white-list', 'false');
 
     const newProps = {
       ...this.properties,
@@ -698,18 +703,18 @@ const Settings = {
       'simulation-distance': getVal('prop-simulation-distance') || '8',
       'network-compression-threshold': getVal('prop-compression-threshold') || '256',
       'rate-limit': getVal('prop-rate-limit') || '0',
-      'online-mode': getCheck('prop-online-mode'),
-      'pvp': getCheck('prop-pvp'),
+      'online-mode': getCheck('prop-online-mode', 'true'),
+      'pvp': getCheck('prop-pvp', 'true'),
       'white-list': isWhitelist,
       'allow-list': isWhitelist,
-      'enforce-whitelist': getCheck('prop-enforce-whitelist'),
-      'allow-flight': getCheck('prop-allow-flight'),
-      'allow-nether': getCheck('prop-allow-nether'),
-      'generate-structures': getCheck('prop-generate-structures'),
-      'spawn-monsters': getCheck('prop-spawn-monsters'),
-      'spawn-animals': getCheck('prop-spawn-animals'),
-      'enable-command-block': getCheck('prop-enable-command-block'),
-      'hardcore': getCheck('prop-hardcore')
+      'enforce-whitelist': getCheck('prop-enforce-whitelist', 'false'),
+      'allow-flight': getCheck('prop-allow-flight', 'false'),
+      'allow-nether': getCheck('prop-allow-nether', 'true'),
+      'generate-structures': getCheck('prop-generate-structures', 'true'),
+      'spawn-monsters': getCheck('prop-spawn-monsters', 'true'),
+      'spawn-animals': getCheck('prop-spawn-animals', 'true'),
+      'enable-command-block': getCheck('prop-enable-command-block', 'false'),
+      'hardcore': getCheck('prop-hardcore', 'false')
     };
 
     try {

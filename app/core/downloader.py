@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional, Callable, Union, Set
 from app.config import settings
 from app.core.fs_utils import PROTECTED_INTERNAL_FILES, atomic_write_text, safe_extract_zip
 from app.core.security import build_sanitized_subprocess_env
+from app.core.server_properties import ensure_initial_server_properties
 
 logger = logging.getLogger("dockraft.downloader")
 
@@ -748,6 +749,10 @@ class DownloadManager:
                         pass
                 temp_download_path.replace(dest_path)
 
+            # Auto accept EULA and guarantee server.properties is configured before signaling completion
+            self.accept_eula()
+            self.ensure_initial_config(sync_initial_defaults=not preserve_existing_configs)
+
             self.active_download["status"] = "completed"
             self.active_download["percent"] = 100
             return dest_path
@@ -761,10 +766,6 @@ class DownloadManager:
             if self.active_download:
                 self.active_download["status"] = f"error: {str(e)}"
             raise e
-        finally:
-            # Auto accept EULA and guarantee server.properties is configured
-            self.accept_eula()
-            self.ensure_initial_config()
 
     @staticmethod
     def accept_eula() -> None:
@@ -776,35 +777,18 @@ class DownloadManager:
             pass
 
     @staticmethod
-    def ensure_initial_config() -> None:
-        """Ensures server.properties exists and is configured for immediate first launch."""
-        prop_file = settings.data_dir / "server.properties"
+    def ensure_initial_config(sync_initial_defaults: bool = False) -> None:
+        """Ensures server.properties exists and aligns port and default allow-list/whitelist settings."""
         cfg = settings.runtime_config
         s_type = cfg.get("server_type", "paper")
         s_name = cfg.get("server_name", "Mi Servidor Dockraft")
-        env_mc_port = os.getenv("MC_PORT", "").strip()
-        if env_mc_port.isdigit() and 1 <= int(env_mc_port) <= 65535:
-            default_port = int(env_mc_port)
-        else:
-            default_port = 19132 if s_type == "bedrock" else 25565
-
-        if not prop_file.exists():
-            try:
-                atomic_write_text(
-                    prop_file,
-                    f"# Minecraft server properties - Dockraft\n"
-                    f"server-port={default_port}\n"
-                    f"motd={s_name}\n"
-                    f"server-name={s_name}\n"
-                    f"online-mode=true\n"
-                    f"max-players=20\n"
-                    f"difficulty=easy\n"
-                    f"gamemode=survival\n"
-                    f"view-distance=10\n"
-                    f"simulation-distance=8\n"
-                )
-            except Exception:
-                pass
+        ensure_initial_server_properties(
+            settings.data_dir,
+            server_type=s_type,
+            server_name=s_name,
+            instance_dir=settings.instance_dir,
+            sync_initial_defaults=sync_initial_defaults,
+        )
 
     def detect_server_version(self, data_dir: Optional[Path] = None, server_file: Optional[str] = None) -> Optional[str]:
         """

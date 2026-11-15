@@ -18,6 +18,11 @@ from app.core.file_manager import file_manager
 from app.core.java_manager import JavaManager
 from app.core.metrics_manager import metrics_manager
 from app.core.fs_utils import atomic_write_text, PROTECTED_INTERNAL_FILES, safe_extract_zip
+from app.core.server_properties import (
+    parse_properties_text,
+    sync_property_aliases,
+    update_env_mc_port,
+)
 
 router = APIRouter(tags=["server"])
 
@@ -99,15 +104,7 @@ class RuntimeConfigUpdate(BaseModel):
 
 def _sync_property_aliases(props: Dict[str, str]) -> None:
     """Synchronizes Java/Bedrock equivalent property keys in-place."""
-    if "server-name" in props and "motd" not in props:
-        props["motd"] = props["server-name"]
-    elif "motd" in props and "server-name" not in props:
-        props["server-name"] = props["motd"]
-
-    if "allow-list" in props and "white-list" not in props:
-        props["white-list"] = props["allow-list"]
-    elif "white-list" in props and "allow-list" not in props:
-        props["allow-list"] = props["white-list"]
+    sync_property_aliases(props)
 
 
 @router.get("/api/health")
@@ -262,8 +259,21 @@ async def save_properties(new_props: Dict[str, str]):
     lines = []
     keys_written = set()
 
+    existing_props: Dict[str, str] = {}
+    if prop_file.exists():
+        existing_props = parse_properties_text(prop_file.read_text(encoding="utf-8", errors="replace"))
+
     to_save = dict(new_props)
     _sync_property_aliases(to_save)
+
+    if server_type == "bedrock" and "server-port" in to_save:
+        new_port_str = str(to_save["server-port"]).strip()
+        old_port_str = existing_props.get("server-port", "").strip()
+        old_udp_str = existing_props.get("server-udp-ports", "").strip()
+        saved_udp_str = str(to_save.get("server-udp-ports", "")).strip()
+        if "server-udp-ports" in existing_props and (not old_udp_str or old_udp_str.isdigit()):
+            if "server-udp-ports" not in to_save or (saved_udp_str == old_udp_str and new_port_str != old_port_str):
+                to_save["server-udp-ports"] = new_port_str
 
     if prop_file.exists():
         with open(prop_file, "r", encoding="utf-8", errors="replace") as f:
@@ -283,6 +293,11 @@ async def save_properties(new_props: Dict[str, str]):
             lines.append(f"{k}={v}\n")
 
     atomic_write_text(prop_file, "".join(lines))
+
+    saved_port_raw = str(to_save.get("server-port", existing_props.get("server-port", ""))).strip()
+    if saved_port_raw.isdigit() and 1 <= int(saved_port_raw) <= 65535:
+        update_env_mc_port(settings.instance_dir, int(saved_port_raw))
+
     return {"status": "success", "server_type": server_type}
 
 
@@ -303,6 +318,10 @@ async def save_raw_properties(req: RawPropertiesRequest):
     prop_file = settings.data_dir / "server.properties"
     server_type = settings.runtime_config.get("server_type", "paper")
     atomic_write_text(prop_file, req.content)
+    parsed = parse_properties_text(req.content)
+    saved_port_raw = parsed.get("server-port", "").strip()
+    if saved_port_raw.isdigit() and 1 <= int(saved_port_raw) <= 65535:
+        update_env_mc_port(settings.instance_dir, int(saved_port_raw))
     return {"status": "success", "server_type": server_type}
 
 
@@ -392,6 +411,7 @@ async def import_server(file: UploadFile = File(...), accept_eula: bool = Form(T
             "server_file": detected_file,
             "server_version": detected_version,
         })
+        downloader.ensure_initial_config(sync_initial_defaults=False)
 
         return {
             "status": "success",
