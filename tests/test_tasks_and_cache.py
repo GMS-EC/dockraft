@@ -120,6 +120,8 @@ def test_frontend_audit_regressions():
     assert "payload.backup_max_count" not in backups_js
     assert "Promise.all" in backups_js
     assert "closest('table')" in backups_js
+    assert "/api/backups/status" in backups_js
+    assert "background: true" in backups_js
     assert "Logs.init()" in logs_js
     assert "closest('table')" in logs_js
     assert "Metrics.init()" in metrics_js
@@ -128,8 +130,9 @@ def test_frontend_audit_regressions():
     banner_sticky = re.search(r"\.server-overview-banner\s*\{[^}]*position\s*:\s*sticky", redesign_css)
     assert banner_sticky is None
 
-    # Rendered index.html has no duplicate element IDs
+    # Rendered index.html has no duplicate element IDs and exposes backup progress label
     html = client.get("/").text
+    assert 'id="backup-progress-label"' in html
     ids = re.findall(r'\bid="([^"]+)"', html)
     dupes = {i for i in ids if ids.count(i) > 1}
     assert dupes == set()

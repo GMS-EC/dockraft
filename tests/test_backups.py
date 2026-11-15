@@ -185,3 +185,92 @@ def test_imported_server_update_info_available():
         if paper_jar.exists():
             paper_jar.unlink()
 
+
+def test_backup_background_job_and_status_polling():
+    import time
+
+    dummy_file = settings.data_dir / "bg_backup_test.txt"
+    dummy_file.write_text("background backup payload", encoding="utf-8")
+    created_filename = None
+
+    try:
+        with TestClient(app) as tc:
+            tc.cookies.set("dockraft_session", create_session_token())
+            res = tc.post("/api/backups/create", json={"tag": "bg", "background": True})
+            assert res.status_code == 200
+            start_data = res.json()
+            assert start_data["status"] == "started"
+            job_id = start_data["job_id"]
+            assert job_id
+
+            final_status = None
+            for _ in range(100):
+                st_res = tc.get("/api/backups/status")
+                assert st_res.status_code == 200
+                st = st_res.json()
+                if not st.get("is_running") and st.get("job_id") == job_id:
+                    final_status = st
+                    break
+                time.sleep(0.05)
+
+            assert final_status is not None
+            assert final_status["status"] == "completed"
+            created_filename = final_status["filename"]
+            assert created_filename and created_filename.endswith(".zip")
+    finally:
+        backup_manager.active_backup = None
+        if created_filename:
+            client.delete(f"/api/backups/{created_filename}")
+        if dummy_file.exists():
+            dummy_file.unlink()
+
+
+def test_backup_rejects_concurrent_job_with_409():
+    dummy_file = settings.data_dir / "conflict_backup_test.txt"
+    dummy_file.write_text("conflict payload", encoding="utf-8")
+    backup_manager.try_start_job("existing_job_1", stage="compressing")
+
+    try:
+        res = client.post("/api/backups/create", json={"tag": "test", "background": True})
+        assert res.status_code == 409
+    finally:
+        backup_manager.active_backup = None
+        if dummy_file.exists():
+            dummy_file.unlink()
+
+
+def test_backup_background_error_releases_lock_and_reports_status(monkeypatch):
+    import time
+
+    dummy_file = settings.data_dir / "err_backup_test.txt"
+    dummy_file.write_text("error payload", encoding="utf-8")
+
+    def boom(**kwargs):
+        raise RuntimeError("disk full simulated")
+
+    monkeypatch.setattr(backup_manager, "create_backup", boom)
+
+    try:
+        with TestClient(app) as tc:
+            tc.cookies.set("dockraft_session", create_session_token())
+            res = tc.post("/api/backups/create", json={"tag": "err", "background": True})
+            assert res.status_code == 200
+            job_id = res.json()["job_id"]
+
+            final_status = None
+            for _ in range(100):
+                st = tc.get("/api/backups/status").json()
+                if not st.get("is_running") and st.get("job_id") == job_id:
+                    final_status = st
+                    break
+                time.sleep(0.05)
+
+            assert final_status is not None
+            assert final_status["status"] == "error"
+            assert "disk full simulated" in (final_status.get("error") or "")
+            assert backup_manager.progress["is_running"] is False
+    finally:
+        backup_manager.active_backup = None
+        if dummy_file.exists():
+            dummy_file.unlink()
+

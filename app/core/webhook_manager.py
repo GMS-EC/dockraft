@@ -2,6 +2,7 @@ import html
 import json
 import logging
 import asyncio
+import threading
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -458,15 +459,22 @@ class WebhookManager:
         # Ensure fields are populated if not provided
         effective_fields = fields if fields is not None else self._build_default_fields(event_type, color)
 
-        # Run non-blocking in active event loop
+        # Run non-blocking in active event loop (or daemon thread when called from worker thread)
         try:
             loop = asyncio.get_running_loop()
             loop.create_task(self._async_dispatch_all(title, message, color, effective_fields))
         except RuntimeError:
-            try:
-                asyncio.run(self._async_dispatch_all(title, message, color, effective_fields))
-            except Exception as e:
-                logger.warning("[Dockraft Webhooks] Could not dispatch event '%s': %s", event_type, e)
+            def _runner() -> None:
+                try:
+                    asyncio.run(self._async_dispatch_all(title, message, color, effective_fields))
+                except Exception as e:
+                    logger.warning("[Dockraft Webhooks] Could not dispatch event '%s': %s", event_type, e)
+
+            threading.Thread(
+                target=_runner,
+                name=f"dockraft-webhook-{event_type}",
+                daemon=True,
+            ).start()
 
     async def _async_dispatch_all(self, title: str, message: str, color: int, fields: Optional[List[Dict[str, Any]]]) -> None:
         """Internal worker sending alerts to all enabled channels."""

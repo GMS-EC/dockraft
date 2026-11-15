@@ -100,6 +100,14 @@
     t_backup_err_create: 'Error al crear la copia de seguridad',
     t_backup_toast_created: 'Copia creada con éxito: {0} ({1})',
     t_backup_create_btn: 'Crear Copia de Seguridad',
+    t_backup_in_progress: 'Ya hay una copia de seguridad en progreso.',
+    t_backup_stage_preparing: 'Preparando copia de seguridad...',
+    t_backup_stage_saving: 'Guardando mundo antes del respaldo...',
+    t_backup_stage_stopping: 'Deteniendo servidor para respaldo...',
+    t_backup_stage_compressing: 'Comprimiendo archivos del servidor...',
+    t_backup_stage_pruning: 'Aplicando rotación de copias...',
+    t_backup_stage_restarting: 'Reiniciando servidor...',
+    t_backup_err_poll: 'No se pudo verificar el estado de la copia de seguridad.',
 
     // --- Restore flow ---
     t_backup_confirm_restore_title: 'Restaurar Copia de Seguridad',
@@ -250,6 +258,14 @@
     t_backup_err_create: 'Error creating the backup',
     t_backup_toast_created: 'Backup created successfully: {0} ({1})',
     t_backup_create_btn: 'Create Backup',
+    t_backup_in_progress: 'A backup is already in progress.',
+    t_backup_stage_preparing: 'Preparing backup...',
+    t_backup_stage_saving: 'Saving world before backup...',
+    t_backup_stage_stopping: 'Stopping server for backup...',
+    t_backup_stage_compressing: 'Compressing server files...',
+    t_backup_stage_pruning: 'Applying backup retention...',
+    t_backup_stage_restarting: 'Restarting server...',
+    t_backup_err_poll: 'Could not check backup status.',
 
     // --- Restore flow ---
     t_backup_confirm_restore_title: 'Restore Backup',

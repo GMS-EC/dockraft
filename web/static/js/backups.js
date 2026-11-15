@@ -9,6 +9,13 @@ const Backups = {
   availableTargets: null,
   originFilter: 'all',
   maxBackupsCount: 5,
+  isCreatingBackup: false,
+  currentStage: 'idle',
+  activeJobId: null,
+  handledJobIds: new Set(),
+  progressPollTimer: null,
+  _isPollingStatus: false,
+  _pollErrorCount: 0,
 
   _t(key, fallback) {
     if (typeof I18n !== 'undefined' && I18n.t) return I18n.t(key, fallback);
@@ -37,7 +44,8 @@ const Backups = {
   async loadBackups() {
     await Promise.all([
       this.fetchBackupConfig(),
-      this.fetchBackupsList()
+      this.fetchBackupsList(),
+      this.checkBackupStatus()
     ]);
   },
 
@@ -372,7 +380,114 @@ const Backups = {
     }
   },
 
+  _getCreateModalButtonHtml() {
+    return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> ${this._t('t_backup_create_btn', 'Crear Copia de Seguridad')}`;
+  },
+
+  _stageLabel(stage) {
+    const map = {
+      preparing: ['t_backup_stage_preparing', 'Preparando copia de seguridad...'],
+      saving: ['t_backup_stage_saving', 'Guardando mundo antes del respaldo...'],
+      stopping: ['t_backup_stage_stopping', 'Deteniendo servidor para respaldo...'],
+      compressing: ['t_backup_stage_compressing', 'Comprimiendo archivos del servidor...'],
+      pruning: ['t_backup_stage_pruning', 'Aplicando rotación de copias...'],
+      restarting: ['t_backup_stage_restarting', 'Reiniciando servidor...']
+    };
+    const [key, fallback] = map[stage] || map.compressing;
+    return this._t(key, fallback);
+  },
+
+  _setProgressVisible(visible, stage = 'compressing') {
+    this.isCreatingBackup = !!visible;
+    this.currentStage = visible ? (stage || 'compressing') : 'idle';
+
+    const progBox = document.getElementById('backup-progress-box');
+    const progLabel = document.getElementById('backup-progress-label');
+    const createBtn = document.getElementById('btn-create-backup');
+
+    if (progLabel && visible) {
+      progLabel.textContent = this._stageLabel(this.currentStage);
+    }
+    if (progBox) {
+      progBox.style.display = visible ? 'block' : 'none';
+    }
+    if (createBtn) {
+      createBtn.disabled = !!visible;
+    }
+  },
+
+  startProgressPolling() {
+    if (this.progressPollTimer) return;
+    this._pollErrorCount = 0;
+    this.progressPollTimer = setInterval(() => {
+      this.checkBackupStatus();
+    }, 1500);
+  },
+
+  stopProgressPolling() {
+    if (this.progressPollTimer) {
+      clearInterval(this.progressPollTimer);
+      this.progressPollTimer = null;
+    }
+    this._pollErrorCount = 0;
+  },
+
+  async checkBackupStatus() {
+    if (this._isPollingStatus) return;
+    this._isPollingStatus = true;
+    try {
+      const res = await fetch('/api/backups/status');
+      const st = await window.readApiJson(res, this._t('t_backup_err_poll', 'No se pudo verificar el estado de la copia de seguridad.'));
+      this._pollErrorCount = 0;
+
+      if (st && st.is_running) {
+        if (st.job_id) this.activeJobId = st.job_id;
+        this._setProgressVisible(true, st.stage || 'compressing');
+        this.startProgressPolling();
+        return;
+      }
+
+      const jobId = st && st.job_id;
+      const matchesTracked = !!(jobId && this.activeJobId === jobId && !this.handledJobIds.has(jobId));
+
+      this.stopProgressPolling();
+      this._setProgressVisible(false);
+
+      if (matchesTracked) {
+        this.handledJobIds.add(jobId);
+        this.activeJobId = null;
+        if (st.status === 'completed') {
+          App.showToast(
+            this._tf('t_backup_toast_created', [st.filename || '', st.size_formatted || ''], 'Copia creada con éxito: {0} ({1})'),
+            'success'
+          );
+          await this.fetchBackupsList();
+        } else if (st.status === 'error') {
+          App.showToast(st.error || this._t('t_backup_err_create', 'Error al crear la copia de seguridad'), 'danger');
+        }
+      }
+    } catch (err) {
+      this._pollErrorCount = (this._pollErrorCount || 0) + 1;
+      if (this.progressPollTimer && this._pollErrorCount >= 5) {
+        this.stopProgressPolling();
+        this._setProgressVisible(false);
+        App.showToast(err.message || this._t('t_backup_err_poll', 'No se pudo verificar el estado de la copia de seguridad.'), 'danger');
+      }
+    } finally {
+      this._isPollingStatus = false;
+    }
+  },
+
   openCreateModal() {
+    if (this.isCreatingBackup) {
+      App.showToast(this._t('t_backup_in_progress', 'Ya hay una copia de seguridad en progreso.'), 'info');
+      return;
+    }
+    const btn = document.getElementById('btn-modal-submit-backup');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = this._getCreateModalButtonHtml();
+    }
     const modal = document.getElementById('modal-create-backup');
     if (modal) {
       modal.classList.add('open');
@@ -557,8 +672,11 @@ const Backups = {
   },
 
   async submitCreateBackup() {
+    if (this.isCreatingBackup) {
+      App.showToast(this._t('t_backup_in_progress', 'Ya hay una copia de seguridad en progreso.'), 'info');
+      return;
+    }
     const btn = document.getElementById('btn-modal-submit-backup');
-    const progBox = document.getElementById('backup-progress-box');
     const tagInput = document.getElementById('backup-modal-tag');
     const tag = (tagInput ? tagInput.value.trim() : '') || 'manual';
 
@@ -587,11 +705,9 @@ const Backups = {
       btn.disabled = true;
       btn.innerHTML = `<span class="spin-icon">↻</span> ${this._t('t_backup_compressing', 'Comprimiendo...')}`;
     }
-    if (progBox) progBox.style.display = 'block';
 
+    let backgroundStarted = false;
     try {
-      App.showToast(this._t('t_backup_toast_start_compression', 'Iniciando compresión del respaldo...'), 'info');
-      
       const payload = {
         tag: tag,
         scope: this.selectedScope,
@@ -599,7 +715,8 @@ const Backups = {
         compression: compression,
         stop_server: stopServer,
         pre_command: preCommand,
-        post_command: postCommand
+        post_command: postCommand,
+        background: true
       };
 
       const res = await fetch('/api/backups/create', {
@@ -609,17 +726,28 @@ const Backups = {
       });
       const data = await window.readApiJson(res, this._t('t_backup_err_create', 'Error al crear la copia de seguridad'));
 
-      App.showToast(this._tf('t_backup_toast_created', [data.filename, data.size_formatted], 'Copia creada con éxito: {0} ({1})'), 'success');
-      this.closeCreateModal();
-      await this.fetchBackupsList();
+      if (data && data.status === 'started') {
+        backgroundStarted = true;
+        this.activeJobId = data.job_id || 'active';
+        this.closeCreateModal();
+        this._setProgressVisible(true, (data.progress && data.progress.stage) || 'preparing');
+        App.showToast(this._t('t_backup_toast_start_compression', 'Iniciando compresión del respaldo...'), 'info');
+        this.startProgressPolling();
+      } else {
+        App.showToast(this._tf('t_backup_toast_created', [data.filename, data.size_formatted], 'Copia creada con éxito: {0} ({1})'), 'success');
+        this.closeCreateModal();
+        await this.fetchBackupsList();
+      }
     } catch (err) {
       App.showToast(err.message, 'danger');
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> ${this._t('t_backup_create_btn', 'Crear Copia de Seguridad')}`;
+        btn.innerHTML = this._getCreateModalButtonHtml();
       }
-      if (progBox) progBox.style.display = 'none';
+      if (!backgroundStarted && !this.isCreatingBackup) {
+        this._setProgressVisible(false);
+      }
     }
   },
 

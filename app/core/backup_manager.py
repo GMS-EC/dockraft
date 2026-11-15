@@ -4,6 +4,7 @@ import uuid
 import json
 import stat
 import logging
+import threading
 import unicodedata
 import zipfile
 import shutil
@@ -21,7 +22,67 @@ class BackupManager:
 
     def __init__(self):
         self.backups_dir: Path = settings.backups_dir
+        self._job_lock = threading.Lock()
+        self.active_backup: Optional[Dict[str, Any]] = None
         self._ensure_dir()
+
+    @property
+    def progress(self) -> Dict[str, Any]:
+        """Returns the current backup execution progress snapshot."""
+        with self._job_lock:
+            cur = dict(self.active_backup) if self.active_backup else None
+        if not cur:
+            return {
+                "is_running": False,
+                "status": "idle",
+                "stage": "idle",
+                "job_id": None,
+                "filename": None,
+                "size_formatted": None,
+                "size_bytes": 0,
+                "error": None,
+            }
+        return {
+            "is_running": bool(cur.get("is_running")),
+            "status": cur.get("status", "idle"),
+            "stage": cur.get("stage", "idle"),
+            "job_id": cur.get("job_id"),
+            "filename": cur.get("filename"),
+            "size_formatted": cur.get("size_formatted"),
+            "size_bytes": cur.get("size_bytes", 0),
+            "origin": cur.get("origin"),
+            "is_auto": cur.get("is_auto"),
+            "scope": cur.get("scope"),
+            "scope_label": cur.get("scope_label"),
+            "created_at": cur.get("created_at"),
+            "error": cur.get("error"),
+        }
+
+    def try_start_job(self, job_id: str, stage: str = "preparing") -> bool:
+        """Atomically marks a backup job active if none is currently running."""
+        with self._job_lock:
+            if self.active_backup and self.active_backup.get("is_running"):
+                return False
+            self.active_backup = {
+                "is_running": True,
+                "status": "running",
+                "stage": stage,
+                "job_id": job_id,
+                "filename": None,
+                "size_formatted": None,
+                "size_bytes": 0,
+                "error": None,
+            }
+            return True
+
+    def update_job(self, job_id: Optional[str] = None, **fields: Any) -> None:
+        """Updates tracked progress metadata for the current backup job."""
+        with self._job_lock:
+            if self.active_backup is None:
+                self.active_backup = {}
+            if job_id and self.active_backup.get("job_id") not in (None, job_id):
+                return
+            self.active_backup.update(fields)
 
     @property
     def _meta_file(self) -> Path:
