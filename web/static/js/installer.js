@@ -16,10 +16,14 @@ const Installer = {
     }
     this.init();
     if (this.isInstalling) {
-      const btn = document.getElementById('btn-install-server');
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = I18n.t('t_install_btn_downloading');
+      if (this._activeUpdateMode === 'install') {
+        const btn = document.getElementById('btn-install-server');
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = I18n.t('t_install_btn_downloading');
+        }
+      } else if (this._activeUpdateMode) {
+        this._setUpdateBusy(true, this._activeUpdateMode);
       }
       return;
     }
@@ -194,8 +198,86 @@ const Installer = {
         }
         await this.loadUpdateInfo(stats);
       }
+      await this.resumeActiveProgressIfAny(Boolean(stats.is_installed));
     } catch (e) {
       console.warn("Could not check server install state", e);
+    }
+  },
+
+  async resumeActiveProgressIfAny(isInstalled) {
+    if (this.pollingInterval || this.isInstalling) return;
+    try {
+      const pRes = await fetch('/api/installer/progress');
+      if (!pRes.ok) return;
+      const pData = await pRes.json();
+      const active = Boolean(pData.is_active || pData.is_downloading);
+      if (!active) return;
+
+      this.isInstalling = true;
+      if (isInstalled) {
+        this._setUpdateBusy(true, 'build');
+        const pBox = document.getElementById('update-progress-box');
+        const pBar = document.getElementById('update-progress-bar');
+        const pText = document.getElementById('update-progress-text');
+        const pPct = document.getElementById('update-progress-percent');
+        if (pBox) pBox.style.display = 'block';
+        this._pollInstallerProgress({
+          barEl: pBar,
+          pctEl: pPct,
+          textEl: pText,
+          defaultStatus: pData.status || 'updating',
+          onComplete: async () => {
+            if (pBox) pBox.style.display = 'none';
+            this.isInstalling = false;
+            this._setUpdateBusy(false);
+            App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
+            await this.checkLockState();
+          },
+          onError: (statusMsg) => {
+            if (pBox) pBox.style.display = 'none';
+            this.isInstalling = false;
+            this._setUpdateBusy(false);
+            if (statusMsg) {
+              App.showToast(I18n.fmt('t_install_err_update_fail', [statusMsg]), 'danger');
+            }
+          }
+        });
+      } else {
+        this._activeUpdateMode = 'install';
+        const btn = document.getElementById('btn-install-server');
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = I18n.t('t_install_btn_downloading');
+        }
+        const progressBox = document.getElementById('install-progress-box');
+        const progressBar = document.getElementById('install-progress-bar');
+        const progressText = document.getElementById('install-progress-text');
+        if (progressBox) progressBox.style.display = 'block';
+        this._pollInstallerProgress({
+          barEl: progressBar,
+          textEl: progressText,
+          defaultStatus: pData.status || 'downloading',
+          onComplete: async () => {
+            this.isInstalling = false;
+            this._activeUpdateMode = null;
+            App.showToast(I18n.t('t_install_toast_installed_ok'), 'success');
+            await this.checkLockState();
+          },
+          onError: (statusMsg) => {
+            this.isInstalling = false;
+            this._activeUpdateMode = null;
+            if (btn) {
+              btn.disabled = false;
+              btn.textContent = I18n.t('t_install_btn_install');
+            }
+            if (statusMsg) {
+              App.showToast(I18n.fmt('t_install_err_download', [statusMsg]), 'danger');
+            }
+          }
+        });
+      }
+    } catch (e) {
+      // Non-fatal resume check
     }
   },
 
@@ -438,6 +520,7 @@ const Installer = {
       this.pollingInterval = null;
     }
 
+    this._activeUpdateMode = 'install';
     const btn = document.getElementById('btn-install-server');
     btn.disabled = true;
     btn.textContent = I18n.t('t_install_btn_downloading');
@@ -446,6 +529,8 @@ const Installer = {
     const progressBar = document.getElementById('install-progress-bar');
     const progressText = document.getElementById('install-progress-text');
     if (progressBox) progressBox.style.display = 'block';
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressText) progressText.textContent = I18n.t('t_install_status_preparing');
 
     try {
       const res = await fetch('/api/installer/install', {
@@ -462,6 +547,8 @@ const Installer = {
         textEl: progressText,
         defaultStatus: 'Downloading',
         onComplete: async () => {
+          this.isInstalling = false;
+          this._activeUpdateMode = null;
           App.showToast(I18n.t('t_install_toast_installed_ok'), 'success');
           await this.checkLockState();
           setTimeout(() => {
@@ -469,6 +556,8 @@ const Installer = {
           }, 1200);
         },
         onError: (statusMsg) => {
+          this.isInstalling = false;
+          this._activeUpdateMode = null;
           btn.disabled = false;
           btn.textContent = I18n.t('t_install_btn_install');
           if (statusMsg) {
@@ -483,6 +572,7 @@ const Installer = {
         this.pollingInterval = null;
       }
       this.isInstalling = false;
+      this._activeUpdateMode = null;
       App.showToast(e.message, 'danger');
       btn.disabled = false;
       btn.textContent = I18n.t('t_install_btn_install');
@@ -661,15 +751,20 @@ const Installer = {
           const bNoticeNum = document.getElementById('build-new-notice-num');
           const bNoticeVer = document.getElementById('build-new-notice-ver');
           const bBtnText = document.getElementById('btn-open-build-modal-text');
+          const lockBuildBtnText = this.isInstalling && this._activeUpdateMode === 'build';
 
           if (data.build_update_available && data.latest_build) {
             if (bNotice) bNotice.style.display = 'block';
             if (bNoticeNum) bNoticeNum.textContent = `#${data.latest_build}`;
             if (bNoticeVer) bNoticeVer.textContent = data.current_version || data.latest_stable || '26.3';
-            if (bBtnText) bBtnText.textContent = I18n.fmt('t_install_btn_update_to_build', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`;
+            if (bBtnText && !lockBuildBtnText) {
+              bBtnText.textContent = I18n.fmt('t_install_btn_update_to_build', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`;
+            }
           } else {
             if (bNotice) bNotice.style.display = 'none';
-            if (bBtnText) bBtnText.textContent = I18n.t('t_install_build_btn_change') || 'Cambiar / Actualizar Build';
+            if (bBtnText && !lockBuildBtnText) {
+              bBtnText.textContent = I18n.t('t_install_build_btn_change') || 'Cambiar / Actualizar Build';
+            }
           }
 
           const bBtn = document.getElementById('btn-open-build-modal');
@@ -1075,13 +1170,18 @@ const Installer = {
   },
 
   async startUpdate() {
-    if (this.isInstalling) return;
+    if (this.isInstalling) {
+      App.showToast(I18n.t('t_install_toast_already_busy'), 'info');
+      return;
+    }
 
     let isRunning = false;
     try {
       const sRes = await fetch('/api/server/status');
-      const stats = await sRes.json();
-      isRunning = (stats.status && stats.status !== 'OFFLINE');
+      if (sRes.ok) {
+        const stats = await sRes.json();
+        isRunning = (stats.status && stats.status !== 'OFFLINE');
+      }
     } catch (e) {}
 
     let targetVer = null;
@@ -1128,18 +1228,16 @@ const Installer = {
     if (!ok) return;
 
     this.isInstalling = true;
-    const btn = document.getElementById('btn-apply-update');
-    const spinnerSvg = '<svg class="spin-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = `${spinnerSvg} <span>${I18n.t('t_install_downloading_ellipsis')}</span>`;
-    }
+    this._setUpdateBusy(true, 'version');
 
     const pBox = document.getElementById('update-progress-box');
     const pBar = document.getElementById('update-progress-bar');
     const pText = document.getElementById('update-progress-text');
     const pPct = document.getElementById('update-progress-percent');
     if (pBox) pBox.style.display = 'block';
+    if (pBar) pBar.style.width = '0%';
+    if (pPct) pPct.textContent = '0%';
+    if (pText) pText.textContent = I18n.t(isRunning ? 't_install_status_stopping' : 't_install_status_backing_up');
 
     try {
       const res = await fetch('/api/installer/update', {
@@ -1155,16 +1253,18 @@ const Installer = {
         barEl: pBar,
         pctEl: pPct,
         textEl: pText,
-        defaultStatus: 'Updating',
+        defaultStatus: 'updating',
         onComplete: async () => {
-          if (btn) btn.disabled = false;
-          this.updateApplyButtonText();
+          if (pBox) pBox.style.display = 'none';
+          this.isInstalling = false;
+          this._setUpdateBusy(false);
           App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
           await this.checkLockState();
         },
         onError: (statusMsg) => {
-          if (btn) btn.disabled = false;
-          this.updateApplyButtonText();
+          if (pBox) pBox.style.display = 'none';
+          this.isInstalling = false;
+          this._setUpdateBusy(false);
           if (statusMsg) {
             App.showToast(I18n.fmt('t_install_err_update_fail', [statusMsg]), 'danger');
           }
@@ -1173,34 +1273,84 @@ const Installer = {
 
     } catch (e) {
       this.isInstalling = false;
-      if (btn) {
-        btn.disabled = false;
-      }
-      this.updateApplyButtonText();
+      this._setUpdateBusy(false);
       if (pBox) pBox.style.display = 'none';
       App.showToast(e.message, 'danger');
     }
   },
 
+  _restoreBuildModalButton() {
+    const bBtn = document.getElementById('btn-open-build-modal');
+    if (!bBtn) return;
+    bBtn.disabled = false;
+    bBtn.style.opacity = '';
+    bBtn.style.cursor = '';
+    const data = this.updateData || window.__LAST_UPDATE_DATA__ || {};
+    const labelText = (data.build_update_available && data.latest_build)
+      ? (I18n.fmt('t_install_btn_update_to_build', [data.latest_build]) || `Actualizar a Build #${data.latest_build}`)
+      : (I18n.t('t_install_build_btn_change') || 'Cambiar / Actualizar Build');
+    const refreshSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+    bBtn.innerHTML = `${refreshSvg} <span id="btn-open-build-modal-text">${escapeHtml(labelText)}</span>`;
+  },
+
+  _setUpdateBusy(isBusy, activeMode = 'version') {
+    this._activeUpdateMode = isBusy ? activeMode : null;
+    const spinnerSvg = '<svg class="spin-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+
+    const btnBuild = document.getElementById('btn-open-build-modal');
+    const btnApply = document.getElementById('btn-apply-update');
+
+    if (isBusy) {
+      if (btnBuild) {
+        btnBuild.disabled = true;
+        btnBuild.style.opacity = '0.7';
+        btnBuild.style.cursor = 'not-allowed';
+        if (activeMode === 'build') {
+          btnBuild.innerHTML = `${spinnerSvg} <span id="btn-open-build-modal-text">${escapeHtml(I18n.t('t_install_updating_ellipsis'))}</span>`;
+        }
+      }
+      if (btnApply) {
+        btnApply.disabled = true;
+        btnApply.style.opacity = '0.7';
+        btnApply.style.cursor = 'not-allowed';
+        if (activeMode === 'version') {
+          btnApply.innerHTML = `${spinnerSvg} <span>${escapeHtml(I18n.t('t_install_downloading_ellipsis'))}</span>`;
+        }
+      }
+    } else {
+      this._restoreBuildModalButton();
+      if (btnApply) {
+        btnApply.disabled = false;
+        btnApply.style.opacity = '';
+        btnApply.style.cursor = '';
+      }
+      this.updateApplyButtonText();
+    }
+
+    ['update-version-select-stable', 'update-version-select-beta', 'btn-channel-stable', 'btn-channel-beta', 'btn-unlock-reinstall', 'btn-delete-server'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = Boolean(isBusy);
+    });
+  },
+
   // Maps server-provided download/install status codes to localized labels.
   mapStatusText(status) {
     if (!status) return '';
+    const norm = String(status).trim().toLowerCase().replace(/\.+$/, '');
     const map = {
+      idle: I18n.t('t_install_status_idle'),
+      preparing: I18n.t('t_install_status_preparing'),
+      stopping: I18n.t('t_install_status_stopping'),
+      backing_up: I18n.t('t_install_status_backing_up'),
       downloading: I18n.t('t_install_status_downloading'),
       verifying: I18n.t('t_install_status_verifying'),
       extracting: I18n.t('t_install_status_extracting'),
-      completed: I18n.t('t_install_status_completed'),
+      installing: I18n.t('t_install_status_installing'),
       updating: I18n.t('t_install_status_updating'),
-      Downloading: I18n.t('t_install_status_downloading'),
-      Verifying: I18n.t('t_install_status_verifying'),
-      Extracting: I18n.t('t_install_status_extracting'),
-      Updating: I18n.t('t_install_status_updating'),
-      Completed: I18n.t('t_install_status_completed'),
-      'Downloading...': I18n.t('t_install_status_downloading'),
-      'Verifying...': I18n.t('t_install_status_verifying'),
-      'Extracting...': I18n.t('t_install_status_extracting')
+      restarting: I18n.t('t_install_status_restarting'),
+      completed: I18n.t('t_install_status_completed')
     };
-    return map[status] || status;
+    return map[norm] || status;
   },
 
   openImportModal() {
@@ -1535,35 +1685,71 @@ const Installer = {
   _buildCommitMap: {},
   _buildEscHandler: null,
 
-  _pollInstallerProgress({ barEl, pctEl, textEl, defaultStatus = 'Downloading', onComplete, onError }) {
+  _pollInstallerProgress({ barEl, pctEl, textEl, defaultStatus = 'downloading', onComplete, onError }) {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
+    let consecutiveErrors = 0;
+    let sawActive = false;
+
     this.pollingInterval = setInterval(async () => {
       try {
         const pRes = await fetch('/api/installer/progress');
+        if (!pRes.ok) {
+          throw new Error(`HTTP ${pRes.status}`);
+        }
         const pData = await pRes.json();
-        const pct = pData.percent || 0;
+        consecutiveErrors = 0;
+
+        const pct = Number(pData.percent || 0);
+        const st = String(pData.status || defaultStatus);
+        const stNorm = st.trim().toLowerCase();
+        const isActiveNow = Boolean(
+          pData.is_active ||
+          pData.is_downloading ||
+          (stNorm !== 'idle' && stNorm !== 'completed' && !stNorm.startsWith('error'))
+        );
+        if (isActiveNow) {
+          sawActive = true;
+        }
+
         if (barEl) barEl.style.width = `${pct}%`;
         if (pctEl) pctEl.textContent = `${pct}%`;
-        const st = pData.status || defaultStatus;
-        const stText = this.mapStatusText(st);
-        if (textEl) textEl.textContent = `${stText} (${pct}%)`;
 
-        if (pData.status === 'completed' || (pct >= 100 && pData.is_downloading === false)) {
+        const stText = stNorm === 'idle' && !sawActive
+          ? I18n.t('t_install_status_preparing')
+          : this.mapStatusText(st);
+        if (textEl) {
+          textEl.textContent = (stNorm === 'downloading' || stNorm === 'extracting')
+            ? `${stText} (${pct}%)`
+            : stText;
+        }
+
+        const isCompleted =
+          stNorm === 'completed' ||
+          (stNorm === 'idle' && pct >= 100 && !pData.is_downloading && !pData.is_active) ||
+          (stNorm === 'idle' && sawActive && !pData.is_downloading && !pData.is_active);
+
+        if (isCompleted) {
           clearInterval(this.pollingInterval);
           this.pollingInterval = null;
-          this.isInstalling = false;
+          if (barEl) barEl.style.width = '100%';
+          if (pctEl) pctEl.textContent = '100%';
+          if (textEl) textEl.textContent = I18n.t('t_install_status_completed');
           if (onComplete) await onComplete(pData);
-        } else if (pData.status && pData.status.startsWith('error')) {
+        } else if (stNorm.startsWith('error')) {
           clearInterval(this.pollingInterval);
           this.pollingInterval = null;
           this.isInstalling = false;
-          if (onError) onError(pData.status);
+          if (onError) onError(st);
         }
       } catch (err) {
+        consecutiveErrors += 1;
+        if (consecutiveErrors < 5) {
+          return;
+        }
         clearInterval(this.pollingInterval);
         this.pollingInterval = null;
         this.isInstalling = false;
-        if (onError) onError(null);
+        if (onError) onError(err && err.message ? err.message : null);
       }
     }, 800);
   },
@@ -1573,6 +1759,10 @@ const Installer = {
   },
 
   async openBuildModal(targetBuildId) {
+    if (this.isInstalling) {
+      App.showToast(I18n.t('t_install_toast_already_busy'), 'info');
+      return;
+    }
     try {
       const modal = this.ensureBuildModal();
       if (!modal) {
@@ -1765,6 +1955,10 @@ const Installer = {
   },
 
   async applyBuildFromModal() {
+    if (this.isInstalling) {
+      App.showToast(I18n.t('t_install_toast_already_busy'), 'info');
+      return;
+    }
     const select = document.getElementById('modal-build-select');
     const targetBuild = select ? select.value : null;
 
@@ -1781,8 +1975,9 @@ const Installer = {
 
     // Now execute the install pipeline with build parameter
     this.isInstalling = true;
+    this._setUpdateBusy(true, 'build');
 
-    // Show installer progress box
+    // Show installer progress box immediately with descriptive phase
     const pBox = document.getElementById('update-progress-box');
     const pBar = document.getElementById('update-progress-bar');
     const pText = document.getElementById('update-progress-text');
@@ -1790,16 +1985,9 @@ const Installer = {
     if (pBox) pBox.style.display = 'block';
     if (pBar) pBar.style.width = '0%';
     if (pText) pText.textContent = targetBuild
-      ? (I18n.fmt('t_install_build_toast_started', [targetBuild]) || `Descargando Build #${targetBuild}...`)
-      : I18n.t('t_install_update_downloading');
+      ? (I18n.fmt('t_install_build_toast_started', [targetBuild]) || `Iniciando instalación de Build #${targetBuild}...`)
+      : I18n.t('t_install_status_preparing');
     if (pPct) pPct.textContent = '0%';
-
-    const btnApply = document.getElementById('btn-apply-update');
-    const spinnerSvg = '<svg class="spin-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
-    if (btnApply) {
-      btnApply.disabled = true;
-      btnApply.innerHTML = `${spinnerSvg} <span>${I18n.t('t_install_downloading_ellipsis')}</span>`;
-    }
 
     App.showToast(targetBuild ? I18n.fmt('t_install_build_toast_started', [targetBuild]) : I18n.t('t_install_toast_update_started'), 'info');
 
@@ -1822,26 +2010,20 @@ const Installer = {
         barEl: pBar,
         pctEl: pPct,
         textEl: pText,
-        defaultStatus: 'Updating',
+        defaultStatus: 'updating',
         onComplete: () => {
           setTimeout(async () => {
             if (pBox) pBox.style.display = 'none';
             this.isInstalling = false;
-            if (btnApply) {
-              btnApply.disabled = false;
-              this.updateApplyButtonText();
-            }
+            this._setUpdateBusy(false);
             App.showToast(I18n.t('t_install_toast_updated_ok'), 'success');
             await this.checkLockState();
-          }, 1500);
+          }, 600);
         },
         onError: (statusMsg) => {
           if (pBox) pBox.style.display = 'none';
           this.isInstalling = false;
-          if (btnApply) {
-            btnApply.disabled = false;
-            this.updateApplyButtonText();
-          }
+          this._setUpdateBusy(false);
           if (statusMsg) {
             App.showToast(I18n.fmt('t_install_err_update_fail', [statusMsg]), 'danger');
           }
@@ -1850,11 +2032,8 @@ const Installer = {
 
     } catch (e) {
       this.isInstalling = false;
+      this._setUpdateBusy(false);
       if (pBox) pBox.style.display = 'none';
-      if (btnApply) {
-        btnApply.disabled = false;
-        this.updateApplyButtonText();
-      }
       App.showToast(I18n.fmt('t_install_err_update_fail', [e.message]), 'danger');
     }
   }

@@ -20,6 +20,49 @@ router = APIRouter(tags=["installer"])
 
 _background_tasks: set = set()
 
+ACTIVE_INSTALLER_STATES = {
+    "preparing",
+    "stopping",
+    "backing_up",
+    "downloading",
+    "verifying",
+    "extracting",
+    "installing",
+    "updating",
+    "restarting",
+}
+
+
+def _set_install_stage(
+    downloader_obj,
+    status: str,
+    percent: Optional[int] = None,
+    filename: Optional[str] = None,
+) -> None:
+    """Updates downloader.active_download consistently across all pre/post download phases."""
+    current = getattr(downloader_obj, "active_download", None)
+    base = dict(current) if isinstance(current, dict) else {}
+    if filename is not None:
+        base["file"] = filename
+    if percent is not None:
+        base["percent"] = percent
+    elif "percent" not in base:
+        base["percent"] = 0
+    base["status"] = status
+    base["is_downloading"] = status in ("downloading", "extracting")
+    base["is_active"] = status in ACTIVE_INSTALLER_STATES
+    downloader_obj.active_download = base
+
+
+def _is_operation_running(downloader_obj) -> bool:
+    """Returns True if an install or update background pipeline is currently running."""
+    if any(isinstance(t, asyncio.Task) and not t.done() for t in _background_tasks):
+        return True
+    current = getattr(downloader_obj, "active_download", None)
+    if isinstance(current, dict):
+        return str(current.get("status", "")) in ACTIVE_INSTALLER_STATES
+    return False
+
 
 def _track_task(coro) -> asyncio.Task:
     """Spawns an asyncio background task while holding a strong reference to prevent GC."""
@@ -239,9 +282,32 @@ async def get_installer_versions(type: str = Query("paper")):
 @router.get("/api/installer/progress", dependencies=[Depends(get_current_user)])
 async def get_install_progress():
     _, downloader, _, _, _ = _deps()
-    data = downloader.active_download or {"status": "idle", "percent": 0}
+    raw_active = getattr(downloader, "active_download", None)
+    if isinstance(raw_active, dict):
+        status_val = str(raw_active.get("status", "idle"))
+        pct_val = raw_active.get("percent", 0)
+        data = {
+            **raw_active,
+            "status": status_val,
+            "percent": pct_val,
+            "is_downloading": status_val in ("downloading", "extracting"),
+            "is_active": status_val in ACTIVE_INSTALLER_STATES,
+        }
+    else:
+        data = {
+            "status": "idle",
+            "percent": 0,
+            "is_downloading": False,
+            "is_active": False,
+        }
+
     if data.get("status") == "completed":
-        downloader.active_download = {"status": "idle", "percent": 100}
+        downloader.active_download = {
+            "status": "idle",
+            "percent": 0,
+            "is_downloading": False,
+            "is_active": False,
+        }
     return data
 
 
@@ -250,6 +316,9 @@ async def install_server(req: InstallRequest):
     process_manager, downloader, _, _, is_server_installed = _deps()
     if process_manager.get_status() != "OFFLINE":
         raise HTTPException(status_code=400, detail="Por favor detén el servidor antes de instalar o cambiar de versión")
+
+    if _is_operation_running(downloader):
+        raise HTTPException(status_code=409, detail="Ya hay una instalación o actualización en curso")
 
     if is_server_installed() and not req.force:
         raise HTTPException(
@@ -299,6 +368,7 @@ async def install_server(req: InstallRequest):
 
         if req.server_type == "forge":
             java_bin = req.java_path or "java"
+            _set_install_stage(downloader, "preparing", percent=0, filename=target_file)
 
             async def forge_install_pipeline():
                 try:
@@ -308,17 +378,22 @@ async def install_server(req: InstallRequest):
                         expected_sha256=expected_sha256,
                         expected_sha1=expected_sha1,
                         allowed_hosts=allowed_hosts,
+                        complete_on_finish=False,
                     )
+                    _set_install_stage(downloader, "installing", percent=100, filename=target_file)
                     res = await downloader.install_forge_server(installer_path, java_bin=java_bin)
                     settings.save_runtime_config({
                         "server_file": res.get("server_file", "run.sh")
                     })
                     downloader.ensure_initial_config(sync_initial_defaults=True)
+                    _set_install_stage(downloader, "completed", percent=100, filename=target_file)
                 except Exception as ex:
                     logger.error("[Dockraft] Forge install pipeline error: %s", ex)
+                    _set_install_stage(downloader, f"error: {ex}", percent=0, filename=target_file)
 
             _track_task(forge_install_pipeline())
         else:
+            _set_install_stage(downloader, "preparing", percent=0, filename=target_file)
             _track_task(
                 downloader.download_file(
                     download_url,
@@ -600,6 +675,8 @@ async def update_server(req: UpdateRequest):
     process_manager, downloader, backup_manager, activity_manager, is_server_installed = _deps()
     if not is_server_installed():
         raise HTTPException(status_code=400, detail="No hay ningún servidor instalado para actualizar")
+    if _is_operation_running(downloader):
+        raise HTTPException(status_code=409, detail="Ya hay una instalación o actualización en curso")
 
     cfg = settings.runtime_config
     server_type = cfg.get("server_type", "paper")
@@ -621,10 +698,17 @@ async def update_server(req: UpdateRequest):
         allowed_hosts = dl_info.get("allowed_hosts")
 
         was_running = process_manager.get_status() != "OFFLINE"
+        _set_install_stage(
+            downloader,
+            "stopping" if was_running else "backing_up",
+            percent=0,
+            filename=target_file,
+        )
 
         async def safe_update_pipeline():
             try:
                 if was_running:
+                    _set_install_stage(downloader, "stopping", percent=0, filename=target_file)
                     msg = "[Dockraft] Deteniendo servidor de forma segura para aplicar actualización..."
                     process_manager._append_log(msg)
                     await process_manager.broadcast_message({"type": "log", "data": msg})
@@ -642,18 +726,22 @@ async def update_server(req: UpdateRequest):
 
                 build_suffix = f"-b{new_build}" if new_build else ""
                 tag_name = f"pre-update-{req.version}{build_suffix}"
+                _set_install_stage(downloader, "backing_up", percent=0, filename=target_file)
                 msg = f"[Dockraft] Generando copia de seguridad preventiva ({tag_name})..."
                 process_manager._append_log(msg)
                 await process_manager.broadcast_message({"type": "log", "data": msg})
-                pre_backup = backup_manager.create_backup(
+                pre_backup = await asyncio.to_thread(
+                    backup_manager.create_backup,
                     scope="full",
                     tag=tag_name,
                     compression=True,
                 )
                 if pre_backup.get("status") == "error":
-                    err_msg = f"[Dockraft] Error al crear copia preventiva: {pre_backup.get('message')}. Abortando actualización para seguridad de datos."
+                    err_detail = pre_backup.get("message") or "Error creando copia preventiva"
+                    err_msg = f"[Dockraft] Error al crear copia preventiva: {err_detail}. Abortando actualización para seguridad de datos."
                     process_manager._append_log(err_msg)
                     await process_manager.broadcast_message({"type": "log", "data": err_msg})
+                    _set_install_stage(downloader, f"error: {err_detail}", percent=0, filename=target_file)
                     if was_running:
                         await process_manager.start_server()
                     return
@@ -664,7 +752,7 @@ async def update_server(req: UpdateRequest):
                 await process_manager.broadcast_message({"type": "log", "data": msg})
 
                 if server_type == "forge":
-                    java_path = cfg.get("java_path") or JavaManager.get_best_java_path(req.version)
+                    java_path = cfg.get("java_path") or await asyncio.to_thread(JavaManager.get_best_java_path, req.version)
                     installer_path = await downloader.download_file(
                         download_url,
                         target_file,
@@ -673,7 +761,9 @@ async def update_server(req: UpdateRequest):
                         expected_sha256=expected_sha256,
                         expected_sha1=expected_sha1,
                         allowed_hosts=allowed_hosts,
+                        complete_on_finish=False,
                     )
+                    _set_install_stage(downloader, "installing", percent=100, filename=target_file)
                     res = await downloader.install_forge_server(installer_path, java_bin=java_path)
                     settings.save_runtime_config({
                         "server_file": res.get("server_file", "run.sh"),
@@ -689,6 +779,7 @@ async def update_server(req: UpdateRequest):
                         expected_sha256=expected_sha256,
                         expected_sha1=expected_sha1,
                         allowed_hosts=allowed_hosts,
+                        complete_on_finish=False,
                     )
                     if old_server_file and old_server_file != target_file and not is_zip:
                         old_path = settings.data_dir / old_server_file
@@ -723,11 +814,14 @@ async def update_server(req: UpdateRequest):
                 await process_manager.broadcast_message({"type": "log", "data": succ_msg})
 
                 if was_running:
+                    _set_install_stage(downloader, "restarting", percent=100, filename=target_file)
                     restart_msg = "[Dockraft] Reiniciando servidor automáticamente con la nueva versión..."
                     process_manager._append_log(restart_msg)
                     await process_manager.broadcast_message({"type": "log", "data": restart_msg})
                     await asyncio.sleep(1.5)
                     await process_manager.start_server()
+
+                _set_install_stage(downloader, "completed", percent=100, filename=target_file)
 
             except Exception as ex:
                 err_msg = f"[Dockraft] Error en la actualización a {req.version}: {str(ex)}"
@@ -740,6 +834,7 @@ async def update_server(req: UpdateRequest):
                     user="admin",
                     status="error",
                 )
+                _set_install_stage(downloader, f"error: {str(ex)}", percent=0, filename=target_file)
                 if was_running and process_manager.get_status() == "OFFLINE":
                     await process_manager.start_server()
 

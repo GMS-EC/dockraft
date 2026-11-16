@@ -311,3 +311,177 @@ async def test_update_server_with_explicit_build(tmp_path, client):
 
             # Verify activity logged mentions Build #188
             assert any("Build #188" in str(call) for call in mock_act.log.call_args_list)
+
+
+@pytest.mark.asyncio
+async def test_update_server_tracks_pre_post_stages_blocks_concurrent_and_resets_completed(tmp_path, client):
+    import io
+    from contextlib import ExitStack
+
+    with ExitStack() as stack:
+        mock_pm = stack.enter_context(patch("app.main.process_manager"))
+        mock_bm = stack.enter_context(patch("app.main.backup_manager"))
+        mock_dl = stack.enter_context(patch("app.main.downloader"))
+        stack.enter_context(patch("app.main.activity_manager"))
+        stack.enter_context(patch("app.main._is_server_installed", return_value=True))
+        stack.enter_context(patch.object(settings, "runtime_config", {"server_type": "paper", "server_version": "26.3", "server_build": 249}))
+        stack.enter_context(patch.object(settings, "save_runtime_config"))
+        stack.enter_context(patch("app.routers.installer._background_tasks", set()))
+
+        mock_dl.active_download = {"status": "idle", "percent": 0}
+        status_val = "RUNNING"
+        mock_pm.get_status.side_effect = lambda: status_val
+
+        async def fake_send_cmd(*args, **kwargs): pass
+        async def fake_broadcast(*args, **kwargs): pass
+        async def fake_stop():
+            nonlocal status_val
+            status_val = "OFFLINE"
+            return True
+        async def fake_start():
+            nonlocal status_val
+            status_val = "RUNNING"
+            return True
+        async def fake_paper_build(proj, ver, build_id):
+            return {"build": build_id, "download_url": f"https://fill-data.papermc.io/paper-{ver}-{build_id}.jar"}
+
+        observed_stages = []
+
+        def fake_backup(*args, **kwargs):
+            observed_stages.append(("backup", dict(mock_dl.active_download)))
+            return {"status": "success", "filename": "pre-update-26.3-b253.zip"}
+
+        async def fake_dl(*args, **kwargs):
+            observed_stages.append(("download_kwargs", kwargs.get("complete_on_finish")))
+            mock_dl.active_download = {
+                "file": "server.jar",
+                "total": 100,
+                "downloaded": 100,
+                "percent": 100,
+                "status": "completed" if kwargs.get("complete_on_finish", True) else "installing",
+            }
+            return tmp_path / "server.jar"
+
+        mock_pm.send_command.side_effect = fake_send_cmd
+        mock_pm.broadcast_message.side_effect = fake_broadcast
+        mock_pm.stop_server.side_effect = fake_stop
+        mock_pm.start_server.side_effect = fake_start
+        mock_bm.create_backup.side_effect = fake_backup
+        mock_dl.download_file.side_effect = fake_dl
+        mock_dl.get_paper_build.side_effect = fake_paper_build
+
+        tasks_to_run = []
+        def capture_task(coro):
+            tasks_to_run.append(coro)
+            return MagicMock()
+
+        with patch("asyncio.create_task", side_effect=capture_task), \
+             patch("asyncio.sleep", return_value=None):
+            res = client.post("/api/installer/update", json={"version": "26.3", "build": 253})
+            assert res.status_code == 200
+            assert res.json()["auto_stopping"] is True
+
+            # Before background task runs, progress must immediately report stopping + is_active=True (never idle 0%)
+            prog_before = client.get("/api/installer/progress")
+            assert prog_before.status_code == 200
+            pb = prog_before.json()
+            assert pb["status"] == "stopping"
+            assert pb["percent"] == 0
+            assert pb["is_active"] is True
+            assert pb["is_downloading"] is False
+
+            # Concurrent update request must fail with 409 Conflict
+            dup_res = client.post("/api/installer/update", json={"version": "26.3", "build": 253})
+            assert dup_res.status_code == 409
+
+            assert len(tasks_to_run) == 1
+            await tasks_to_run[0]
+
+            # Preventive backup ran while active stage was "backing_up" (not idle)
+            assert ("backup", "backing_up") == ("backup", observed_stages[0][1]["status"])
+            assert ("download_kwargs", False) in observed_stages
+
+            # Pipeline sets final completed status after save_runtime_config and auto-restart
+            assert mock_dl.active_download["status"] == "completed"
+            assert mock_dl.active_download["percent"] == 100
+
+            # First /progress poll returns completed (100%), subsequent poll resets to idle (0%)
+            prog_done = client.get("/api/installer/progress").json()
+            assert prog_done["status"] == "completed"
+            assert prog_done["percent"] == 100
+            assert prog_done["is_active"] is False
+
+            prog_reset = client.get("/api/installer/progress").json()
+            assert prog_reset["status"] == "idle"
+            assert prog_reset["percent"] == 0
+            assert prog_reset["is_active"] is False
+            assert prog_reset["is_downloading"] is False
+
+            # Case 2: Server offline & preventive backup fails -> sets backing_up initially then error stage
+            status_val = "OFFLINE"
+            tasks_to_run.clear()
+            mock_bm.create_backup.side_effect = None
+            mock_bm.create_backup.return_value = {"status": "error", "message": "Disk full"}
+            mock_dl.download_file.reset_mock()
+
+            res2 = client.post("/api/installer/update", json={"version": "26.3", "build": 253})
+            assert res2.status_code == 200
+            pb2 = client.get("/api/installer/progress").json()
+            assert pb2["status"] == "backing_up"
+            assert pb2["is_active"] is True
+
+            await tasks_to_run[0]
+            mock_dl.download_file.assert_not_called()
+            prog_err = client.get("/api/installer/progress").json()
+            assert prog_err["status"] == "error: Disk full"
+            assert prog_err["is_active"] is False
+
+
+@pytest.mark.asyncio
+async def test_download_manager_complete_on_finish_false_and_progress_active_flags(tmp_path):
+    import hashlib
+    import io
+    import httpx
+    from app.core.downloader import DownloadManager
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
+        zf.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n")
+        zf.writestr("payload.bin", b"A" * (600 * 1024))
+    jar_bytes = buf.getvalue()
+    sha256_hex = hashlib.sha256(jar_bytes).hexdigest()
+
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            headers={"content-length": str(len(jar_bytes))},
+            content=jar_bytes,
+        )
+    )
+    real_async_client = httpx.AsyncClient
+
+    dl = DownloadManager()
+    with patch.object(settings, "data_dir", tmp_path), \
+         patch.object(settings, "instance_dir", tmp_path), \
+         patch("app.core.downloader.httpx.AsyncClient", side_effect=lambda **kw: real_async_client(transport=transport, follow_redirects=True)):
+        dest = await dl.download_file(
+            "https://fill-data.papermc.io/v1/objects/server.jar",
+            "server.jar",
+            preserve_existing_configs=True,
+            verify_integrity=True,
+            expected_sha256=sha256_hex,
+            complete_on_finish=False,
+        )
+
+    assert dest == tmp_path / "server.jar"
+    assert dest.exists()
+    assert dl.active_download["status"] == "installing"
+    assert dl.active_download["percent"] == 100
+    assert dl.progress["is_active"] is True
+    assert dl.progress["is_downloading"] is False
+
+    # Confirm blocking pre/post statuses keep is_active=True without breaking is_downloading
+    dl.active_download = {"status": "backing_up", "percent": 0}
+    assert dl.progress["is_active"] is True
+    assert dl.progress["is_downloading"] is False
+

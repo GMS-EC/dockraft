@@ -26,12 +26,24 @@ class DownloadManager:
     def progress(self) -> Dict[str, Any]:
         """Expose current download progress with `is_downloading` compatibility flag."""
         active = self.active_download or {}
-        status = active.get("status", "idle")
+        status = str(active.get("status", "idle"))
+        active_states = {
+            "preparing",
+            "stopping",
+            "backing_up",
+            "downloading",
+            "verifying",
+            "extracting",
+            "installing",
+            "updating",
+            "restarting",
+        }
         return {
             "status": status,
             "percent": active.get("percent", 0),
             **active,
             "is_downloading": status in ("downloading", "extracting"),
+            "is_active": status in active_states,
         }
 
     async def get_paper_versions(self, project: str = "paper") -> List[str]:
@@ -654,6 +666,7 @@ class DownloadManager:
         expected_sha256: Optional[str] = None,
         expected_sha1: Optional[str] = None,
         allowed_hosts: Optional[Set[str]] = None,
+        complete_on_finish: bool = True,
     ) -> Path:
         """
         Streams download to target path with progress tracking, domain/redirect validation,
@@ -707,6 +720,9 @@ class DownloadManager:
                             if progress_callback:
                                 progress_callback(downloaded, total_size)
 
+            if expected_sha256 or expected_sha1 or verify_integrity:
+                self.active_download["status"] = "verifying"
+
             if expected_sha256 and sha256_hasher:
                 actual_256 = sha256_hasher.hexdigest().lower()
                 if actual_256 != expected_sha256.strip().lower():
@@ -717,7 +733,11 @@ class DownloadManager:
                     raise ValueError(f"SHA-1 checksum mismatch for {target_filename}")
 
             if verify_integrity:
-                self.verify_file_integrity(temp_download_path, "zip" if (is_zip or target_filename.endswith(".zip")) else "jar")
+                await asyncio.to_thread(
+                    self.verify_file_integrity,
+                    temp_download_path,
+                    "zip" if (is_zip or target_filename.endswith(".zip")) else "jar",
+                )
 
             # If it's a zip (Bedrock or modpack), extract it
             if is_zip or target_filename.endswith(".zip"):
@@ -736,7 +756,12 @@ class DownloadManager:
                             return True
                     return False
 
-                safe_extract_zip(temp_download_path, settings.data_dir, skip_member_fn=_skip_download_member)
+                await asyncio.to_thread(
+                    safe_extract_zip,
+                    temp_download_path,
+                    settings.data_dir,
+                    skip_member_fn=_skip_download_member,
+                )
 
                 # Ensure bedrock binary has execute permission on Unix
                 bedrock_bin = settings.data_dir / "bedrock_server"
@@ -765,8 +790,8 @@ class DownloadManager:
             self.accept_eula()
             self.ensure_initial_config(sync_initial_defaults=not preserve_existing_configs)
 
-            self.active_download["status"] = "completed"
             self.active_download["percent"] = 100
+            self.active_download["status"] = "completed" if complete_on_finish else "installing"
             return dest_path
 
         except Exception as e:
