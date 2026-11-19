@@ -2,7 +2,6 @@ services:
   dockraft:
     image: marcusm99/dockraft:latest
     build: .
-    container_name: dockraft
     restart: unless-stopped
     ports:
       # Panel de Control Web
@@ -36,6 +35,6 @@ services:
       - SESSION_TIMEOUT_MINUTES=${SESSION_TIMEOUT_MINUTES:-60}
     volumes:
       # Persistencia de todos los mundos, plugins, mods y configuraciones del servidor
-      - ./data:/server_data
+      - ${DATA_DIR:-./data}:/server_data
       # Directorio independiente para almacenar copias de seguridad
-      - ./backups:/server_backups
+      - ${BACKUPS_DIR:-./backups}:/server_backups

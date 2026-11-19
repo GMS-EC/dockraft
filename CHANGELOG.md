@@ -29,6 +29,8 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - Prioridad real de `SESSION_TIMEOUT_MINUTES` desde `.env` / `docker-compose.yml` incluso con configuraciones heredadas en `dockraft_config.json`, soporte para `SESSION_TIMEOUT_MINUTES=0` (desactivar expiración por inactividad) y sincronización de actividad entre pestañas vía `localStorage`.
 - **Integridad de Bootstraps Fabric/Quilt y Caché PWA (`app/core/downloader.py`, `app/main.py`, `web/static/sw.js`):**
   - Ajuste del umbral mínimo de `verify_file_integrity()` a `64 KB` para bootstraps oficiales de Fabric, habilitación de `https://cdn.modrinth.com` en `Content-Security-Policy` e invalidación de caché del Service Worker (`dockraft-v17`).
+- **Despliegue Multi-Instancia por Contenedores (`docker-compose.yml`, `.env.example`, `.gitignore`, `README.md`):**
+  - Eliminación de `container_name: dockraft` fijo y parametrización de volúmenes del host (`${DATA_DIR:-./data}` y `${BACKUPS_DIR:-./backups}`) junto a puertos por instancia (`PANEL_PORT`, `MC_JAVA_PORT`, `MC_BEDROCK_PORT`) para ejecutar múltiples servidores aislados (`1 contenedor = 1 servidor`) sin conflictos de nombre, datos ni puertos.
 
 ---
 

@@ -160,7 +160,6 @@ Crea una carpeta en tu servidor y un archivo `docker-compose.yml` con el siguien
 services:
   dockraft:
     image: marcusm99/dockraft:latest
-    container_name: dockraft
     restart: unless-stopped
     ports:
       - "8000:8000" # Panel Web
@@ -210,6 +209,20 @@ docker compose up -d
    ```
 
 El panel estará disponible de inmediato en **`http://localhost:8000`** (o en la IP pública de tu servidor).
+
+#### Opción 3: Múltiples servidores (1 contenedor = 1 servidor)
+
+Como `docker-compose.yml` no fija un `container_name` único y parametriza puertos y rutas mediante `.env`, puedes levantar tantos contenedores independientes como necesites de dos formas:
+
+- **Desde carpetas separadas:** copia `docker-compose.yml` y `.env` en otra carpeta y cambia `PANEL_PORT`, `MC_JAVA_PORT` y `MC_BEDROCK_PORT` en el nuevo `.env` antes de ejecutar `docker compose up -d`.
+- **Desde la misma carpeta con proyectos aislados (`-p` y `--env-file`):**
+  ```bash
+  cp .env.example .env.cobblemon
+  # Edita .env.cobblemon con puertos y carpetas propias, por ejemplo:
+  # PANEL_PORT=8001, MC_JAVA_PORT=25566, MC_BEDROCK_PORT=19133
+  # DATA_DIR=./instancias/cobblemon/data, BACKUPS_DIR=./instancias/cobblemon/backups
+  docker compose -p dockraft-cobblemon --env-file .env.cobblemon up -d
+  ```
 
 ---
 
@@ -397,7 +410,6 @@ Create a new directory and save the following as `docker-compose.yml`:
 services:
   dockraft:
     image: marcusm99/dockraft:latest
-    container_name: dockraft
     restart: unless-stopped
     ports:
       - "8000:8000" # Web Panel
@@ -447,6 +459,20 @@ docker compose up -d
    ```
 
 Open your browser at **`http://localhost:8000`** (or your server's public IP).
+
+#### Option 3: Multiple Servers (1 Container = 1 Server)
+
+Because `docker-compose.yml` leaves container naming to Compose and parameterizes ports and volume paths via `.env`, you can run multiple isolated containers without name collisions:
+
+- **Separate directories:** copy `docker-compose.yml` and `.env` into a new folder, change `PANEL_PORT`, `MC_JAVA_PORT`, and `MC_BEDROCK_PORT` in `.env`, and run `docker compose up -d`.
+- **Same repository directory using `-p` and `--env-file`:**
+  ```bash
+  cp .env.example .env.cobblemon
+  # Edit .env.cobblemon with unique ports and folders, e.g.:
+  # PANEL_PORT=8001, MC_JAVA_PORT=25566, MC_BEDROCK_PORT=19133
+  # DATA_DIR=./instancias/cobblemon/data, BACKUPS_DIR=./instancias/cobblemon/backups
+  docker compose -p dockraft-cobblemon --env-file .env.cobblemon up -d
+  ```
 
 ---
 

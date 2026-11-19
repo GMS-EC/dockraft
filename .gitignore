@@ -4,7 +4,9 @@
 
 # Datos del servidor Minecraft, instancias locales y respaldos
 data/
+data-*/
 backups/
+backups-*/
 instancias/
 launcher_config.json
 .dockraft_root
