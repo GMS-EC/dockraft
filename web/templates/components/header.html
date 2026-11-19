@@ -6,6 +6,12 @@
     </div>
     <div class="logo-text">
       <h1>Dockraft</h1>
+      {% if instance_name %}
+      <div class="sidebar-instance-badge" id="sidebar-instance-name" data-locked="{{ 'true' if instance_name_locked else 'false' }}" title="{{ instance_name }}">
+        <span class="instance-badge-dot" aria-hidden="true"></span>
+        <span class="instance-badge-name">{{ instance_name }}</span>
+      </div>
+      {% endif %}
     </div>
   </div>
 

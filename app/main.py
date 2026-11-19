@@ -292,6 +292,7 @@ async def login_page(request: Request):
 
     client_ip = get_client_ip(request)
     is_locked, remaining = login_limiter.is_locked(client_ip)
+    instance_name = settings.get_instance_label()
 
     resp = templates.TemplateResponse(
         request=request,
@@ -305,6 +306,7 @@ async def login_page(request: Request):
             "app_version": APP_VERSION,
             "asset_v": START_TIME_TOKEN,
             "session_expired": session_expired,
+            "instance_name": instance_name,
         },
     )
     if session_expired:
@@ -322,6 +324,8 @@ async def root(request: Request):
     cfg = settings.runtime_config
     is_installed = bool(stats.get("is_installed", False))
     server_status = stats.get("status", "OFFLINE")
+    instance_name = settings.get_instance_label()
+    instance_name_locked = bool(getattr(settings, "instance_name", ""))
 
     def _safe_json_embed(data: Any) -> str:
         return json.dumps(data).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
@@ -334,6 +338,8 @@ async def root(request: Request):
             "app_name": "Dockraft",
             "app_version": APP_VERSION,
             "asset_v": START_TIME_TOKEN,
+            "instance_name": instance_name,
+            "instance_name_locked": instance_name_locked,
             "stats": stats,
             "cfg": cfg,
             "is_installed": is_installed,

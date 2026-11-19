@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Iniciar Sesión / Sign In — Dockraft{% endblock %}
+{% block title %}{{ instance_name or 'Dockraft' }} — Iniciar Sesión / Sign In — Dockraft{% endblock %}
 {% block body_class %}login-page-body{% endblock %}
 
 {% block content %}
@@ -10,6 +10,12 @@
     <div class="login-brand-header">
       <img src="/static/img/dockraft_logo.svg" alt="Dockraft Logo" class="dockraft-login-logo-img">
       <h1 class="dockraft-brand-title">Dockraft</h1>
+      {% if instance_name %}
+      <div class="instance-badge-pill" id="login-instance-badge" title="{{ instance_name }}">
+        <span class="instance-badge-dot" aria-hidden="true"></span>
+        <span class="instance-badge-name">{{ instance_name }}</span>
+      </div>
+      {% endif %}
       <p class="dockraft-brand-subtitle" data-i18n="login_subtitle">Panel de Control para Minecraft</p>
     </div>
 

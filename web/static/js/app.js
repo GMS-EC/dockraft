@@ -952,6 +952,18 @@ const App = {
         }, 50);
       }
     });
+  },
+
+  updateInstanceBadge(name) {
+    const label = String(name || '').trim();
+    if (!label) return;
+    const badge = document.getElementById('sidebar-instance-name');
+    if (badge) {
+      badge.title = label;
+      const span = badge.querySelector('.instance-badge-name');
+      if (span) span.textContent = label;
+    }
+    document.title = `${label} — Dockraft`;
   }
 };
 

@@ -80,11 +80,24 @@ body {
     background-color: var(--bg-subtle);
   }
 
+  .logo-text {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
   .logo-text h1 {
     font-size: 1.12rem;
     font-weight: 600;
     letter-spacing: -0.015em;
     color: var(--text-main);
+    line-height: 1.15;
+  }
+
+  .sidebar-instance-badge {
+    max-width: 100%;
   }
 
   .nav-tabs {
@@ -626,6 +639,72 @@ textarea.form-input:focus {
 
 .dockraft-brand-subtitle {
   color: var(--text-muted);
+}
+
+.instance-badge-pill,
+.sidebar-instance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background-color: rgba(60, 163, 116, 0.12);
+  border: 1px solid rgba(60, 163, 116, 0.34);
+  color: #9ae6be;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+}
+
+.instance-badge-pill {
+  margin: 6px auto 8px auto;
+  max-width: 92%;
+}
+
+.sidebar-instance-badge {
+  padding: 2px 8px;
+  font-size: 0.71rem;
+  border-radius: var(--radius-sm);
+  align-self: flex-start;
+}
+
+.instance-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--accent-primary-hover);
+  flex-shrink: 0;
+  box-shadow: 0 0 6px rgba(60, 163, 116, 0.65);
+}
+
+.instance-badge-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1140px) {
+  .logo-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .sidebar-instance-badge {
+    max-width: 150px;
+    align-self: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar-instance-badge {
+    max-width: 112px;
+    font-size: 0.66rem;
+    padding: 2px 6px;
+  }
 }
 
 .login-field {

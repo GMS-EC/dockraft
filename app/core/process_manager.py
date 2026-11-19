@@ -393,6 +393,7 @@ class ProcessManager:
         return {
             "status": status,
             "is_installed": is_installed,
+            "instance_name": settings.get_instance_label(),
             "server_name": server_name,
             "server_type": server_type,
             "server_type_display": server_type_display,

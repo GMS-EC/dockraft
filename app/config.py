@@ -99,6 +99,7 @@ class Settings:
         else:
             def_backups_dir = inst_dir / "backups"
         self.instance_dir: Path = inst_dir
+        self.instance_name: str = os.getenv("INSTANCE_NAME", "").strip()
         self.host: str = os.getenv("HOST", "0.0.0.0")
         self.port: int = int(os.getenv("PORT", "8000"))
         self.data_dir: Path = Path(os.getenv("DATA_DIR", str(def_data_dir))).resolve()
@@ -255,6 +256,19 @@ class Settings:
         self.runtime_config.update(new_config)
         from app.core.fs_utils import atomic_write_json
         atomic_write_json(self.config_file, self.runtime_config, indent=2)
+
+    def get_instance_label(self) -> str:
+        """Returns the display identifier for this instance across login, sidebar, and page titles."""
+        explicit = (getattr(self, "instance_name", "") or "").strip()
+        if explicit:
+            return explicit
+        cfg_name = str(self.runtime_config.get("server_name") or "").strip()
+        if cfg_name and cfg_name != "Mi Servidor Dockraft":
+            return cfg_name
+        inst_dir = getattr(self, "instance_dir", None)
+        if inst_dir and inst_dir.parent.name.lower() == "instancias" and inst_dir.name:
+            return inst_dir.name
+        return cfg_name or "Mi Servidor Dockraft"
 
     def get_configured_mc_port(self) -> Optional[int]:
         """Returns the live MC_PORT configured for this instance (.env or env var), if set."""

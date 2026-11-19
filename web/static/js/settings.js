@@ -853,6 +853,10 @@ const Settings = {
       if (res.ok) {
         App.showToast(this._t('t_setting_toast_runtime_saved', 'Ajustes de memoria y runtime guardados correctamente'), 'success');
         this.runtimeConfig = payload;
+        const badgeEl = document.getElementById('sidebar-instance-name');
+        if (badgeEl && badgeEl.dataset.locked !== 'true' && typeof App !== 'undefined' && App.updateInstanceBadge) {
+          App.updateInstanceBadge(serverName);
+        }
         if (typeof App !== 'undefined' && App.setupSessionMonitoring) {
           App.setupSessionMonitoring(sessionTimeout);
         }

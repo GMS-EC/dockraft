@@ -4,7 +4,9 @@
 
 # Servidor, copias de seguridad y datos persistentes (se gestionan a través de volúmenes)
 data/
+data-*/
 backups/
+backups-*/
 instancias/
 launcher_config.json
 .dockraft_root

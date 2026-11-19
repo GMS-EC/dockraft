@@ -166,6 +166,9 @@ services:
       - "25565:25565" # Minecraft Java (TCP)
       - "19132:19132/udp" # Minecraft Bedrock (UDP)
     environment:
+      - PUID=1000 # UID del usuario en el host para permisos de carpetas/volúmenes
+      - PGID=1000 # GID del grupo en el host para permisos de carpetas/volúmenes
+      - INSTANCE_NAME= # Identificador visible en Login y barra lateral (vacío = nombre del servidor)
       - TZ=America/Guayaquil # Zona horaria para respaldos y tareas programadas
       - ADMIN_USER=admin # Usuario del panel web
       - ADMIN_PASSWORD=MiContraseñaSegura # Contraseña obligatoria (si está vacía, genera una aleatoria en logs)
@@ -212,13 +215,14 @@ El panel estará disponible de inmediato en **`http://localhost:8000`** (o en la
 
 #### Opción 3: Múltiples servidores (1 contenedor = 1 servidor)
 
-Como `docker-compose.yml` no fija un `container_name` único y parametriza puertos y rutas mediante `.env`, puedes levantar tantos contenedores independientes como necesites de dos formas:
+Como `docker-compose.yml` no fija un `container_name` único, ajusta automáticamente los permisos de carpetas usando `PUID`/`PGID` al iniciar (sin ejecutar la app ni Minecraft como `root`) y parametriza puertos, identificador visible (`INSTANCE_NAME`) y rutas mediante `.env`, puedes levantar tantos contenedores independientes como necesites:
 
-- **Desde carpetas separadas:** copia `docker-compose.yml` y `.env` en otra carpeta y cambia `PANEL_PORT`, `MC_JAVA_PORT` y `MC_BEDROCK_PORT` en el nuevo `.env` antes de ejecutar `docker compose up -d`.
+- **Desde carpetas separadas:** copia `docker-compose.yml` y `.env` en otra carpeta (`instancia-1/`, `instancia-2/`, etc.) y cambia `INSTANCE_NAME`, `PANEL_PORT`, `MC_JAVA_PORT` y `MC_BEDROCK_PORT` en el nuevo `.env` antes de ejecutar `docker compose up -d`.
 - **Desde la misma carpeta con proyectos aislados (`-p` y `--env-file`):**
   ```bash
   cp .env.example .env.cobblemon
-  # Edita .env.cobblemon con puertos y carpetas propias, por ejemplo:
+  # Edita .env.cobblemon con identificador, puertos y carpetas propias, por ejemplo:
+  # INSTANCE_NAME=Cobblemon, PUID=1000, PGID=1000
   # PANEL_PORT=8001, MC_JAVA_PORT=25566, MC_BEDROCK_PORT=19133
   # DATA_DIR=./instancias/cobblemon/data, BACKUPS_DIR=./instancias/cobblemon/backups
   docker compose -p dockraft-cobblemon --env-file .env.cobblemon up -d
@@ -250,6 +254,8 @@ docker run -d \
 | Variable                 |  Valor por Defecto  | Descripción                                                                                                                                                                                                                |
 | :----------------------- | :-----------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PORT`                   |       `8000`        | Puerto web de acceso al panel.                                                                                                                                                                                             |
+| `PUID` / `PGID`          |       `1000`        | UID/GID del propietario en el host para `/server_data` y `/server_backups`; el entrypoint ajusta permisos al iniciar y ejecuta la app sin `root`.                                                                           |
+| `INSTANCE_NAME`          |     _(automático)_  | Identificador visible en Login, barra lateral y título de pestaña. Si queda vacío, usa el `server_name` configurado (o `"Mi Servidor Dockraft"` por defecto).                                                              |
 | `ADMIN_USER`             |       `admin`       | Nombre de usuario de inicio de sesión.                                                                                                                                                                                     |
 | `ADMIN_PASSWORD`         |     _(efímera)_     | Contraseña del panel (obligatoria). Si se deja vacía, se genera una aleatoria efímera al arrancar y se imprime en los logs.                                                                                                |
 | `SECRET_KEY`             |     _(efímera)_     | Clave para firmar sesiones criptográficas HMAC. Si no se define, se guarda en `DOCKRAFT_STATE_DIR` (`/app/.dockraft_state`, fuera de `/server_data`); defínela en `.env` para conservar sesiones al recrear el contenedor. |
@@ -266,11 +272,7 @@ docker run -d \
 - **`/server_data`**: Aloja el servidor activo (mundos, plugins, mods, configuraciones y logs).
 - **`/server_backups`**: Carpeta aislada donde se guardan las copias de seguridad `.zip`.
 
-> **Permisos en Linux (`UID/GID 1000`)**: Desde `v1.4.2`, el contenedor se ejecuta como usuario sin privilegios `dockraft` (`1000:1000`). Si actualizas desde una versión anterior o creas carpetas locales previamente, asegura la propiedad antes de iniciar:
->
-> ```bash
-> chown -R 1000:1000 ./data ./backups
-> ```
+> **Permisos en Linux (`PUID`/`PGID`)**: El contenedor nunca ejecuta Dockraft ni Minecraft como `root`. Desde `v1.8.0`, el script de entrada alinea automáticamente la propiedad de `./data` y `./backups` con `PUID`/`PGID` (por defecto `1000:1000`) al arrancar y baja privilegios inmediatamente mediante `setpriv` antes de iniciar el servicio.
 
 ---
 
@@ -416,6 +418,9 @@ services:
       - "25565:25565" # Minecraft Java (TCP)
       - "19132:19132/udp" # Minecraft Bedrock (UDP)
     environment:
+      - PUID=1000 # Host user UID for folder/volume permissions
+      - PGID=1000 # Host group GID for folder/volume permissions
+      - INSTANCE_NAME= # Visible label in Login & left sidebar (empty = server name fallback)
       - TZ=America/Guayaquil # Timezone for backups and scheduled tasks
       - ADMIN_USER=admin # Web panel administrator username
       - ADMIN_PASSWORD=MySecurePassword # Mandatory password (if empty, a random one is printed in startup logs)
@@ -462,13 +467,14 @@ Open your browser at **`http://localhost:8000`** (or your server's public IP).
 
 #### Option 3: Multiple Servers (1 Container = 1 Server)
 
-Because `docker-compose.yml` leaves container naming to Compose and parameterizes ports and volume paths via `.env`, you can run multiple isolated containers without name collisions:
+Because `docker-compose.yml` leaves container naming to Compose, aligns host bind-mount ownership automatically on startup via `PUID`/`PGID` (while always dropping privileges via `setpriv` before running Dockraft/Minecraft), and parameterizes ports, visible `INSTANCE_NAME`, and volume paths via `.env`, you can run multiple isolated containers smoothly:
 
-- **Separate directories:** copy `docker-compose.yml` and `.env` into a new folder, change `PANEL_PORT`, `MC_JAVA_PORT`, and `MC_BEDROCK_PORT` in `.env`, and run `docker compose up -d`.
+- **Separate directories:** copy `docker-compose.yml` and `.env` into a new folder (`instance-1/`, `instance-2/`, etc.), change `INSTANCE_NAME`, `PANEL_PORT`, `MC_JAVA_PORT`, and `MC_BEDROCK_PORT` in `.env`, and run `docker compose up -d`.
 - **Same repository directory using `-p` and `--env-file`:**
   ```bash
   cp .env.example .env.cobblemon
-  # Edit .env.cobblemon with unique ports and folders, e.g.:
+  # Edit .env.cobblemon with unique identifier, ports, and folders, e.g.:
+  # INSTANCE_NAME=Cobblemon, PUID=1000, PGID=1000
   # PANEL_PORT=8001, MC_JAVA_PORT=25566, MC_BEDROCK_PORT=19133
   # DATA_DIR=./instancias/cobblemon/data, BACKUPS_DIR=./instancias/cobblemon/backups
   docker compose -p dockraft-cobblemon --env-file .env.cobblemon up -d
@@ -500,6 +506,8 @@ docker run -d \
 | Variable                 |    Default Value    | Description                                                                                                                                                                                                    |
 | :----------------------- | :-----------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PORT`                   |       `8000`        | Web panel port.                                                                                                                                                                                                |
+| `PUID` / `PGID`          |       `1000`        | Host UID/GID used for `/server_data` and `/server_backups`; the entrypoint aligns ownership on startup and drops privileges via `setpriv` before starting the app.                                             |
+| `INSTANCE_NAME`          |      _(auto)_       | Visible label on Login, left sidebar, and browser tab title. If omitted/empty, falls back to the configured `server_name` (or `"Mi Servidor Dockraft"` by default).                                            |
 | `ADMIN_USER`             |       `admin`       | Administrator username for login.                                                                                                                                                                              |
 | `ADMIN_PASSWORD`         |    _(ephemeral)_    | Web panel password (mandatory). If left empty, a random ephemeral password is generated on startup and printed to the container logs.                                                                          |
 | `SECRET_KEY`             |    _(ephemeral)_    | Cryptographic key used to sign HMAC session tokens. Stored in `DOCKRAFT_STATE_DIR` (`/app/.dockraft_state`, outside `/server_data`) when unset; define it in `.env` so sessions survive container recreations. |
@@ -516,11 +524,7 @@ docker run -d \
 - **`/server_data`**: Holds the active Minecraft server (worlds, plugins, mods, configs, and logs).
 - **`/server_backups`**: Isolated directory storing compressed `.zip` backup archives.
 
-> **Linux Volume Permissions (`UID/GID 1000`)**: Since `v1.4.2`, the container runs as the non-root `dockraft` user (`1000:1000`). When upgrading from earlier versions or pre-creating bind-mount folders, ensure host ownership matches before starting:
->
-> ```bash
-> chown -R 1000:1000 ./data ./backups
-> ```
+> **Linux Volume Permissions (`PUID`/`PGID`)**: Dockraft and Minecraft never run as `root`. Since `v1.8.0`, the entrypoint automatically aligns ownership of `./data` and `./backups` with `PUID`/`PGID` (default `1000:1000`) on startup and drops privileges via `setpriv` before launching the service.
 
 ---
 

@@ -529,6 +529,9 @@ const Console = {
     const topType = document.getElementById('top-server-type');
 
     this.lastStats = stats;
+    if (stats.instance_name && typeof App !== 'undefined' && App.updateInstanceBadge) {
+      App.updateInstanceBadge(stats.instance_name);
+    }
     if (topTz) topTz.textContent = stats.timezone || 'America/Guayaquil';
 
     if (!stats.is_installed) {

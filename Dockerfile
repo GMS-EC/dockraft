@@ -37,8 +37,11 @@ COPY app/ ./app/
 COPY web/ ./web/
 COPY CHANGELOG.md ./CHANGELOG.md
 
-# Prepare non-root user and isolated state/data/backups directories
-RUN groupadd -g 1000 dockraft \
+# Prepare non-root user, privilege-drop entrypoint, and isolated state/data/backups directories
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
+    && chmod 0755 /usr/local/bin/docker-entrypoint.sh \
+    && groupadd -g 1000 dockraft \
     && useradd -u 1000 -g dockraft -m -d /home/dockraft -s /usr/sbin/nologin dockraft \
     && mkdir -p /app/.dockraft_state /server_data /server_backups \
     && chown -R dockraft:dockraft /app /server_data /server_backups \
@@ -50,8 +53,8 @@ ENV DOCKRAFT_STATE_DIR="/app/.dockraft_state"
 ENV ADMIN_USER="admin"
 ENV HOST="0.0.0.0"
 ENV PORT="8000"
-
-USER dockraft
+ENV PUID="1000"
+ENV PGID="1000"
 
 # Expose ports:
 # 8000: Web Panel
@@ -63,4 +66,7 @@ EXPOSE 8000 25565 19132/udp
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:8000/api/health || exit 1
 
+# Entrypoint aligns bind-mount ownership to PUID/PGID (never running uvicorn/Minecraft as root)
+# and drops privileges via setpriv before exec'ing CMD.
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

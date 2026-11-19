@@ -15,6 +15,11 @@ services:
       - BACKUPS_DIR=/server_backups
       - HOST=0.0.0.0
       - PORT=8000
+      # UID/GID del propietario en el host para evitar errores de permisos en volúmenes/instancias
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      # Nombre identificador visible en el login y panel izquierdo (opcional; por defecto usa el nombre del servidor)
+      - INSTANCE_NAME=${INSTANCE_NAME:-}
       # Zona horaria del servidor (ej. America/Guayaquil, Europe/Madrid, America/Mexico_City)
       - TZ=${TZ:-America/Guayaquil}
       # Usuario administrador para acceder al panel web

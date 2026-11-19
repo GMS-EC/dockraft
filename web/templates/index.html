@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dockraft — Panel de Control para Minecraft{% endblock %}
+{% block title %}{{ instance_name ~ ' — Dockraft' if instance_name else 'Dockraft — Panel de Control para Minecraft' }}{% endblock %}
 
 {% block content %}
   <div class="app-shell">
