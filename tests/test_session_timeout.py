@@ -137,3 +137,70 @@ def test_login_page_expired_param(client):
         assert "Sesión Caducada" in res.text
     finally:
         settings.admin_password = orig_pass
+
+
+def test_env_session_timeout_overrides_legacy_and_supports_zero(tmp_path, monkeypatch, client):
+    import json
+    from unittest.mock import patch
+    from app.core.security import resolve_active_ws_token
+
+    cfg_file = tmp_path / "dockraft_config.json"
+    cfg_file.write_text(json.dumps({"session_timeout_minutes": 60}), encoding="utf-8")
+
+    orig_cfg = dict(settings.runtime_config)
+    orig_env_val = settings.session_timeout_minutes
+    orig_cfg_file = settings.config_file
+    orig_pass = settings.admin_password
+
+    try:
+        # 1. Explicit SESSION_TIMEOUT_MINUTES in env overrides stale legacy 60 from dockraft_config.json
+        monkeypatch.setenv("SESSION_TIMEOUT_MINUTES", "1440")
+        settings.config_file = cfg_file
+        settings.runtime_config = {"session_timeout_minutes": 60}
+        settings.load_runtime_config()
+        assert settings.runtime_config["session_timeout_minutes"] == 1440
+        assert get_session_max_age() == 1440 * 60
+
+        # 2. Setting SESSION_TIMEOUT_MINUTES=0 disables inactivity auto-expiration cleanly
+        monkeypatch.setenv("SESSION_TIMEOUT_MINUTES", "0")
+        settings.load_runtime_config()
+        assert settings.runtime_config["session_timeout_minutes"] == 0
+        assert get_session_max_age() == 30 * 86400
+
+        settings.admin_password = "SecretPassword2026!"
+        tok = create_session_token()
+        st = client.get("/api/auth/status", cookies={"dockraft_token": tok})
+        assert st.status_code == 200
+        assert st.json()["session_timeout_minutes"] == 0
+
+        # 3. Active WebSocket stays authenticated when /api/auth/refresh rotates the token,
+        # while old token HTTP replay is rejected and /api/auth/logout disconnects WS.
+        settings.runtime_config["session_timeout_minutes"] = 60
+        t_initial = create_session_token()
+        with patch("app.main.process_manager.get_stats", return_value={"status": "OFFLINE", "is_installed": False}), \
+             patch("app.main.process_manager.get_status", return_value="OFFLINE"):
+            client.cookies.set("dockraft_token", t_initial)
+            with client.websocket_connect("/ws/console") as ws:
+                assert ws.receive_json()["type"] == "init"
+                assert ws.receive_json()["type"] == "stats"
+
+                # Rotate via /api/auth/refresh
+                r_ref = client.post("/api/auth/refresh", cookies={"dockraft_token": t_initial})
+                assert r_ref.status_code == 200
+                t_rotated = r_ref.json()["token"]
+                assert verify_session_token(t_initial) is False
+                assert resolve_active_ws_token(t_initial) == t_rotated
+
+                # Existing live WS continues working seamlessly
+                ws.send_json({"type": "ping"})
+                assert ws.receive_json()["type"] == "pong"
+
+                # Explicit logout kills the entire chain immediately
+                r_out = client.post("/api/auth/logout", cookies={"dockraft_token": t_rotated})
+                assert r_out.status_code == 200
+                assert resolve_active_ws_token(t_initial) is None
+    finally:
+        settings.runtime_config = orig_cfg
+        settings.session_timeout_minutes = orig_env_val
+        settings.config_file = orig_cfg_file
+        settings.admin_password = orig_pass

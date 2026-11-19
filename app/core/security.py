@@ -42,6 +42,7 @@ def _save_revoked_tokens() -> None:
 
 
 _revoked_tokens: Set[str] = _load_revoked_tokens()
+_superseded_tokens: Dict[str, str] = {}
 
 security_bearer = HTTPBearer(auto_error=False)
 
@@ -146,17 +147,33 @@ login_limiter = LoginRateLimiter(
     cooldown_seconds=getattr(settings, "login_cooldown_seconds", 600)
 )
 
-def get_session_max_age() -> int:
+def get_configured_session_timeout_minutes() -> int:
     """
-    Returns the session timeout in seconds based on runtime_config or settings.
-    Default is 60 minutes (3600 seconds), minimum 60 seconds.
+    Returns configured session timeout in minutes (0 = idle timeout disabled).
+    Reads runtime_config['session_timeout_minutes'] first, falling back to settings/env.
     """
     try:
-        minutes = int(settings.runtime_config.get("session_timeout_minutes", getattr(settings, "session_timeout_minutes", 60)))
-        if minutes < 1:
-            minutes = 60
+        raw = settings.runtime_config.get(
+            "session_timeout_minutes",
+            getattr(settings, "session_timeout_minutes", 60),
+        )
+        minutes = int(raw)
+        if minutes < 0:
+            return 60
+        return minutes
     except (ValueError, TypeError):
-        minutes = 60
+        return 60
+
+
+def get_session_max_age() -> int:
+    """
+    Returns the session cookie/token max age in seconds.
+    Default is 60 minutes (3600 seconds). If configured as 0 (idle auto-logout disabled),
+    uses a 30-day token ceiling so browsers keep the session valid until manual logout.
+    """
+    minutes = get_configured_session_timeout_minutes()
+    if minutes == 0:
+        return 30 * 86400
     return minutes * 60
 
 def get_token_age(token: str) -> Optional[int]:
@@ -257,6 +274,42 @@ def _cleanup_revoked_tokens() -> None:
         else:
             to_remove.add(tok)
     _revoked_tokens.difference_update(to_remove)
+
+
+def mark_token_refreshed(old_token: str, new_token: str) -> None:
+    """Links a rotated session token to its replacement for live WebSocket continuity."""
+    if not old_token or not new_token or old_token == new_token:
+        return
+    _superseded_tokens[old_token] = new_token
+    if len(_superseded_tokens) > _MAX_REVOKED_TOKENS:
+        for k in list(_superseded_tokens.keys())[: len(_superseded_tokens) - _MAX_REVOKED_TOKENS]:
+            _superseded_tokens.pop(k, None)
+
+
+def clear_token_refresh_chain(token: str) -> None:
+    """Revokes an entire token refresh chain upon explicit logout."""
+    cur = token
+    visited: Set[str] = set()
+    while cur and cur not in visited:
+        visited.add(cur)
+        nxt = _superseded_tokens.pop(cur, None)
+        if cur not in _revoked_tokens and ":" in cur:
+            _revoked_tokens.add(cur)
+        cur = nxt
+
+
+def resolve_active_ws_token(token: str) -> Optional[str]:
+    """Promotes an already-authenticated WebSocket token across /api/auth/refresh rotations."""
+    cur = token
+    visited: Set[str] = set()
+    while cur and cur not in visited:
+        visited.add(cur)
+        if verify_session_token(cur):
+            return cur
+        cur = _superseded_tokens.get(cur)
+        if len(visited) >= 64:
+            break
+    return None
 
 def verify_admin_credentials(username: Optional[str], password: str) -> bool:
     """Validates provided username and password using constant-time comparison."""

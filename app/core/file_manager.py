@@ -79,6 +79,50 @@ class FileManager:
 
         return target
 
+    def _guard_live_world_or_runtime(self, target: Path) -> None:
+        """Blocks deleting or renaming the active world folder or runtime jars while server is running."""
+        try:
+            from app.core.process_manager import process_manager
+
+            if process_manager.get_status() == "OFFLINE":
+                return
+        except Exception:
+            return
+
+        rel_parts = target.resolve().relative_to(self.base_dir.resolve()).parts
+        if not rel_parts:
+            return
+
+        level_name = "world"
+        props_file = self.base_dir / "server.properties"
+        if props_file.is_file():
+            try:
+                for line in props_file.read_text(encoding="utf-8", errors="replace").splitlines():
+                    if line.strip().startswith("level-name="):
+                        val = line.split("=", 1)[1].strip()
+                        if val:
+                            level_name = val
+                        break
+            except Exception:
+                pass
+
+        protected_top_dirs = {
+            level_name.lower(),
+            f"{level_name}_nether".lower(),
+            f"{level_name}_the_end".lower(),
+            "mods",
+            "plugins",
+            "libraries",
+        }
+        top_name = rel_parts[0].lower()
+        active_file = str(settings.runtime_config.get("server_file") or "server.jar").strip().lower()
+
+        if top_name in protected_top_dirs or (len(rel_parts) == 1 and top_name in (active_file, "server.jar")):
+            raise HTTPException(
+                status_code=409,
+                detail="Detén el servidor antes de eliminar o renombrar el mundo o archivos críticos en ejecución.",
+            )
+
     def list_directory(self, relative_path: str = "") -> Dict[str, Any]:
         """Lists files and folders in the target directory."""
         target_dir = self._resolve_safe_path(relative_path)
@@ -186,6 +230,8 @@ class FileManager:
         if target == self.base_dir:
             raise HTTPException(status_code=400, detail="Cannot delete root data directory")
 
+        self._guard_live_world_or_runtime(target)
+
         if target.is_dir():
             shutil.rmtree(target)
             self.invalidate_quota_cache()
@@ -287,6 +333,8 @@ class FileManager:
 
         if target == self.base_dir:
             raise HTTPException(status_code=400, detail="No se puede renombrar el directorio raíz")
+
+        self._guard_live_world_or_runtime(target)
 
         dest = target.parent / clean_new
         # Ensure destination stays within base_dir
@@ -408,6 +456,7 @@ class FileManager:
                 target = self._resolve_safe_path(p)
                 if not target.exists() or target == self.base_dir:
                     continue
+                self._guard_live_world_or_runtime(target)
                 if target.is_dir():
                     shutil.rmtree(target)
                 else:

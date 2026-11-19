@@ -107,7 +107,7 @@ def test_frontend_audit_regressions():
     redesign_css = (root / "web/static/css/redesign.css").read_text(encoding="utf-8")
 
     # Service Worker does not precache unversioned CSS/JS and uses fresh update checks
-    assert "dockraft-v16" in sw_js
+    assert "dockraft-v17" in sw_js
     assert "/static/css/style.css" not in sw_js
     assert "/static/css/redesign.css" not in sw_js
     assert "/static/js/i18n.js" not in sw_js

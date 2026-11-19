@@ -10,7 +10,10 @@ from app.core.security import (
     get_current_user,
     login_limiter,
     get_session_max_age,
+    get_configured_session_timeout_minutes,
     revoke_token,
+    mark_token_refreshed,
+    clear_token_refresh_chain,
     get_all_tokens_from_request,
     get_client_ip,
 )
@@ -52,27 +55,27 @@ def clear_session_cookies(response: Response) -> None:
 
 @router.get("/api/auth/status")
 async def auth_status(user: bool = Depends(get_current_user)):
-    max_age = get_session_max_age()
     return {
         "auth_required": bool(settings.admin_password),
         "authenticated": True,
         "admin_user": getattr(settings, "admin_user", "admin"),
-        "session_timeout_minutes": max_age // 60,
+        "session_timeout_minutes": get_configured_session_timeout_minutes(),
     }
 
 
 @router.post("/api/auth/refresh")
 async def auth_refresh(request: Request, response: Response, user: bool = Depends(get_current_user)):
     """Refreshes the active session token, revoking the previous token(s)."""
+    new_token = create_session_token()
     for tok in get_all_tokens_from_request(request):
         revoke_token(tok)
-    new_token = create_session_token()
+        mark_token_refreshed(tok, new_token)
     max_age = get_session_max_age()
     set_session_cookies(response, new_token, max_age)
     return {
         "status": "success",
         "token": new_token,
-        "session_timeout_minutes": max_age // 60,
+        "session_timeout_minutes": get_configured_session_timeout_minutes(),
     }
 
 
@@ -105,7 +108,7 @@ async def auth_login(req: LoginRequest, request: Request, response: Response):
             )
         except Exception:
             pass
-        return {"status": "success", "session_timeout_minutes": max_age // 60}
+        return {"status": "success", "session_timeout_minutes": get_configured_session_timeout_minutes()}
 
     # 4. Record failed attempt and check if threshold reached
     remaining_attempts, cooldown = login_limiter.record_failure(client_ip)
@@ -147,6 +150,7 @@ async def auth_login(req: LoginRequest, request: Request, response: Response):
 async def auth_logout(request: Request, response: Response):
     for tok in get_all_tokens_from_request(request):
         revoke_token(tok)
+        clear_token_refresh_chain(tok)
     clear_session_cookies(response)
     try:
         activity_manager.log("security", "Cierre de sesión", "Sesión cerrada por el usuario", user="admin", status="info")
@@ -159,6 +163,7 @@ async def auth_logout(request: Request, response: Response):
 async def logout_page(request: Request):
     for tok in get_all_tokens_from_request(request):
         revoke_token(tok)
+        clear_token_refresh_chain(tok)
     redirect_resp = RedirectResponse(url="/login", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
     clear_session_cookies(redirect_resp)
     return redirect_resp

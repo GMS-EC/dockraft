@@ -17,6 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import settings, BASE_DIR, APP_VERSION
 from app.core.security import (
     verify_session_token,
+    resolve_active_ws_token,
     get_current_user,
     login_limiter,
     is_authenticated,
@@ -27,6 +28,7 @@ from app.core.downloader import downloader
 from app.core.backup_manager import backup_manager
 from app.core.task_scheduler import task_scheduler
 from app.core.metrics_manager import metrics_manager
+from app.core.modpack_manager import modpack_manager
 from app.core.player_manager import player_manager
 from app.core.activity_manager import activity_manager
 
@@ -48,7 +50,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data: https://mc-heads.net; "
+            "img-src 'self' data: https://mc-heads.net https://cdn.modrinth.com; "
             "connect-src 'self' ws: wss:;"
         )
         if not request.url.path.startswith("/static/"):
@@ -219,14 +221,19 @@ async def websocket_console(websocket: WebSocket):
         })
 
         async def stats_pusher():
+            nonlocal effective_token
             while True:
                 await asyncio.sleep(2)
-                if not settings.admin_password or not verify_session_token(effective_token):
+                resolved_tok = resolve_active_ws_token(effective_token) if settings.admin_password else None
+                if not settings.admin_password or not resolved_tok:
                     try:
                         await websocket.close(code=4001)
                     except Exception:
                         pass
                     break
+                if resolved_tok != effective_token:
+                    effective_token = resolved_tok
+                    process_manager.connected_websockets[websocket] = resolved_tok
                 try:
                     await websocket.send_json({
                         "type": "stats",
@@ -239,11 +246,17 @@ async def websocket_console(websocket: WebSocket):
 
         while True:
             data = await websocket.receive_json()
-            if not settings.admin_password or not verify_session_token(effective_token):
+            resolved_tok = resolve_active_ws_token(effective_token) if settings.admin_password else None
+            if not settings.admin_password or not resolved_tok:
                 await websocket.close(code=4001)
                 break
+            if resolved_tok != effective_token:
+                effective_token = resolved_tok
+                process_manager.connected_websockets[websocket] = resolved_tok
             msg_type = data.get("type")
-            if msg_type == "command":
+            if msg_type == "ping":
+                await websocket.send_json({"type": "pong"})
+            elif msg_type == "command":
                 cmd = data.get("command", "")
                 await process_manager.send_command(cmd)
 

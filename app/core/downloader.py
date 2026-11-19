@@ -32,17 +32,28 @@ class DownloadManager:
             "stopping",
             "backing_up",
             "downloading",
+            "downloading_modpack",
+            "installing_loader",
+            "downloading_mods",
             "verifying",
             "extracting",
+            "extracting_overrides",
             "installing",
             "updating",
             "restarting",
+        }
+        downloading_states = {
+            "downloading",
+            "extracting",
+            "downloading_modpack",
+            "downloading_mods",
+            "extracting_overrides",
         }
         return {
             "status": status,
             "percent": active.get("percent", 0),
             **active,
-            "is_downloading": status in ("downloading", "extracting"),
+            "is_downloading": status in downloading_states,
             "is_active": status in active_states,
         }
 
@@ -360,18 +371,18 @@ class DownloadManager:
         # Only stable versions
         return [v["id"] for v in items if v.get("stable", True)]
 
-    async def get_fabric_download_url(self, game_version: str) -> str:
-        """Gets server JAR installer URL for Fabric using the latest loader and installer versions."""
-        # Fetch latest loader version
-        loader_version = "0.16.10"  # fallback
+    async def get_fabric_download_url(self, game_version: str, loader_version: Optional[str] = None) -> str:
+        """Gets server JAR installer URL for Fabric using the requested or latest loader and installer versions."""
+        resolved_loader = loader_version or "0.16.10"  # fallback
         installer_version = "1.0.1"  # fallback
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                loader_resp = await client.get("https://meta.fabricmc.net/v2/versions/loader")
-                loader_resp.raise_for_status()
-                loaders = loader_resp.json()
-                if loaders:
-                    loader_version = loaders[0].get("version", loader_version)
+                if not loader_version:
+                    loader_resp = await client.get("https://meta.fabricmc.net/v2/versions/loader")
+                    loader_resp.raise_for_status()
+                    loaders = loader_resp.json()
+                    if loaders:
+                        resolved_loader = loaders[0].get("version", resolved_loader)
 
                 installer_resp = await client.get("https://meta.fabricmc.net/v2/versions/installer")
                 installer_resp.raise_for_status()
@@ -381,7 +392,7 @@ class DownloadManager:
         except Exception as e:
             logger.warning("[Dockraft] Warning: could not fetch latest Fabric versions, using fallback. Error: %s", e)
 
-        return f"https://meta.fabricmc.net/v2/versions/loader/{game_version}/{loader_version}/{installer_version}/server/jar"
+        return f"https://meta.fabricmc.net/v2/versions/loader/{game_version}/{resolved_loader}/{installer_version}/server/jar"
 
     async def get_bedrock_versions(self) -> List[str]:
         """
@@ -564,7 +575,144 @@ class DownloadManager:
         return f"https://maven.minecraftforge.net/net/minecraftforge/forge/{mc_version}-{forge_build}/forge-{mc_version}-{forge_build}-installer.jar"
 
     async def install_forge_server(self, installer_path: Path, java_bin: str = "java") -> Dict[str, Any]:
-        """Runs 'java -jar <installer> --installServer' inside settings.data_dir."""
+        """Runs 'java -jar <installer> --installServer' inside settings.data_dir for Forge."""
+        return await self._install_forge_family_server(
+            installer_path, java_bin=java_bin, family_name="Forge", jar_prefix="forge-"
+        )
+
+    async def get_neoforge_versions(self) -> List[Dict[str, Any]]:
+        """Fetches available Minecraft versions and latest NeoForge builds from Maven metadata."""
+        url = "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            versions = resp.json().get("versions", [])
+
+        mc_best: Dict[str, Dict[str, Any]] = {}
+        for nf_ver in versions:
+            raw = str(nf_ver).strip()
+            base_part, *suffix_parts = raw.split("-", 1)
+            is_beta = bool(suffix_parts) or "beta" in raw.lower() or "alpha" in raw.lower()
+            nums = base_part.split(".")
+            if len(nums) < 3 or not (nums[0].isdigit() and nums[1].isdigit()):
+                continue
+            major = int(nums[0])
+            minor = int(nums[1])
+            if major >= 25:
+                patch = int(nums[2]) if len(nums) >= 4 and nums[2].isdigit() else 0
+                mc_ver = f"{major}.{minor}" if patch == 0 else f"{major}.{minor}.{patch}"
+            else:
+                mc_ver = f"1.{major}" if minor == 0 else f"1.{major}.{minor}"
+
+            existing = mc_best.get(mc_ver)
+            # Prefer newer versions; never overwrite a non-beta build with a beta build
+            if not existing or (not is_beta) or existing.get("is_beta", False):
+                mc_best[mc_ver] = {"nf_ver": raw, "is_beta": is_beta}
+
+        results: List[Dict[str, Any]] = []
+        for mc_ver, info in mc_best.items():
+            nf_ver = info["nf_ver"]
+            results.append({
+                "id": mc_ver,
+                "label": f"{mc_ver} (NeoForge {nf_ver})",
+                "mc_version": mc_ver,
+                "neoforge_version": nf_ver,
+                "is_recommended": not info["is_beta"],
+            })
+
+        results.sort(key=lambda item: [int(p) for p in re.findall(r"\d+", item["mc_version"])], reverse=True)
+        return results
+
+    async def get_neoforge_download_url(self, mc_version: str, neoforge_version: Optional[str] = None) -> str:
+        """Constructs official Maven installer download URL for NeoForge."""
+        nf_ver = (neoforge_version or "").strip()
+        if not nf_ver:
+            versions = await self.get_neoforge_versions()
+            for v in versions:
+                if v["mc_version"] == mc_version:
+                    nf_ver = v["neoforge_version"]
+                    break
+        if not nf_ver:
+            raise ValueError(f"No NeoForge build found for Minecraft {mc_version}")
+        return f"https://maven.neoforged.net/releases/net/neoforged/neoforge/{nf_ver}/neoforge-{nf_ver}-installer.jar"
+
+    async def install_neoforge_server(self, installer_path: Path, java_bin: str = "java") -> Dict[str, Any]:
+        """Runs 'java -jar <installer> --installServer' inside settings.data_dir for NeoForge."""
+        return await self._install_forge_family_server(
+            installer_path, java_bin=java_bin, family_name="NeoForge", jar_prefix="neoforge-"
+        )
+
+    async def get_quilt_versions(self) -> List[str]:
+        """Fetches stable supported Minecraft game versions for Quilt."""
+        url = "https://meta.quiltmc.org/v3/versions/game"
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+        return [str(v["version"]) for v in data if v.get("stable", True) and v.get("version")]
+
+    async def get_quilt_installer_info(self) -> Dict[str, Any]:
+        """Fetches the latest official Quilt server installer metadata."""
+        url = "https://meta.quiltmc.org/v3/versions/installer"
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            items = resp.json()
+        if not items or not isinstance(items, list):
+            raise ValueError("No Quilt installer versions available")
+        top = items[0]
+        hashes = top.get("hashes") or {}
+        return {
+            "version": top.get("version"),
+            "url": top.get("url"),
+            "sha256": hashes.get("sha256"),
+        }
+
+    async def install_quilt_server(
+        self,
+        installer_path: Path,
+        mc_version: str,
+        loader_version: Optional[str] = None,
+        java_bin: str = "java",
+    ) -> Dict[str, Any]:
+        """Runs official Quilt server installer inside settings.data_dir."""
+        extra_kw = {"creationflags": 0x08000000} if sys.platform == "win32" else {}
+        cmd = [java_bin, "-jar", str(installer_path), "install", "server", mc_version]
+        if loader_version:
+            cmd.append(loader_version)
+        cmd.extend(["--download-server", "--install-dir=."])
+
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            cwd=str(settings.data_dir),
+            env=build_sanitized_subprocess_env(),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            **extra_kw,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            err_msg = (stderr or stdout).decode("utf-8", errors="replace")
+            raise RuntimeError(f"Quilt install server failed: {err_msg[:300]}")
+
+        try:
+            installer_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        launch_jar = settings.data_dir / "quilt-server-launch.jar"
+        if launch_jar.exists():
+            return {"server_file": "quilt-server-launch.jar", "is_script": False}
+        return {"server_file": "server.jar", "is_script": False}
+
+    async def _install_forge_family_server(
+        self,
+        installer_path: Path,
+        java_bin: str = "java",
+        family_name: str = "Forge",
+        jar_prefix: str = "forge-",
+    ) -> Dict[str, Any]:
+        """Shared '--installServer' runner for Forge and NeoForge installers inside settings.data_dir."""
         extra_kw = {"creationflags": 0x08000000} if sys.platform == "win32" else {}
         proc = await asyncio.create_subprocess_exec(
             java_bin, "-jar", str(installer_path), "--installServer",
@@ -576,8 +724,14 @@ class DownloadManager:
         )
         stdout, stderr = await proc.communicate()
         if proc.returncode != 0:
-            err_msg = stderr.decode('utf-8', errors='replace')
-            raise RuntimeError(f"Forge --installServer failed: {err_msg[:300]}")
+            err_msg = (stderr or stdout).decode("utf-8", errors="replace")
+            raise RuntimeError(f"{family_name} --installServer failed: {err_msg[:300]}")
+
+        for cleanup_path in (installer_path, installer_path.with_name(f"{installer_path.name}.log")):
+            try:
+                cleanup_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
         # Detect generated launch script or jar
         run_bat = settings.data_dir / "run.bat"
@@ -602,16 +756,18 @@ class DownloadManager:
 
         # Legacy Forge jar check
         for f in settings.data_dir.iterdir():
-            if f.is_file() and f.name.startswith("forge-") and f.name.endswith(".jar") and not f.name.endswith("-installer.jar"):
+            if f.is_file() and f.name.startswith(jar_prefix) and f.name.endswith(".jar") and not f.name.endswith("-installer.jar"):
                 return {"server_file": f.name, "is_script": False}
 
         return {"server_file": "run.sh" if run_sh.exists() else "server.jar", "is_script": run_sh.exists()}
 
-    def verify_file_integrity(self, file_path: Any, expected_type: str = "jar") -> bool:
+    def verify_file_integrity(
+        self, file_path: Any, expected_type: str = "jar", min_size: Optional[int] = None
+    ) -> bool:
         """
         Validates downloaded archive/binary to guarantee zero corruptions before replacement.
         Checks:
-        1. File existence and non-zero size (at least 512 KB for server binaries).
+        1. File existence and non-zero size (at least 64 KB by default so compact bootstraps like Fabric pass).
         2. Binary magic headers (ZIP/JAR starts with PK\x03\x04).
         3. Comprehensive CRC32 check on all members via zipfile.ZipFile.testzip().
         Raises ValueError with descriptive reason if corrupt. Returns True if valid.
@@ -623,11 +779,11 @@ class DownloadManager:
             raise ValueError(f"El archivo descargado no existe en {file_path}")
 
         file_size = file_path.stat().st_size
-        min_size = 512 * 1024  # At least 512 KB
+        resolved_min = min_size if min_size is not None else (64 * 1024)  # At least 64 KB
 
-        if file_size < min_size:
+        if file_size < resolved_min:
             raise ValueError(
-                f"El archivo descargado está incompleto o truncado (tamaño: {file_size} bytes, mínimo: {min_size} bytes)"
+                f"El archivo descargado está incompleto o truncado (tamaño: {file_size} bytes, mínimo: {resolved_min} bytes)"
             )
 
         ext = file_path.suffix.lower()

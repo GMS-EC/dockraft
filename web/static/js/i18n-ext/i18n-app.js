@@ -149,7 +149,9 @@
     t_app_confirm_ok: 'Confirmar',
     t_app_cancel: 'Cancelar',
     t_app_prompt_title: 'Entrada Requerida',
-    t_app_ok: 'Aceptar'
+    t_app_ok: 'Aceptar',
+    logs_event_default: 'Evento',
+    logs_copy_cmd: 'Copiar comando'
   }, {
     // --- Generic modal actions ---
     t_modal_cancel: 'Cancel',
@@ -293,6 +295,8 @@
     t_app_confirm_ok: 'Confirm',
     t_app_cancel: 'Cancel',
     t_app_prompt_title: 'Input Required',
-    t_app_ok: 'OK'
+    t_app_ok: 'OK',
+    logs_event_default: 'Event',
+    logs_copy_cmd: 'Copy command'
   });
 })();

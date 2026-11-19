@@ -33,8 +33,6 @@ const Tasks = {
       if (res.ok) {
         this.tasksList = await res.json();
         this.applyFilter();
-      } else if (res.status === 401) {
-        if (typeof App !== 'undefined' && App.handleSessionExpired) App.handleSessionExpired();
       }
     } catch (e) {
       console.error('Error loading tasks:', e);

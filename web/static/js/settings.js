@@ -84,6 +84,9 @@ const Settings = {
       paper: 't_setting_name_paper',
       purpur: 't_setting_name_purpur',
       fabric: 't_setting_name_fabric',
+      forge: 't_setting_name_forge',
+      neoforge: 't_setting_name_neoforge',
+      quilt: 't_setting_name_quilt',
       vanilla: 't_setting_name_vanilla'
     };
     const key = keys[serverType];
@@ -95,6 +98,9 @@ const Settings = {
     if (serverType === 'paper') return this._tf('t_setting_tip_paper', ['paper-global.yml', 'paper-world-defaults.yml'], fallbackTip);
     if (serverType === 'purpur') return this._tf('t_setting_tip_purpur', ['purpur.yml'], fallbackTip);
     if (serverType === 'fabric') return this._tf('t_setting_tip_fabric', ['mods/'], fallbackTip);
+    if (serverType === 'forge') return this._tf('t_setting_tip_forge', ['mods/'], fallbackTip);
+    if (serverType === 'neoforge') return this._tf('t_setting_tip_neoforge', ['mods/'], fallbackTip);
+    if (serverType === 'quilt') return this._tf('t_setting_tip_quilt', ['mods/'], fallbackTip);
     if (serverType === 'vanilla') return this._t('t_setting_tip_vanilla', fallbackTip);
     return this._t('t_setting_tip_generic', fallbackTip);
   },
@@ -297,6 +303,21 @@ const Settings = {
           name: 'Servidor Fabric Loader', 
           tip: 'Sugerencia Fabric: Puedes instalar mods (.jar) subiéndolos directamente a la carpeta <strong>mods/</strong> desde la pestaña Archivos.' 
         },
+        forge: {
+          icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+          name: 'Servidor Minecraft Forge',
+          tip: 'Sugerencia Forge: Puedes gestionar mods (.jar) desde <strong>mods/</strong> en la pestaña Archivos.'
+        },
+        neoforge: {
+          icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`,
+          name: 'Servidor NeoForge',
+          tip: 'Sugerencia NeoForge: Los mods van en <strong>mods/</strong> y configuraciones en <strong>config/</strong>.'
+        },
+        quilt: {
+          icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 9h6v6H9z"/></svg>`,
+          name: 'Servidor Quilt Loader',
+          tip: 'Sugerencia Quilt: Los mods compatibles van en la carpeta <strong>mods/</strong>.'
+        },
         vanilla: { 
           icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="1"/><rect x="2" y="14" width="20" height="8" rx="1"/><line x1="6" y1="6" x2="6" y2="6"/><line x1="18" y1="18" x2="18" y2="18"/></svg>`, 
           name: 'Servidor Minecraft Vanilla', 
@@ -430,7 +451,8 @@ const Settings = {
         const bCrashEl = document.getElementById('bedrock-setting-crash-detection');
         const bCrash = bCrashEl ? bCrashEl.checked : (this.runtimeConfig.crash_detection !== false);
         const bTimeoutEl = document.getElementById('bedrock-setting-session-timeout');
-        const bSessionTimeout = bTimeoutEl ? (parseInt(bTimeoutEl.value, 10) || 60) : (this.runtimeConfig.session_timeout_minutes || 60);
+        const bParsed = bTimeoutEl ? parseInt(bTimeoutEl.value, 10) : NaN;
+        const bSessionTimeout = !isNaN(bParsed) && bParsed >= 0 ? bParsed : (this.runtimeConfig.session_timeout_minutes ?? 60);
 
         const diskVal = diskEl ? (parseFloat(diskEl.value) || 0) : 10;
         const updatePayload = {
@@ -804,7 +826,8 @@ const Settings = {
     const crashDetection = crashEl ? crashEl.checked : (this.runtimeConfig.crash_detection !== false);
 
     const timeoutEl = document.getElementById('setting-session-timeout');
-    const sessionTimeout = timeoutEl ? (parseInt(timeoutEl.value, 10) || 60) : (this.runtimeConfig.session_timeout_minutes || 60);
+    const parsedTimeout = timeoutEl ? parseInt(timeoutEl.value, 10) : NaN;
+    const sessionTimeout = !isNaN(parsedTimeout) && parsedTimeout >= 0 ? parsedTimeout : (this.runtimeConfig.session_timeout_minutes ?? 60);
 
     const payload = {
       ...this.runtimeConfig,

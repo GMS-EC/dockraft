@@ -7,7 +7,7 @@ import zipfile
 import asyncio
 from pathlib import Path
 from typing import Dict, Optional, List, Union
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File, Form
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.config import settings
@@ -67,7 +67,7 @@ class RuntimeConfigUpdate(BaseModel):
     backup_pre_command: Optional[str] = None
     autostart_server: Optional[bool] = None
     crash_detection: Optional[bool] = None
-    session_timeout_minutes: Optional[int] = Field(default=None, ge=1, le=10080)
+    session_timeout_minutes: Optional[int] = Field(default=None, ge=0, le=43200)
 
     @field_validator("min_ram", "max_ram")
     @classmethod
@@ -164,7 +164,22 @@ async def delete_server():
             "server_type": "paper",
             "server_version": "",
             "server_file": "server.jar",
+            "modpack_id": None,
+            "modpack_slug": None,
+            "modpack_name": None,
+            "modpack_version_id": None,
+            "modpack_version_name": None,
+            "modpack_type": None,
+            "modpack_source": None,
+            "loader_version": None,
         })
+        manifest_path = settings.data_dir / ".dockraft_modpack_manifest.json"
+        if manifest_path.exists():
+            try:
+                manifest_path.unlink()
+                deleted_count += 1
+            except OSError:
+                pass
 
         return {
             "status": "success",
@@ -210,8 +225,25 @@ async def get_config():
 
 
 @router.post("/api/config", dependencies=[Depends(get_current_user)])
-async def update_config(config: RuntimeConfigUpdate):
-    settings.save_runtime_config(config.model_dump(exclude_unset=True))
+async def update_config(config: RuntimeConfigUpdate, request: Request, response: Response):
+    data = config.model_dump(exclude_unset=True)
+    if "session_timeout_minutes" in data:
+        data["_last_env_session_timeout_minutes"] = settings.session_timeout_minutes
+    settings.save_runtime_config(data)
+    if "session_timeout_minutes" in data and settings.admin_password:
+        try:
+            from app.core.security import create_session_token, get_all_tokens_from_request, get_session_max_age, mark_token_refreshed, revoke_token
+            from app.routers.auth import set_session_cookies
+
+            old_tokens = get_all_tokens_from_request(request)
+            if old_tokens:
+                new_token = create_session_token()
+                for tok in old_tokens:
+                    revoke_token(tok)
+                    mark_token_refreshed(tok, new_token)
+                set_session_cookies(response, new_token, get_session_max_age())
+        except Exception:
+            pass
     return {"status": "saved", "config": settings.runtime_config}
 
 
@@ -370,20 +402,32 @@ async def import_server(file: UploadFile = File(...), accept_eula: bool = Form(T
                     os.chmod(settings.data_dir / "bedrock_server", 0o755)
                 except Exception:
                     pass
-        elif (settings.data_dir / "run.sh").exists():
-            detected_type = "forge"
-            detected_file = "run.sh"
-            if sys.platform != "win32":
+        elif (settings.data_dir / "run.sh").exists() or (settings.data_dir / "run.bat").exists():
+            is_neoforge = (settings.data_dir / "libraries" / "net" / "neoforged").exists()
+            detected_type = "neoforge" if is_neoforge else "forge"
+            detected_file = "run.bat" if (sys.platform == "win32" and (settings.data_dir / "run.bat").exists()) else "run.sh"
+            if sys.platform != "win32" and (settings.data_dir / "run.sh").exists():
                 try:
                     os.chmod(settings.data_dir / "run.sh", 0o755)
                 except Exception:
                     pass
+        elif (settings.data_dir / "quilt-server-launch.jar").exists():
+            detected_type = "quilt"
+            detected_file = "quilt-server-launch.jar"
         else:
             for f in settings.data_dir.iterdir():
                 if f.is_file() and f.name.endswith(".jar"):
                     fn = f.name.lower()
-                    if "forge" in fn:
+                    if "neoforge" in fn:
+                        detected_type = "neoforge"
+                        detected_file = f.name
+                        break
+                    elif "forge" in fn:
                         detected_type = "forge"
+                        detected_file = f.name
+                        break
+                    elif "quilt" in fn:
+                        detected_type = "quilt"
                         detected_file = f.name
                         break
                     elif "fabric" in fn:

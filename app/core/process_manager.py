@@ -148,7 +148,7 @@ class ProcessManager:
                         is_mc = True
                 elif "java" in name or "java" in cmd_str:
                     if in_data_dir:
-                        if any(k in cmd_str for k in ["server.jar", "paper", "purpur", "fabric", "forge", "paperclip", "nogui", "spigot", "server"]):
+                        if any(k in cmd_str for k in ["server.jar", "paper", "purpur", "fabric", "forge", "neoforge", "quilt", "quilt-server-launch", "paperclip", "nogui", "spigot", "server"]):
                             is_mc = True
                     elif ("/server_data" in p_cwd) or ("/server_data" in cmd_str):
                         is_mc = True
@@ -425,15 +425,19 @@ class ProcessManager:
 
     async def broadcast_message(self, message: Dict[str, Any]) -> None:
         """Sends a JSON message to all connected and still-authenticated clients."""
+        from app.core.security import resolve_active_ws_token
         dead_sockets: List[WebSocket] = []
         for ws, tok in list(self.connected_websockets.items()):
-            if not verify_session_token(tok):
+            resolved_tok = resolve_active_ws_token(tok)
+            if not resolved_tok:
                 dead_sockets.append(ws)
                 try:
                     await ws.close(code=4001)
                 except Exception:
                     pass
                 continue
+            if resolved_tok != tok:
+                self.connected_websockets[ws] = resolved_tok
             try:
                 await ws.send_json(message)
             except Exception:
@@ -822,7 +826,7 @@ class ProcessManager:
                     server_path = bedrock_candidate_win
                 else:
                     return {"status": "error", "message": f"Bedrock server binary not found in {settings.data_dir}"}
-            elif server_type == "forge":
+            elif server_type in ("forge", "neoforge"):
                 forge_bat = settings.data_dir / "run.bat"
                 forge_sh = settings.data_dir / "run.sh"
                 if sys.platform == "win32" and forge_bat.exists():
@@ -845,6 +849,19 @@ class ProcessManager:
             sync_initial_defaults=False,
         )
 
+        # Auto-heal any missing required mod dependencies in mods/ before launching JVM
+        if str(server_type).lower() in ("fabric", "quilt", "neoforge", "forge") and (settings.data_dir / "mods").is_dir():
+            try:
+                from app.core.modpack_manager import modpack_manager
+
+                async def _log_heal(msg: str) -> None:
+                    self._append_log(msg)
+                    await self.broadcast_message({"type": "log", "data": msg})
+
+                await modpack_manager.auto_heal_missing_server_dependencies(log_cb=_log_heal)
+            except Exception as heal_exc:
+                logger.warning("[ProcessManager] Auto-heal mod dependencies warning: %s", heal_exc)
+
         # Build command line
         cmd: List[str] = []
         env = build_sanitized_subprocess_env()
@@ -859,12 +876,12 @@ class ProcessManager:
                     pass
                 env["LD_LIBRARY_PATH"] = f".:{env.get('LD_LIBRARY_PATH', '')}"
             cmd = [str(server_path)]
-        elif server_type == "forge" and (
+        elif server_type in ("forge", "neoforge") and (
             server_file in ("run.sh", "run.bat")
             or (settings.data_dir / "run.sh").exists()
             or (sys.platform == "win32" and (settings.data_dir / "run.bat").exists())
         ):
-            # Modern Forge (1.17+) with run.sh launcher
+            # Modern Forge / NeoForge with run.sh / run.bat launcher
             run_script = settings.data_dir / "run.sh"
             if sys.platform != "win32":
                 try:

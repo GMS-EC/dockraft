@@ -4,7 +4,13 @@ const Console = {
   history: [],
   historyIndex: -1,
   maxLogs: 1500,
-  reconnectDelay: 3000,
+  reconnectDelay: 2000,
+  _reconnectTimer: null,
+  _wsPingInterval: null,
+  _lastWsMessageAt: 0,
+  _consecutiveCloseCount: 0,
+  _pausedInBackground: false,
+  _hasConnectedOnce: false,
   followEnabled: true,
   userScrolledAway: false,
 
@@ -46,6 +52,12 @@ const Console = {
       }
       this.refreshCrashAlert();
       this.updateAutoScrollToggle();
+    });
+
+    window.addEventListener('dockraft:session_refreshed', () => {
+      if (!document.hidden && (!this.socket || this.socket.readyState !== WebSocket.OPEN)) {
+        this.setupWebSocket(true);
+      }
     });
   },
 
@@ -101,20 +113,69 @@ const Console = {
     if (jump) jump.style.display = 'none';
   },
 
-  setupWebSocket() {
+  _clearWsTimers() {
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
+    if (this._wsPingInterval) {
+      clearInterval(this._wsPingInterval);
+      this._wsPingInterval = null;
+    }
+  },
+
+  setupWebSocket(silentReconnect = false) {
+    this._clearWsTimers();
+
+    if (this.socket) {
+      try {
+        this.socket.onopen = null;
+        this.socket.onmessage = null;
+        this.socket.onclose = null;
+        this.socket.onerror = null;
+        if (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING) {
+          this.socket.close();
+        }
+      } catch (e) {}
+      this.socket = null;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/console`;
 
-    this.socket = new WebSocket(wsUrl);
+    const ws = new WebSocket(wsUrl);
+    this.socket = ws;
 
-    this.socket.onopen = () => {
-      this.reconnectDelay = 3000;
-      this.appendTerminalLine(this._t('t_console_ws_connected', '[Dockraft] Connected to live server console stream.'));
+    ws.onopen = () => {
+      if (this.socket !== ws) return;
+      this.reconnectDelay = 2000;
+      this._consecutiveCloseCount = 0;
+      this._pausedInBackground = false;
+      this._lastWsMessageAt = Date.now();
+      const firstOpen = !this._hasConnectedOnce;
+      this._hasConnectedOnce = true;
+
+      if (firstOpen && !silentReconnect) {
+        this.appendTerminalLine(this._t('t_console_ws_connected', '[Dockraft] Connected to live server console stream.'));
+      }
+
+      if (this._wsPingInterval) clearInterval(this._wsPingInterval);
+      this._wsPingInterval = setInterval(() => {
+        if (this.socket !== ws || ws.readyState !== WebSocket.OPEN) return;
+        try {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        } catch (e) {}
+      }, 25000);
     };
 
-    this.socket.onmessage = (event) => {
+    ws.onmessage = (event) => {
+      if (this.socket !== ws) return;
+      this._lastWsMessageAt = Date.now();
       try {
         const msg = JSON.parse(event.data);
+        if (msg.type === 'pong') {
+          return;
+        }
         if (msg.type === 'init') {
           this.updateStatusUI(msg.status);
           const body = document.getElementById('terminal-content');
@@ -145,21 +206,48 @@ const Console = {
       }
     };
 
-    this.socket.onclose = (event) => {
+    ws.onclose = (event) => {
+      if (this.socket !== ws) return;
+      this._clearWsTimers();
+      this.socket = null;
+
       if (event && (event.code === 4001 || event.code === 4003)) {
-        if (typeof App !== 'undefined' && App.handleSessionExpired) {
-          App.handleSessionExpired();
-        } else {
-          window.location.href = '/login?expired=1';
-        }
+        // Confirm actual session validity before forcing logout (prevents self-logout on rotated/multi-tab cookies)
+        fetch('/api/auth/status', { cache: 'no-store' })
+          .then((res) => {
+            if (res && res.ok) {
+              this._reconnectTimer = setTimeout(() => this.setupWebSocket(true), 400);
+              return;
+            }
+            if (typeof App !== 'undefined' && App.handleSessionExpired) {
+              App.handleSessionExpired({ skipLogout: true });
+            } else {
+              window.location.href = '/login?expired=1';
+            }
+          })
+          .catch(() => {
+            this._reconnectTimer = setTimeout(() => this.setupWebSocket(true), 1500);
+          });
         return;
       }
+
+      // When browser suspends a background tab (e.g. watching YouTube), wait cleanly until tab focus returns.
+      if (document.hidden) {
+        this._pausedInBackground = true;
+        return;
+      }
+
+      this._consecutiveCloseCount += 1;
+      if (this._consecutiveCloseCount === 1) {
+        this._reconnectTimer = setTimeout(() => this.setupWebSocket(true), 800);
+        return;
+      }
+
       const lostMsg = this._t('console_reconnecting', '[Dockraft] Connection to console lost. Reconnecting...');
       this.appendTerminalLine(lostMsg);
-      // Exponential backoff (3s -> 60s) so a long outage doesn't hammer the server.
       const delay = this.reconnectDelay;
-      this.reconnectDelay = Math.min(60000, this.reconnectDelay * 2);
-      setTimeout(() => this.setupWebSocket(), delay);
+      this.reconnectDelay = Math.min(30000, this.reconnectDelay * 2);
+      this._reconnectTimer = setTimeout(() => this.setupWebSocket(true), delay);
     };
   },
 
@@ -220,6 +308,24 @@ const Console = {
         if (body) body.innerHTML = '';
       });
     }
+
+    // Resume live WebSocket seamlessly when switching back from another browser tab or waking up
+    const resumeConsoleConnection = () => {
+      if (document.hidden) return;
+      this.reconnectDelay = 2000;
+      this._consecutiveCloseCount = 0;
+      this.pollStatus();
+      const ws = this.socket;
+      const isStale = this._lastWsMessageAt && (Date.now() - this._lastWsMessageAt > 12000);
+      if (this._pausedInBackground || !ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING || isStale) {
+        this._pausedInBackground = false;
+        this.setupWebSocket(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', resumeConsoleConnection);
+    window.addEventListener('focus', resumeConsoleConnection);
+    window.addEventListener('online', resumeConsoleConnection);
   },
 
   sendCurrentCommand() {
@@ -479,6 +585,7 @@ const Console = {
         topVersion.textContent = `${typeLabel} ${stats.server_version || ''}`;
       }
       if (topMotd) topMotd.textContent = stats.motd || this._t('t_console_motd_default', 'A Dockraft Minecraft Server');
+      if (topType) topType.textContent = stats.server_type || '--';
       if (stats.tps) this.updateTpsUI(stats.tps);
     }
 

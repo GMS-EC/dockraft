@@ -5,6 +5,33 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [1.8.0] - 2026-11-19
+
+### Añadido (Added)
+- **Soporte Nativo de NeoForge y Quilt Loader (`app/core/downloader.py`, `app/core/process_manager.py`, `app/routers/installer.py`, `app/routers/server.py`, `web/templates/tabs/installer.html`, `web/static/js/installer.js`, `web/static/js/settings.js`):**
+  - Incorporación de **NeoForge** y **Quilt** junto a Fabric y Forge, con selector de versiones, instalación desatendida (`--installServer`), detección automática al importar `.zip` y ejecución desde `run.sh`/`run.bat` + `user_jvm_args.txt` o `quilt-server-launch.jar`.
+  - Reorganización del selector de tipos de servidor en cuadrícula simétrica `4 × 2` (adaptable a tablet y móvil) con soporte bilingüe completo (`ES` / `EN`) e indicador en vivo del tipo de servidor en el banner superior.
+- **Instalador de Modpacks `.mrpack` y Constructor Multi-Mod (`app/core/modpack_manager.py`, `app/core/process_manager.py`, `app/routers/installer.py`, `web/templates/tabs/installer.html`, `web/static/js/installer.js`, `tests/test_modpacks.py`):**
+  - Buscador integrado de Modrinth en **Instalador → Modpacks / Mods** y carga manual de `.mrpack`, con detección automática de Minecraft, cargador y Java recomendado, verificación `SHA-512`/`SHA-1`, bloqueo SSRF, protección *Zip-Slip*, omisión de mods solo-cliente y resolución de dependencias internas (`fabric.mod.json`, `quilt.mod.json`, `neoforge.mods.toml`, `mods.toml`) antes y durante el arranque.
+  - **Constructor Multi-Mod Compatible (`Loader + Minecraft`)**: Selección de múltiples mods de Modrinth en un stack unificado, deduplicando dependencias compartidas, filtrando betas por defecto (opcional mediante **Incluir betas**) y validando conflictos de compatibilidad antes de instalar.
+  - **Indicador Discreto de RAM Mínima Recomendada**: Estimación automática según el modpack, cargador o mods seleccionados junto a `RAM Máxima (-Xmx)`, con aplicación en 1 clic y aviso preventivo cuando la memoria asignada es insuficiente.
+- **Actualizador de Modpacks y Gestor de Mods Instalados (`app/core/modpack_manager.py`, `app/core/fs_utils.py`, `app/routers/installer.py`, `web/templates/components/modals.html`, `web/static/js/installer.js`):**
+  - Seguimiento mediante manifiesto protegido (`.dockraft_modpack_manifest.json`) y reconocimiento por hash `SHA-512` en Modrinth para actualizar modpacks completos o mods individuales con copias de seguridad preventivas `.zip`, pre-descarga verificada, actualización de cargador/Java y preservación de `server.properties` y mundos.
+  - Panel de **Mods Instalados** para actualizar todo o por elemento, añadir mods compatibles, activar/desactivar (`.jar` ↔ `.jar.disabled`), eliminar mods y pre-validar compatibilidad al cambiar de versión de Minecraft.
+
+### Corregido (Fixed)
+- **Estabilidad de la Consola WebSocket al Cambiar de Pestaña (`web/static/js/console.js`, `app/main.py`):**
+  - Incorporación de *heartbeat* `ping`/`pong` cada 25s en `/ws/console`, manejo silencioso de pestañas suspendidas (`document.hidden`) y reanudación inmediata al volver a la pestaña (`visibilitychange`, `focus`, `online`) sin mostrar falsos mensajes de desconexión ni esperar al *backoff*.
+- **Protección de Mundos y Directorios Activos en Archivos (`app/core/file_manager.py`, `app/core/diagnostic_manager.py`):**
+  - Bloqueo preventivo (`HTTP 409`) al intentar eliminar o renombrar el mundo activo (`level-name`, `_nether`, `_the_end`), `mods`, `plugins`, `libraries` o el ejecutable principal mientras el servidor está en ejecución, junto a un diagnóstico específico en `DiagnosticManager` para errores de guardado de mundo (`NoSuchFileException`).
+- **Cierre Prematuro de Sesión y Variable `SESSION_TIMEOUT_MINUTES` (`app/config.py`, `app/core/security.py`, `app/routers/auth.py`, `app/routers/server.py`, `app/main.py`, `app/core/process_manager.py`, `web/static/js/app.js`, `web/static/js/console.js`, `web/static/js/tasks.js`, `web/static/js/settings.js`, `.env.example`, `tests/test_session_timeout.py`):**
+  - Eliminación del cierre de sesión involuntario provocado al renovar cookies (`/api/auth/refresh`) frente a WebSockets activos (`/ws/console`) y peticiones HTTP concurrentes (`GET`/`HEAD` en vuelo), verificando el estado real en `/api/auth/status` antes de redirigir al login y promoviendo la sesión del WebSocket sin desconectar la consola.
+  - Prioridad real de `SESSION_TIMEOUT_MINUTES` desde `.env` / `docker-compose.yml` incluso con configuraciones heredadas en `dockraft_config.json`, soporte para `SESSION_TIMEOUT_MINUTES=0` (desactivar expiración por inactividad) y sincronización de actividad entre pestañas vía `localStorage`.
+- **Integridad de Bootstraps Fabric/Quilt y Caché PWA (`app/core/downloader.py`, `app/main.py`, `web/static/sw.js`):**
+  - Ajuste del umbral mínimo de `verify_file_integrity()` a `64 KB` para bootstraps oficiales de Fabric, habilitación de `https://cdn.modrinth.com` en `Content-Security-Policy` e invalidación de caché del Service Worker (`dockraft-v17`).
+
+---
+
 ## [1.7.0] - 2026-11-15
 
 ### Añadido (Added)

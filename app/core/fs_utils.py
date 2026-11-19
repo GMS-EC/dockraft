@@ -16,6 +16,7 @@ PROTECTED_INTERNAL_FILES: Set[str] = {
     "dockraft_players.json",
     ".install_lock",
     ".console_plugin_updates.json",
+    ".dockraft_modpack_manifest.json",
     ".secret_key",
 }
 

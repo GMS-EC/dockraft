@@ -139,7 +139,11 @@ class Settings:
 
         self.login_max_attempts: int = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
         self.login_cooldown_seconds: int = int(os.getenv("LOGIN_COOLDOWN_SECONDS", "600"))
-        self.session_timeout_minutes: int = int(os.getenv("SESSION_TIMEOUT_MINUTES", "60"))
+        try:
+            _raw_sto = int(os.getenv("SESSION_TIMEOUT_MINUTES", "60"))
+            self.session_timeout_minutes: int = _raw_sto if _raw_sto >= 0 else 60
+        except (ValueError, TypeError):
+            self.session_timeout_minutes: int = 60
         # Fix #1: Set to true when the panel is behind an HTTPS reverse proxy
         # so session cookies are marked Secure and never sent over plain HTTP.
         self.https_enabled: bool = os.getenv("HTTPS_ENABLED", "false").lower() in ("true", "1", "yes")
@@ -224,9 +228,28 @@ class Settings:
             try:
                 with open(target, "r", encoding="utf-8") as f:
                     saved = json.load(f)
-                    self.runtime_config.update(saved)
+                    if isinstance(saved, dict):
+                        self.runtime_config.update(saved)
             except Exception as e:
                 logger.error("[Dockraft] Error loading config: %s", e)
+
+        env_raw = os.getenv("SESSION_TIMEOUT_MINUTES", "").strip()
+        if env_raw:
+            try:
+                env_val = int(env_raw)
+                if env_val >= 0:
+                    self.session_timeout_minutes = env_val
+                    last_env = self.runtime_config.get("_last_env_session_timeout_minutes")
+                    saved_val = self.runtime_config.get("session_timeout_minutes", 60)
+                    # Honor env/docker-compose changes whenever SESSION_TIMEOUT_MINUTES changes
+                    # (or when migrating a legacy default=60 dockraft_config.json to a custom env value).
+                    if (last_env is None and saved_val == 60 and env_val != 60) or (
+                        last_env is not None and int(last_env) != env_val
+                    ):
+                        self.runtime_config["session_timeout_minutes"] = env_val
+                    self.runtime_config["_last_env_session_timeout_minutes"] = env_val
+            except (ValueError, TypeError):
+                pass
 
     def save_runtime_config(self, new_config: Dict[str, Any]) -> None:
         self.runtime_config.update(new_config)

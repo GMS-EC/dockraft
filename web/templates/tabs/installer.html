@@ -124,6 +124,62 @@
         </div>
       </div>
 
+      <!-- Block 1B: Installed Modpack Updater (Prism / CurseForge Style) -->
+      <div id="installer-modpack-update-card" class="d-none" style="background: rgba(13, 17, 23, 0.7); border: 1px solid #30363d; border-radius: 8px; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 240px;">
+            <img id="modpack-upd-icon" src="" alt="" class="modpack-card-icon" style="display: none;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <h4 style="margin: 0; font-size: 0.96rem; font-weight: 700; color: #f0f6fc;" id="modpack-upd-name">Modpack</h4>
+                <span class="modpack-loader-tag" id="modpack-upd-env-badge">FABRIC · 1.21.1</span>
+              </div>
+              <div style="font-size: 0.82rem; color: #8b949e; margin-top: 4px; line-height: 1.45;">
+                <span data-i18n="t_install_mp_upd_current_lbl">Versión actual del modpack:</span>
+                <strong id="modpack-upd-current-ver" style="color: #f0f6fc;">--</strong>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer;">
+              <input type="checkbox" id="modpack-upd-allow-beta">
+              <span data-i18n="t_install_mp_include_betas">Incluir betas</span>
+            </label>
+            <select class="form-select" id="modpack-update-version-select" style="width: auto; min-width: 200px;"></select>
+            <button type="button" class="btn btn-primary" id="btn-apply-modpack-update" onclick="Installer.startModpackUpdate()" style="display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span data-i18n="t_install_mp_btn_update_pack">Actualizar Modpack</span>
+            </button>
+          </div>
+        </div>
+        <div id="modpack-upd-notice-banner" style="display: none; margin-top: 10px; padding: 9px 12px; background: rgba(60, 163, 116, 0.12); border-left: 3px solid var(--accent-primary); border-radius: 6px; font-size: 0.82rem; color: #e5e7eb;">
+          <span id="modpack-upd-notice-text"></span>
+        </div>
+      </div>
+
+      <!-- Block 1C: Installed Mods Manager & Updater (Fabric / NeoForge / Forge / Quilt) -->
+      <div id="installer-mods-manager-card" class="{{ '' if (is_installed and server_type|lower in ['fabric', 'neoforge', 'forge', 'quilt']) else 'd-none' }}" style="background: rgba(13, 17, 23, 0.7); border: 1px solid #30363d; border-radius: 8px; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3ca374" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <h4 style="margin: 0; font-size: 0.96rem; font-weight: 700; color: #f0f6fc;" data-i18n="t_install_mods_mgr_title">Gestor de Mods Instalados</h4>
+            <span id="mods-count-badge" class="modpack-loader-tag">0 mods</span>
+            <span id="mods-updates-badge" class="mod-update-badge" style="display: none;">0</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer;">
+              <input type="checkbox" id="mods-upd-allow-beta">
+              <span data-i18n="t_install_mp_include_betas">Incluir betas</span>
+            </label>
+            <button type="button" class="btn btn-outline" id="btn-refresh-installed-mods" onclick="Installer.loadInstalledMods(true)" style="font-size: 0.78rem; padding: 5px 10px;" data-i18n="t_install_mods_btn_check">Buscar Actualizaciones</button>
+            <button type="button" class="btn btn-outline" id="btn-open-add-mod-modal" onclick="Installer.openAddModModal()" style="font-size: 0.78rem; padding: 5px 10px; border-color: var(--accent-primary); color: var(--accent-primary);" data-i18n="t_install_mods_btn_add">+ Añadir Mod</button>
+            <button type="button" class="btn btn-primary" id="btn-update-all-mods" onclick="Installer.updateInstalledMods()" style="display: none; font-size: 0.78rem; padding: 5px 12px;" data-i18n="t_install_mods_btn_update_all">Actualizar Todos</button>
+          </div>
+        </div>
+        <div id="mods-conflict-banner" style="display: none; margin-bottom: 10px; padding: 8px 12px; background: rgba(248, 81, 73, 0.12); border-left: 3px solid #f85149; border-radius: 6px; font-size: 0.8rem; color: #fca5a5;"></div>
+        <div id="installed-mods-list" class="mods-manager-list"></div>
+      </div>
+
       <!-- Block 2: Minecraft Game Version (Full Game Version Upgrade / Downgrade) -->
       <div style="background: rgba(13, 17, 23, 0.7); border: 1px solid #30363d; border-radius: 8px; padding: 16px;">
         <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
@@ -185,6 +241,15 @@
         <div id="update-warning-badge" style="display: none; margin-top: 10px; padding: 8px 12px; background: rgba(210, 153, 34, 0.1); border-left: 3px solid #d29922; color: #e3b341; font-size: 0.82rem; border-radius: 4px;">
         </div>
 
+        <!-- Pre-flight Mod Compatibility Report for MC Upgrades -->
+        <div id="modded-mc-compat-box" class="mod-compat-box" style="display: none;">
+          <div id="modded-mc-compat-summary" style="font-size: 0.82rem; color: #e5e7eb;"></div>
+          <label style="display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer;">
+            <input type="checkbox" id="update-mods-on-mc-upgrade" checked>
+            <span data-i18n="t_install_mods_auto_migrate_mc">Actualizar automáticamente los mods compatibles y desactivar los incompatibles (.disabled)</span>
+          </label>
+        </div>
+
         <!-- Dynamic Version Changelog & Advice Box -->
         <div id="update-version-details-card" style="display: none; margin-top: 12px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
@@ -217,7 +282,7 @@
 
 
     <!-- Dedicated Sub-section: Plugin Updates (Detected from Console) -->
-    <div id="update-plugins-subsection" class="{{ 'd-none' if (not is_installed or server_type|lower == 'bedrock') else '' }}" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(48, 54, 61, 0.6);">
+    <div id="update-plugins-subsection" class="{{ 'd-none' if (not is_installed or server_type|lower in ['bedrock', 'fabric', 'neoforge', 'forge', 'quilt']) else '' }}" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(48, 54, 61, 0.6);">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
@@ -291,12 +356,36 @@
         <span class="type-desc" data-i18n="t_install_desc_vanilla">El Minecraft clásico original, sin añadidos, plugins ni mods.</span>
       </div>
 
+      <div class="type-card" data-type="bedrock">
+        <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1"/><circle cx="18" cy="13" r="1"/></svg>
+        </span>
+        <span class="type-title">Bedrock Dedicated</span>
+        <span class="type-desc" data-i18n="t_install_desc_bedrock">Para jugar desde celulares, consolas (Xbox, PlayStation, Switch) y Windows.</span>
+      </div>
+
+      <div class="type-card" data-type="modpack">
+        <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3ca374" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </span>
+        <span class="type-title" data-i18n="t_install_title_modpack">Modpacks / Mods</span>
+        <span class="type-desc" data-i18n="t_install_desc_modpack">Busca un modpack o mod (ej. Cobblemon) e instala loader y dependencias en 1 clic.</span>
+      </div>
+
       <div class="type-card" data-type="fabric">
         <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
         </span>
         <span class="type-title">Fabric</span>
         <span class="type-desc" data-i18n="t_install_desc_fabric">Ligero y rápido para jugar con mods modernos.</span>
+      </div>
+
+      <div class="type-card" data-type="neoforge">
+        <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </span>
+        <span class="type-title">NeoForge</span>
+        <span class="type-desc" data-i18n="t_install_desc_neoforge">El cargador moderno sucesor de Forge para versiones actuales con mods.</span>
       </div>
 
       <div class="type-card" data-type="forge">
@@ -306,13 +395,150 @@
         <span class="type-title">Minecraft Forge</span>
         <span class="type-desc" data-i18n="t_install_desc_forge">El sistema tradicional y con mayor variedad de mods.</span>
       </div>
+    </div>
 
-      <div class="type-card" data-type="bedrock">
-        <span class="type-icon" style="display:flex; justify-content:center; align-items:center;">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="16" cy="10" r="1"/><circle cx="18" cy="13" r="1"/></svg>
-        </span>
-        <span class="type-title">Bedrock Dedicated</span>
-        <span class="type-desc" data-i18n="t_install_desc_bedrock">Para jugar desde celulares, consolas (Xbox, PlayStation, Switch) y Windows.</span>
+    <!-- Modpacks / Mods Selector Workbench (shown when data-type="modpack") -->
+    <div id="modpack-selector-panel" class="modpack-panel" style="display: none;">
+      <div class="modpack-header">
+        <div>
+          <div class="card-title" style="margin-bottom: 2px;" data-i18n="t_install_modpack_panel_title">Catálogo de Modpacks y Mods (Modrinth)</div>
+          <div style="font-size: 0.82rem; color: var(--text-muted);" data-i18n="t_install_modpack_panel_desc">Dockraft detectará e instalará automáticamente la versión de Minecraft, el cargador (Fabric / NeoForge / Forge / Quilt), las dependencias obligatorias y la configuración del servidor.</div>
+        </div>
+        <div class="modpack-mode-pills" role="tablist">
+          <button type="button" class="modpack-pill-btn active" id="btn-mp-mode-modpack" data-mp-type="modpack" data-i18n="t_install_mp_mode_pack">Modpacks (.mrpack)</button>
+          <button type="button" class="modpack-pill-btn" id="btn-mp-mode-mod" data-mp-type="mod" data-i18n="t_install_mp_mode_stack">Servidor con Mods (Personalizado)</button>
+        </div>
+      </div>
+
+      <!-- Loader & Minecraft Version selector for Custom Mod Stack mode -->
+      <div id="mod-builder-env-bar" style="display: none; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 10px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
+          <div class="form-group" style="flex: 1 1 170px; margin-bottom: 0;">
+            <label class="form-label" for="mod-builder-loader" style="font-size: 0.78rem; margin-bottom: 3px;" data-i18n="t_install_mp_loader_label">Cargador (Loader):</label>
+            <select class="form-select" id="mod-builder-loader">
+              <option value="fabric">Fabric</option>
+              <option value="neoforge">NeoForge</option>
+              <option value="forge">Forge</option>
+              <option value="quilt">Quilt</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 1 1 190px; margin-bottom: 0;">
+            <label class="form-label" for="mod-builder-mc-version" style="font-size: 0.78rem; margin-bottom: 3px;" data-i18n="t_install_mp_mc_label">Versión Minecraft:</label>
+            <select class="form-select" id="mod-builder-mc-version">
+              <option value="1.21.1">1.21.1</option>
+            </select>
+          </div>
+          <div style="flex: 2 1 240px; font-size: 0.78rem; color: var(--text-muted); padding-bottom: 6px;" data-i18n="t_install_mp_stack_env_hint">Solo añadirá mods estables compatibles con esta combinación, resolviendo dependencias e incompatibilidades automáticamente.</div>
+        </div>
+      </div>
+
+      <div class="modpack-toolbar">
+        <div style="flex: 1 1 260px; min-width: 200px;">
+          <input type="text" class="form-input" id="modpack-search-input" placeholder="Buscar en Modrinth (ej: Cobblemon, Create, Better MC)..." data-i18n-placeholder="t_install_mp_search_ph">
+        </div>
+        <select class="form-select" id="modpack-loader-filter" style="width: auto; min-width: 155px;">
+          <option value="" data-i18n="t_install_mp_loader_all">Todos los loaders</option>
+          <option value="fabric">Fabric</option>
+          <option value="neoforge">NeoForge</option>
+          <option value="forge">Forge</option>
+          <option value="quilt">Quilt</option>
+        </select>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer;">
+          <input type="checkbox" id="modpack-allow-beta">
+          <span data-i18n="t_install_mp_include_betas">Incluir betas</span>
+        </label>
+        <button type="button" class="btn btn-primary" id="btn-modpack-search" style="display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span data-i18n="t_install_mp_btn_search">Buscar</span>
+        </button>
+        <button type="button" class="btn btn-outline" id="btn-upload-mrpack" style="display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span data-i18n="t_install_mp_btn_upload">Subir .mrpack</span>
+        </button>
+        <input type="file" id="modpack-mrpack-file" accept=".mrpack" style="display: none;">
+      </div>
+
+      <div class="modpack-chips">
+        <span style="font-size: 0.78rem; color: var(--text-dim);" data-i18n="t_install_mp_popular">Populares:</span>
+        <button type="button" class="chip-btn modpack-chip" data-mp-query="cobblemon">Cobblemon</button>
+        <button type="button" class="chip-btn modpack-chip" data-mp-query="create">Create</button>
+        <button type="button" class="chip-btn modpack-chip" data-mp-query="better mc">Better MC</button>
+        <button type="button" class="chip-btn modpack-chip" data-mp-query="fabulously">Optimization</button>
+      </div>
+
+      <div id="modpack-search-status" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;"></div>
+      <div id="modpack-results-grid" class="modpack-results-grid"></div>
+
+      <!-- Custom Multi-Mod Stack Summary Box -->
+      <div id="mod-stack-panel" class="mod-stack-box" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+          <strong style="font-size: 0.92rem; color: var(--text-main);" data-i18n="t_install_mp_stack_title">Mods Seleccionados y Dependencias Automáticas</strong>
+          <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span id="mod-stack-ram-pill" class="modpack-loader-tag" style="display: none; border-color: rgba(60, 163, 116, 0.35); color: #7ee787; text-transform: none;"></span>
+            <span id="mod-stack-env-pill" class="modpack-loader-tag">--</span>
+          </div>
+        </div>
+        <div id="mod-stack-chips" class="mod-stack-chips"></div>
+        <div id="mod-stack-warnings" style="display: none; margin-top: 8px; padding: 8px 10px; background: rgba(248, 81, 73, 0.12); border-left: 3px solid #f85149; border-radius: 5px; font-size: 0.79rem; color: #fca5a5;"></div>
+        <div id="mod-stack-deps-box" class="modpack-deps-list" style="display: none;"></div>
+      </div>
+
+      <!-- Selected Modpack/Mod & Requirements Panel -->
+      <div id="modpack-selected-panel" class="modpack-selected-box" style="display: none;">
+        <div class="modpack-selected-header">
+          <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+            <img id="modpack-selected-icon" src="" alt="" class="modpack-card-icon" style="display: none;">
+            <div style="min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <strong id="modpack-selected-title" style="font-size: 1rem; color: var(--text-main);"></strong>
+                <span id="modpack-selected-source-badge" class="modpack-loader-tag">Modrinth</span>
+              </div>
+              <div id="modpack-selected-subtitle" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;"></div>
+            </div>
+          </div>
+          <a id="modpack-selected-url" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="font-size: 0.78rem; text-decoration: none;" data-i18n="t_install_mp_view_modrinth">Ver en Modrinth</a>
+        </div>
+
+        <div class="grid-2" style="margin-top: 12px; margin-bottom: 12px;" id="modpack-version-controls">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="modpack-version-select" data-i18n="t_install_mp_version_label">Versión a Instalar:</label>
+            <select class="form-select" id="modpack-version-select"></select>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <div class="form-group" id="modpack-mod-loader-group" style="flex: 1; margin-bottom: 0; display: none;">
+              <label class="form-label" for="modpack-mod-loader-select" data-i18n="t_install_mp_loader_label">Cargador (Loader):</label>
+              <select class="form-select" id="modpack-mod-loader-select"></select>
+            </div>
+            <div class="form-group" id="modpack-mod-mc-group" style="flex: 1; margin-bottom: 0; display: none;">
+              <label class="form-label" for="modpack-mod-mc-select" data-i18n="t_install_mp_mc_label">Versión Minecraft:</label>
+              <select class="form-select" id="modpack-mod-mc-select"></select>
+            </div>
+          </div>
+        </div>
+
+        <div id="modpack-requirements-box" class="modpack-req-grid">
+          <div class="modpack-req-item">
+            <span class="modpack-req-label" data-i18n="t_install_mp_req_mc">Minecraft</span>
+            <strong id="modpack-req-mc" class="modpack-req-val">--</strong>
+          </div>
+          <div class="modpack-req-item">
+            <span class="modpack-req-label" data-i18n="t_install_mp_req_loader">Cargador</span>
+            <strong id="modpack-req-loader" class="modpack-req-val">--</strong>
+          </div>
+          <div class="modpack-req-item">
+            <span class="modpack-req-label" data-i18n="t_install_mp_req_java">Java Recomendado</span>
+            <strong id="modpack-req-java" class="modpack-req-val">--</strong>
+          </div>
+          <div class="modpack-req-item">
+            <span class="modpack-req-label" data-i18n="t_install_mp_req_ram">RAM Mín. Recomendada</span>
+            <strong id="modpack-req-ram" class="modpack-req-val">--</strong>
+          </div>
+          <div class="modpack-req-item">
+            <span class="modpack-req-label" data-i18n="t_install_mp_req_deps">Requerimientos</span>
+            <strong id="modpack-req-deps" class="modpack-req-val">--</strong>
+          </div>
+        </div>
+        <div id="modpack-req-deps-list" class="modpack-deps-list" style="display: none;"></div>
       </div>
     </div>
 
@@ -327,7 +553,7 @@
           <div class="field-hint" data-i18n="t_install_server_name_hint">Nombre descriptivo que se mostrará en la barra superior y notificaciones Webhooks.</div>
         </div>
 
-        <div class="form-group">
+        <div class="form-group" id="standard-version-group">
           <label class="form-label" for="installer-version-select" data-i18n="t_install_mc_version">Versión del Servidor de Minecraft</label>
           <select class="form-select" id="installer-version-select" onchange="Installer.onInstallVersionChange()">
             <option value="" data-i18n="t_install_loading_versions">Cargando versiones disponibles...</option>
@@ -384,7 +610,13 @@
         <div class="card-title" data-i18n="t_install_ram_title">Asignación de Memoria (RAM)</div>
 
         <div class="form-group">
-          <label class="form-label" data-i18n="t_install_max_ram">RAM Máxima (-Xmx)</label>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;" data-i18n="t_install_max_ram">RAM Máxima (-Xmx)</label>
+            <div id="modpack-ram-hint-bar" style="display: none; align-items: center; gap: 6px; font-size: 0.74rem; color: var(--text-muted); background: rgba(60, 163, 116, 0.08); border: 1px solid rgba(60, 163, 116, 0.25); padding: 2px 8px; border-radius: 999px;">
+              <span id="modpack-ram-hint-text"></span>
+              <button type="button" id="btn-apply-recommended-ram" style="background: none; border: none; color: #58a6ff; font-size: 0.73rem; font-weight: 600; cursor: pointer; padding: 0; text-decoration: underline;" data-i18n="t_install_mp_ram_apply">Aplicar</button>
+            </div>
+          </div>
           <input type="text" class="form-input" id="install-max-ram" value="2G" placeholder="ej: 2G o 2048M" data-i18n-placeholder="t_install_max_ram_ph">
           <div style="display: flex; gap: 8px; margin-top: 6px;">
             <button type="button" class="chip-btn ram-chip" data-ram="1G">1 GB</button>
@@ -426,7 +658,7 @@
     <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
       <button class="btn {{ 'btn-outline' if is_installed else 'btn-primary' }}" id="btn-install-server" {{ 'disabled' if is_installed else '' }} style="padding: 12px 28px; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        <span data-i18n="t_install_btn_install">Descargar e Instalar Servidor</span>
+        <span id="btn-install-server-text" data-i18n="t_install_btn_install">Descargar e Instalar Servidor</span>
       </button>
     </div>
   </div>

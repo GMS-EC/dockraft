@@ -264,6 +264,19 @@ class DiagnosticManager:
                 "excerpt": "You need to agree to the EULA in order to run the server."
             }
 
+        # 7b. World directory / save files missing while server is running
+        if re.search(r'(Failed to save level|NoSuchFileException:\s*\./?world)', text_to_analyze, re.IGNORECASE):
+            return {
+                "has_issue": True,
+                "severity": "critical",
+                "category": "world",
+                "title": "Error al Guardar el Mundo (Carpeta './world' inaccesible o eliminada)",
+                "cause": "El servidor intentó guardar los datos de regiones o dimensiones ('./world/data/raids.dat', 'level.dat'), pero la carpeta del mundo no existe o perdió acceso en caliente mientras el proceso estaba ejecutándose.",
+                "recommendation": "Detén el servidor completamente, comprueba en Archivos o en el volumen Docker '/server_data' que la carpeta 'world' exista con permisos de escritura (o restaura tu última copia de seguridad) y vuelve a iniciar el servidor.",
+                "source": source_name,
+                "excerpt": self._extract_relevant_excerpt(text_to_analyze, r'Failed to save level|NoSuchFileException')
+            }
+
         # 8. SIGKILL / Forced system exit without specific log exception
         if exit_code in (-9, 137):
             return {

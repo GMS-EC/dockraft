@@ -862,4 +862,35 @@
   </div>
 </div>
 
+<!-- Modal: Add Compatible Mod to Installed Server -->
+<div class="modal-backdrop" id="add-mod-modal">
+  <div class="modal-box" style="max-width: 600px;">
+    <div class="modal-header">
+      <h3 style="display: flex; align-items: center; gap: 8px;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#3ca374" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        <span data-i18n="t_install_mods_modal_title">Añadir Mod Compatible desde Modrinth</span>
+      </h3>
+      <button class="action-icon-btn" onclick="Installer.closeAddModModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+        <span id="add-mod-env-badge" class="modpack-loader-tag">--</span>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer;">
+          <input type="checkbox" id="add-mod-allow-beta">
+          <span data-i18n="t_install_mp_include_betas">Incluir betas</span>
+        </label>
+      </div>
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <input type="text" class="form-input" id="add-mod-search-input" placeholder="Buscar mod compatible (ej: Cobblemon, Lithium, Waystones)..." data-i18n-placeholder="t_install_mods_modal_ph">
+        <button type="button" class="btn btn-primary" id="btn-add-mod-search" onclick="Installer.searchCompatibleModsForServer()" data-i18n="t_install_mp_btn_search">Buscar</button>
+      </div>
+      <div id="add-mod-results" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="Installer.closeAddModModal()" data-i18n="t_modal_cancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
 

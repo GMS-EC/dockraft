@@ -15,6 +15,40 @@
 // and prevent stale browser/proxy caching on API requests.
 (function() {
   const originalFetch = window.fetch;
+  let sessionVerifyPromise = null;
+
+  const isAuthBypassUrl = (url) => (
+    url.includes('/api/auth/login') ||
+    url.includes('/api/auth/logout') ||
+    url.includes('/api/auth/status')
+  );
+
+  const getRequestMethod = (args) => {
+    if (args[1] && args[1].method) return String(args[1].method).toUpperCase();
+    if (args[0] instanceof Request && args[0].method) return String(args[0].method).toUpperCase();
+    return 'GET';
+  };
+
+  const confirmSessionStillValid = async () => {
+    if (typeof App !== 'undefined' && App._refreshPromise) {
+      try { await App._refreshPromise; } catch (_) {}
+    }
+    if (!sessionVerifyPromise) {
+      sessionVerifyPromise = (async () => {
+        try {
+          const checkRes = await originalFetch('/api/auth/status', { cache: 'no-store' });
+          return Boolean(checkRes && checkRes.ok && !(checkRes.redirected && checkRes.url && checkRes.url.includes('/login')));
+        } catch (_) {
+          // Network/transient failure is not a confirmed session expiration
+          return true;
+        }
+      })().finally(() => {
+        sessionVerifyPromise = null;
+      });
+    }
+    return sessionVerifyPromise;
+  };
+
   window.fetch = async function(...args) {
     const url = (typeof args[0] === 'string') ? args[0] : (args[0] && args[0].url ? args[0].url : '');
     if (url.includes('/api/')) {
@@ -26,13 +60,41 @@
         args[1] = { cache: 'no-store' };
       }
     }
-    const res = await originalFetch.apply(this, args);
+
+    // Serialize non-auth API requests behind an in-flight /api/auth/refresh so they never
+    // depart carrying an about-to-be-rotated cookie.
+    if (
+      url.includes('/api/') &&
+      !url.includes('/api/auth/') &&
+      typeof App !== 'undefined' &&
+      App._refreshPromise
+    ) {
+      try { await App._refreshPromise; } catch (_) {}
+    }
+
+    let res = await originalFetch.apply(this, args);
     const isAuthRedirect = Boolean(
       res && res.redirected && res.url && res.url.includes('/login') && url.includes('/api/')
     );
-    if (((res && res.status === 401) || isAuthRedirect) && !url.includes('/api/auth/login')) {
+
+    if (((res && res.status === 401) || isAuthRedirect) && !url.includes('/api/auth/login') && !url.includes('/api/auth/logout')) {
+      if (!isAuthBypassUrl(url)) {
+        const stillValid = await confirmSessionStillValid();
+        if (stillValid) {
+          const method = getRequestMethod(args);
+          if (method === 'GET' || method === 'HEAD') {
+            res = await originalFetch.apply(this, args);
+            if (res && res.status !== 401 && !(res.redirected && res.url && res.url.includes('/login'))) {
+              return res;
+            }
+          } else {
+            return res;
+          }
+        }
+      }
+
       if (typeof App !== 'undefined' && App.handleSessionExpired) {
-        App.handleSessionExpired();
+        App.handleSessionExpired({ skipLogout: true });
       } else {
         window.location.href = '/login?expired=1';
       }
@@ -275,8 +337,8 @@ const App = {
       }
       const data = await window.readApiJson(res, 'Error checking authentication status');
       this.authRequired = data.auth_required;
-      if (data.session_timeout_minutes) {
-        this.sessionTimeoutMinutes = data.session_timeout_minutes;
+      if (data.session_timeout_minutes !== undefined && data.session_timeout_minutes !== null) {
+        this.sessionTimeoutMinutes = Number(data.session_timeout_minutes);
       }
       if (this.authRequired) {
         this.setupSessionMonitoring(this.sessionTimeoutMinutes);
@@ -289,50 +351,89 @@ const App = {
   },
 
   setupSessionMonitoring(timeoutMinutes) {
-    if (timeoutMinutes && timeoutMinutes > 0) {
-      this.sessionTimeoutMinutes = timeoutMinutes;
+    if (timeoutMinutes !== undefined && timeoutMinutes !== null && Number(timeoutMinutes) >= 0) {
+      this.sessionTimeoutMinutes = Number(timeoutMinutes);
     }
-    this.lastActivityTime = Date.now();
+    const now = Date.now();
+    this.lastActivityTime = now;
     this.hasRecentActivity = false;
+    this._sessionExpiring = false;
+    let lastStorageWrite = 0;
 
-    // Track user interactions
+    const persistActivity = (ts) => {
+      if (ts - lastStorageWrite < 5000) return;
+      lastStorageWrite = ts;
+      try {
+        localStorage.setItem('dockraft_last_activity', String(ts));
+      } catch (_) {}
+    };
+    persistActivity(now);
+
+    // Track user interactions across tabs
     const onActivity = () => {
-      this.lastActivityTime = Date.now();
+      const t = Date.now();
+      this.lastActivityTime = t;
       this.hasRecentActivity = true;
+      persistActivity(t);
+    };
+
+    const onStorage = (ev) => {
+      if (ev && ev.key === 'dockraft_last_activity' && ev.newValue) {
+        const synced = Number(ev.newValue);
+        if (synced > this.lastActivityTime) {
+          this.lastActivityTime = synced;
+        }
+      }
     };
 
     const onVisibility = () => {
       if (!document.hidden) {
-        this.checkSessionInactivity();
+        const stillValid = !this.checkSessionInactivity();
+        if (stillValid && this.authRequired) {
+          const ts = Date.now();
+          this.lastActivityTime = ts;
+          this.hasRecentActivity = true;
+          persistActivity(ts);
+          this.refreshSession();
+        }
       }
     };
 
     // Register listeners exactly once per session (removing previous duplicates if
     // setupSessionMonitoring is re-invoked after saving a new timeout).
     if (this._sessionActivityHandler) {
-      ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+      ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'pointerdown'].forEach(evt => {
         window.removeEventListener(evt, this._sessionActivityHandler);
       });
     }
     if (this._sessionVisibilityHandler) {
       document.removeEventListener('visibilitychange', this._sessionVisibilityHandler);
     }
+    if (this._sessionStorageHandler) {
+      window.removeEventListener('storage', this._sessionStorageHandler);
+    }
     this._sessionActivityHandler = onActivity;
     this._sessionVisibilityHandler = onVisibility;
+    this._sessionStorageHandler = onStorage;
 
-    ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+    ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'pointerdown'].forEach(evt => {
       window.addEventListener(evt, onActivity, { passive: true });
     });
+    window.addEventListener('storage', onStorage);
 
-    // Periodic watchdog checks for user inactivity
+    // Periodic watchdog checks for user inactivity (skip when sessionTimeoutMinutes === 0)
     if (this.sessionTimer) clearInterval(this.sessionTimer);
-    this.sessionTimer = setInterval(() => {
-      this.checkSessionInactivity();
-    }, 10000);
+    if (this.sessionTimeoutMinutes > 0) {
+      this.sessionTimer = setInterval(() => {
+        this.checkSessionInactivity();
+      }, 10000);
+    }
 
-    // Sliding refresh: refresh token periodically only if user has been active
+    // Sliding refresh: keep cookie fresh cleanly without churning across tabs
     if (this.refreshTimer) clearInterval(this.refreshTimer);
-    const refreshIntervalMs = Math.max(60000, Math.min(300000, (this.sessionTimeoutMinutes * 60 * 1000) / 4));
+    const refreshIntervalMs = this.sessionTimeoutMinutes > 0
+      ? Math.max(60000, Math.min(300000, (this.sessionTimeoutMinutes * 60 * 1000) / 4))
+      : 300000;
     this.refreshTimer = setInterval(() => {
       if (this.hasRecentActivity && this.authRequired) {
         this.refreshSession();
@@ -340,31 +441,76 @@ const App = {
       }
     }, refreshIntervalMs);
 
-    // Immediate check on tab focus / wake
+    // Immediate check & keepalive refresh on tab focus / wake
     document.addEventListener('visibilitychange', onVisibility);
   },
 
+  _getLatestActivityTime() {
+    let synced = 0;
+    try {
+      synced = Number(localStorage.getItem('dockraft_last_activity') || 0) || 0;
+    } catch (_) {}
+    if (synced > this.lastActivityTime) {
+      this.lastActivityTime = synced;
+    }
+    return this.lastActivityTime;
+  },
+
   checkSessionInactivity() {
-    if (!this.authRequired) return;
-    const idleSeconds = (Date.now() - this.lastActivityTime) / 1000;
+    if (!this.authRequired || !this.sessionTimeoutMinutes || this.sessionTimeoutMinutes <= 0) {
+      return false;
+    }
+    const idleSeconds = (Date.now() - this._getLatestActivityTime()) / 1000;
     const maxSeconds = this.sessionTimeoutMinutes * 60;
     if (idleSeconds >= maxSeconds) {
       this.handleSessionExpired();
+      return true;
     }
+    return false;
   },
 
-  async refreshSession() {
+  async refreshSession(force = false) {
+    if (this._refreshPromise) {
+      return this._refreshPromise;
+    }
+    const timeoutMs = (this.sessionTimeoutMinutes && this.sessionTimeoutMinutes > 0)
+      ? this.sessionTimeoutMinutes * 60 * 1000
+      : 0;
+    const minGapMs = timeoutMs > 0
+      ? Math.max(15000, Math.min(300000, timeoutMs / 4))
+      : 600000;
     try {
-      await fetch('/api/auth/refresh', { method: 'POST' });
+      const lastRef = Number(localStorage.getItem('dockraft_last_refresh') || 0) || 0;
+      if (!force && (Date.now() - lastRef < minGapMs)) return;
+      localStorage.setItem('dockraft_last_refresh', String(Date.now()));
     } catch (_) {}
+
+    this._refreshPromise = (async () => {
+      try {
+        const res = await fetch('/api/auth/refresh', { method: 'POST' });
+        if (res && res.ok) {
+          try {
+            localStorage.setItem('dockraft_last_refresh', String(Date.now()));
+          } catch (_) {}
+          window.dispatchEvent(new Event('dockraft:session_refreshed'));
+        }
+      } catch (_) {}
+    })().finally(() => {
+      this._refreshPromise = null;
+    });
+    return this._refreshPromise;
   },
 
-  async handleSessionExpired() {
+  async handleSessionExpired(options = {}) {
+    if (this._sessionExpiring) return;
+    this._sessionExpiring = true;
     if (this.sessionTimer) clearInterval(this.sessionTimer);
     if (this.refreshTimer) clearInterval(this.refreshTimer);
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (_) {}
+    if (!options || !options.skipLogout) {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+      } catch (_) {}
+    }
     window.location.href = '/login?expired=1';
   },
 
